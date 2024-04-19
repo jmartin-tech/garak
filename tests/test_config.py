@@ -483,6 +483,7 @@ def cleanup(request):
         if _config.transient.reportfile is not None:
             _config.transient.reportfile.close()
             files.append(_config.transient.report_filename)
+            files.append(_config.transient.report_filename.replace(".jsonl", ".html"))
 
         for file in files:
             if os.path.exists(file):
