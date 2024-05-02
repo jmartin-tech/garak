@@ -133,8 +133,9 @@ class OpenAICompatible(Generator):
                 + "  ⚠️  Not all these are text generation models"
             )
         else:
-            raise ValueError(
-                f"No {self.generator_family_name} API defined for '{self.name}' in generators/openai.py - please add one!"
+            self.context_len = None
+            logging.warning(
+                f"No {self.generator_family_name} API context length defined for '{self.name}'"
             )
         # clear client config to enable object to `pickle`
         self._clear_client()
