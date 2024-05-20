@@ -238,8 +238,13 @@ def test_generator_options_yaml(capsys):
                     "  model_type: test.Blank",
                     "  probe_spec: test.Blank",
                     "  generators:",
+                    "    test:",
+                    "      test_val: test_value",
+                    "      Blank:",
+                    "        test_val: test_blank_value",
                     "    test.Blank:",
                     "      gen_x: 37176",
+                    "      test_val: blank_value",
                 ]
             ).encode("utf-8")
         )
@@ -249,6 +254,7 @@ def test_generator_options_yaml(capsys):
         )  # add list_config as the action so we don't actually run
         os.remove(tmp.name)
         assert _config.plugins.generators["test.Blank"]["gen_x"] == 37176
+        assert _config.plugins.generators["test.Blank"]["test_val"] == "blank_value"
 
 
 # can a run be launched from a run YAML?
@@ -437,6 +443,7 @@ def test_blank_generator_instance_loads_yaml_config():
     importlib.reload(_config)
 
     generator_name = "test.Blank"
+    generator_namespace, generator_klass = generator_name.split(".")
     revised_temp = 0.9001
     with tempfile.NamedTemporaryFile(buffering=0, delete=False) as tmp:
         tmp.write(
@@ -447,6 +454,10 @@ def test_blank_generator_instance_loads_yaml_config():
                     f"  generators:",
                     f"    {generator_name}:",
                     f"      temperature: {revised_temp}",
+                    f"      test_val: blank_value",
+                    f"      {generator_namespace}:",
+                    f"        {generator_klass}:",
+                    f"          test_val: test_blank_value",
                 ]
             ).encode("utf-8")
         )
@@ -457,6 +468,7 @@ def test_blank_generator_instance_loads_yaml_config():
         os.remove(tmp.name)
     gen = garak._plugins.load_plugin(f"generators.{generator_name}")
     assert gen.temperature == revised_temp
+    assert gen.test_val == "blank_value"
 
 
 # check that generator picks up cli config items
