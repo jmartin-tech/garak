@@ -28,8 +28,8 @@ class RasaRestGenerator(RestGenerator):
             in --model_name
     * name - a short name for this service; defaults to the uri
     * key_env_var - (optional) the name of the environment variable holding an
-            API key, by default REST_API_KEY
-    * req_template - a string where $KEY is replaced by env var REST_API_KEY
+            API key, by default RASA_API_KEY
+    * req_template - a string where $KEY is replaced by env var RASA_API_KEY
             and $INPUT is replaced by the prompt. Default is to just send the
             input text.
     * req_template_json_object - (optional) the request template as a Python
@@ -96,7 +96,6 @@ class RasaRestGenerator(RestGenerator):
         "ratelimit_codes",
     )
 
-    key_env_var = None
     req_template = json.dumps({"sender": "garak", "message": "$INPUT"})
 
     generator_family_name = "Rasa"
@@ -108,8 +107,6 @@ class RasaRestGenerator(RestGenerator):
             "Content-Type": "application/json",
             "Authorization": "Bearer $KEY",
         }
-        if self.key_env_var is None:
-            self.key_env_var = self.ENV_VAR
 
         if self.req_template_json_object is not None:
             self.req_template = json.dumps(self.req_template_json_object)
@@ -141,7 +138,7 @@ class RasaRestGenerator(RestGenerator):
             self.method = "post"
         self.http_function = getattr(requests, self.method)
 
-        self.rest_api_key = os.getenv(self.key_env_var, default=None)
+        self.api_key = os.getenv(self.key_env_var, default=None)
 
         super().__init__(
             uri, generations=generations, context=context

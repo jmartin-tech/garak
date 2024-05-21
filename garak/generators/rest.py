@@ -100,6 +100,7 @@ class RestGenerator(Generator):
     from RestGenerator :)
     """
 
+    ENV_VAR = "REST_API_KEY"
     generator_family_name = "REST"
 
     _supported_params = (
@@ -128,7 +129,7 @@ class RestGenerator(Generator):
         self.ratelimit_codes = [429]
         self.escape_function = self._json_escape
         self.retry_5xx = True
-        self.key_env_var = "REST_API_KEY"
+        self.key_env_var = self.ENV_VAR
 
         # load configuration since super.__init__ has not been called
         self._load_config(context)
@@ -176,7 +177,7 @@ class RestGenerator(Generator):
             self.method = "post"
         self.http_function = getattr(requests, self.method)
 
-        self.rest_api_key = os.getenv(self.key_env_var, default=None)
+        self.api_key = os.getenv(self.key_env_var, default=None)
 
         # validate jsonpath
         if self.response_json and self.response_json_field:
@@ -212,14 +213,14 @@ class RestGenerator(Generator):
         """
         output = template
         if "$KEY" in template:
-            if self.rest_api_key is None:
+            if self.api_key is None:
                 raise APIKeyMissingError(
                     f"Template requires an API key but {self.key_env_var} env var isn't set"
                 )
             if json_escape_key:
-                output = output.replace("$KEY", self.escape_function(self.rest_api_key))
+                output = output.replace("$KEY", self.escape_function(self.api_key))
             else:
-                output = output.replace("$KEY", self.rest_api_key)
+                output = output.replace("$KEY", self.api_key)
         return output.replace("$INPUT", self.escape_function(text))
 
     # we'll overload IOError as the rate limit exception
