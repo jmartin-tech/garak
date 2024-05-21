@@ -89,7 +89,7 @@ def allow_site_config(request):
     def restore_site_config():
         if site_cfg_moved:
             shutil.move(SITE_YAML_FILENAME, "garak/garak.site.yaml")
-        else:
+        elif os.path.exists("garak/garak.site.yaml"):
             os.remove("garak/garak.site.yaml")
 
     request.addfinalizer(restore_site_config)
