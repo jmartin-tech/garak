@@ -135,7 +135,10 @@ class RestGenerator(Generator):
         self._load_config(context)
         self.loaded = True
 
-        if self.req_template_json_object is not None:
+        if (
+            hasattr(self, "req_template_json_object")
+            and self.req_template_json_object is not None
+        ):
             self.req_template = json.dumps(self.req_template_object)
 
         if self.response_json:
