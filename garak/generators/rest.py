@@ -102,7 +102,19 @@ class RestGenerator(Generator):
 
     generator_family_name = "REST"
 
-    def __init__(self, uri=None, generations=10):
+    _supported_params = (
+        "name",
+        "uri",
+        "key_env_var",
+        "req_template",  # req_template_json is processed later
+        "method",
+        "headers",
+        "response_json",  # response_json_field is processed later
+        "request_timeout",
+        "ratelimit_codes",
+    )
+
+    def __init__(self, uri=None, generations=10, context=_config):
         self.uri = uri
         self.name = uri
         self.seed = _config.run.seed
@@ -118,53 +130,24 @@ class RestGenerator(Generator):
         self.retry_5xx = True
         self.key_env_var = "REST_API_KEY"
 
-        if "rest.RestGenerator" in _config.plugins.generators:
-            for field in (
-                "name",
-                "uri",
-                "key_env_var",
-                "req_template",  # req_template_json is processed later
-                "method",
-                "headers",
-                "response_json",  # response_json_field is processed later
-                "request_timeout",
-                "ratelimit_codes",
-            ):
-                if field in _config.plugins.generators["rest.RestGenerator"]:
-                    setattr(
-                        self,
-                        field,
-                        _config.plugins.generators["rest.RestGenerator"][field],
-                    )
+        # load configuration since super.__init__ has not been called
+        self._load_config(context)
+        self.loaded = True
 
-            if (
-                "req_template_json_object"
-                in _config.plugins.generators["rest.RestGenerator"]
-            ):
-                self.req_template = json.dumps(
-                    _config.plugins.generators["rest.RestGenerator"][
-                        "req_template_json_object"
-                    ]
+        if self.req_template_json_object is not None:
+            self.req_template = json.dumps(self.req_template_object)
+
+        if self.response_json:
+            if self.response_json_field is None:
+                raise ValueError(
+                    "RestGenerator response_json is True but response_json_field isn't set"
                 )
-
-            if (
-                self.response_json
-                and "response_json_field"
-                in _config.plugins.generators["rest.RestGenerator"]
-            ):
-                self.response_json_field = _config.plugins.generators[
-                    "rest.RestGenerator"
-                ]["response_json_field"]
-                if self.response_json_field is None:
-                    raise ValueError(
-                        "RestGenerator response_json is True but response_json_field isn't set"
-                    )
-                if not isinstance(self.response_json_field, str):
-                    raise ValueError("response_json_field must be a string")
-                if self.response_json_field == "":
-                    raise ValueError(
-                        "RestGenerator response_json is True but response_json_field is an empty string. If the root object is the target object, use a JSONPath."
-                    )
+            if not isinstance(self.response_json_field, str):
+                raise ValueError("response_json_field must be a string")
+            if self.response_json_field == "":
+                raise ValueError(
+                    "RestGenerator response_json is True but response_json_field is an empty string. If the root object is the target object, use a JSONPath."
+                )
 
         if self.name is None:
             self.name = self.uri
@@ -208,7 +191,7 @@ class RestGenerator(Generator):
         if _config.run.generations:
             generations = _config.run.generations
 
-        super().__init__(uri, generations=generations)
+        super().__init__(uri, generations=generations, context=context)
 
     def _json_escape(self, text: str) -> str:
         """JSON escape a string"""
