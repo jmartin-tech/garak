@@ -366,16 +366,6 @@ def main(arguments=[]) -> None:
                     opts_cli_config, config_plugin_type
                 )
 
-        # import concurrent.futures
-        # import garak._plugins
-
-        # consider starting a thread to load all plugin classes
-        # with concurrent.futures.ThreadPoolExecutor(
-        #     max_workers=len(garak._plugins.PLUGIN_TYPES)
-        # ) as executor:
-        #     for plugin_type in garak._plugins.PLUGIN_TYPES:
-        #         executor.submit(garak._plugins.enumerate_plugins(plugin_type))
-
         # process commands
         if args.interactive:
             from garak.interactive import interactive_mode
