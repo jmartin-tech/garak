@@ -7,6 +7,7 @@ from contextlib import redirect_stderr
 import io
 from typing import List, Union
 
+from garak import _config
 from garak.generators.base import Generator
 
 
@@ -16,7 +17,7 @@ class NeMoGuardrails(Generator):
     supports_multiple_generations = False
     generator_family_name = "Guardrails"
 
-    def __init__(self, name, generations=1):
+    def __init__(self, name, generations=1, config_root=_config):
         try:
             from nemoguardrails import RailsConfig, LLMRails
             from nemoguardrails.logging.verbose import set_verbose
@@ -33,7 +34,7 @@ class NeMoGuardrails(Generator):
             config = RailsConfig.from_path(self.name)
             self.rails = LLMRails(config=config)
 
-        super().__init__(name, generations=generations)
+        super().__init__(name, generations=generations, config_root=config_root)
 
     def _call_model(
         self, prompt: str, generations_this_call: int = 1

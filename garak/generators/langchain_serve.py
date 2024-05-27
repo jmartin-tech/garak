@@ -31,7 +31,7 @@ class LangChainServeLLMGenerator(Generator):
     config_hash = "default"
 
     def __init__(
-        self, name=None, generations=10
+        self, name=None, generations=10, config_root=_config
     ):  # name not required, will be extracted from uri
         self.generations = generations
         api_uri = os.getenv("LANGCHAIN_SERVE_URI")
@@ -41,7 +41,7 @@ class LangChainServeLLMGenerator(Generator):
         self.fullname = f"LangChain Serve LLM {self.name}"
         self.api_endpoint = f"{api_uri}/invoke"
 
-        super().__init__(self.name, generations=generations)
+        super().__init__(self.name, generations=generations, config_root=config_root)
 
     @staticmethod
     def _validate_uri(uri):

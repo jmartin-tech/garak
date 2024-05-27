@@ -33,7 +33,7 @@ class NvcfChat(Generator):
 
     timeout = 60
 
-    def __init__(self, name=None, generations=10):
+    def __init__(self, name=None, generations=10, config_root=_config):
         self.name = name
         self.fullname = (
             f"{self.generator_family_name} {self.__class__.__name__} {self.name}"
@@ -47,7 +47,7 @@ class NvcfChat(Generator):
 
         self.invoke_url = self.invoke_url_base + name
 
-        super().__init__(name, generations=generations)
+        super().__init__(name, generations=generations, config_root=config_root)
 
         self.api_key = os.getenv(self.ENV_VAR, default=None)
         if self.api_key is None:

@@ -102,7 +102,7 @@ class LiteLLMGenerator(Generator):
     presence_penalty = 0.0
     stop = ["#", ";"]
 
-    def __init__(self, name: str, generations: int = 10):
+    def __init__(self, name: str, generations: int = 10, config_root=_config):
         self.name = name
         self.fullname = f"LiteLLM {self.name}"
         self.generations = generations
@@ -115,13 +115,15 @@ class LiteLLMGenerator(Generator):
             for provider in unsupported_multiple_gen_providers
         )
 
-        super().__init__(name, generations=generations)
+        super().__init__(name, generations=generations, config_root=config_root)
 
         if self.provider is None:
             raise ValueError(
                 "litellm generator needs to have a provider value configured - see docs"
             )
-        elif self.api_key is None:
+        elif (
+            self.api_key is None
+        ):  # TODO: special case where api_key is not always required
             if self.provider == "openai":
                 self.api_key = getenv(self.key_env_var, None)
                 if self.api_key is None:

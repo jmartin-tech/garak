@@ -111,7 +111,20 @@ def load_plugin(path, break_on_fail=True, config_root=_config) -> object:
     :type break_on_fail: bool
     """
     try:
-        category, module_name, plugin_class_name = path.split(".")
+        parts = path.split(".")
+        category = parts[0]
+        module_name = parts[1]
+        if len(parts) != 3:
+            generator_mod = importlib.import_module(f"garak.{category}.{module_name}")
+            if generator_mod.DEFAULT_CLASS:
+                plugin_class_name = generator_mod.DEFAULT_CLASS
+                path = f"{path}.{plugin_class_name}"
+            else:
+                raise Exception(
+                    "module {module_name} has no default class; pass module.ClassName to model_type"
+                )
+        else:
+            plugin_class_name = parts[2]
     except ValueError as ve:
         if break_on_fail:
             raise ValueError(
@@ -130,7 +143,12 @@ def load_plugin(path, break_on_fail=True, config_root=_config) -> object:
             return False
 
     try:
-        plugin_instance = getattr(mod, plugin_class_name)()
+        from garak.configurable import Configurable
+
+        if issubclass(getattr(mod, plugin_class_name), Configurable):
+            plugin_instance = getattr(mod, plugin_class_name)(config_root=config_root)
+        else:
+            plugin_instance = getattr(mod, plugin_class_name)()
     except AttributeError as ae:
         logging.warning(
             "Exception failed instantiation of %s.%s", module_path, plugin_class_name

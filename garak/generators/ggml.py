@@ -54,7 +54,7 @@ class GgmlGenerator(Generator):
             "-s": self.seed,
         }
 
-    def __init__(self, name, generations=10):
+    def __init__(self, name, generations=10, config_root=_config):
         self.path_to_ggml_main = os.getenv(ENV_VAR)
         if self.path_to_ggml_main is None:
             raise RuntimeError(f"Executable not provided by environment {ENV_VAR}")
@@ -75,7 +75,7 @@ class GgmlGenerator(Generator):
                 if magic_num != GGUF_MAGIC:
                     raise RuntimeError(f"{name} is not in GGUF format")
 
-        super().__init__(name, generations=generations)
+        super().__init__(name, generations=generations, config_root=config_root)
 
     def _call_model(
         self, prompt: str, generations_this_call: int = 1

@@ -18,6 +18,7 @@ from typing import List, Union
 import openai
 import backoff
 
+from garak import _config
 from garak.exception import APIKeyMissingError
 from garak.generators.base import Generator
 
@@ -120,7 +121,7 @@ class OpenAICompatible(Generator):
     def _validate_config(self):
         pass
 
-    def __init__(self, name, generations=10):
+    def __init__(self, name, generations=10, config_root=_config):
         self.name = name
         self.fullname = f"{self.generator_family_name} {self.name}"
 
@@ -135,7 +136,7 @@ class OpenAICompatible(Generator):
 
         self._validate_config()
 
-        super().__init__(name, generations=generations)
+        super().__init__(name, generations=generations, config_root=config_root)
 
         # clear client config to enable object to `pickle`
         self._clear_client()
@@ -249,11 +250,11 @@ class OpenAIGenerator(OpenAICompatible):
         self.generator = None
         self.client = None
 
-    def __init__(self, name):
+    def __init__(self, name, config_root=_config):
         if self.name in context_lengths:
             self.context_len = context_lengths[self.name]
 
-        super().__init__(name)
+        super().__init__(name, config_root=config_root)
 
 
 DEFAULT_CLASS = "OpenAIGenerator"

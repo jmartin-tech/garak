@@ -29,7 +29,7 @@ class OctoGenerator(Generator):
     temperature = 0.1
     top_p = 1
 
-    def __init__(self, name, generations=10):
+    def __init__(self, name, generations=10, config_root=_config):
         from octoai.client import Client
 
         self.name = name
@@ -38,7 +38,7 @@ class OctoGenerator(Generator):
         if hasattr(_config.run, "seed"):
             self.seed = _config.run.seed
 
-        super().__init__(name, generations=generations)
+        super().__init__(name, generations=generations, config_root=config_root)
 
         octoai_token = os.getenv("OCTO_API_TOKEN", default=None)
         if octoai_token is None:
@@ -80,8 +80,8 @@ class InferenceEndpoint(OctoGenerator):
     If garak guesses wrong, please please open a ticket.
     """
 
-    def __init__(self, name, generations=10):
-        super().__init__(name, generations=generations)
+    def __init__(self, name, generations=10, config_root=_config):
+        super().__init__(name, generations=generations, config_root=config_root)
         self.octo_model = "-".join(
             self.name.replace("-demo", "").replace("https://", "").split("-")[:-1]
         )

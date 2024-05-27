@@ -33,13 +33,13 @@ class NeMoGenerator(Generator):
     length_penalty = 1
     guardrail = None  # NotImplemented in library
 
-    def __init__(self, name=None, generations=10):
+    def __init__(self, name=None, generations=10, config_root=_config):
         self.name = name
         self.fullname = f"NeMo {self.name}"
         self.seed = _config.run.seed
         self.api_host = "https://api.llm.ngc.nvidia.com/v1"
 
-        super().__init__(name, generations=generations)
+        super().__init__(name, generations=generations, config_root=config_root)
 
         self.api_key = os.getenv(self.ENV_VAR, default=None)
         if self.api_key is None:
