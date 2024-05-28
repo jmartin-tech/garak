@@ -20,7 +20,7 @@ def _extract_modules_klasses(base_klass):
     return [  # Extract only classes with same source package name
         name
         for name, klass in inspect.getmembers(base_klass, inspect.isclass)
-        if klass.__module__.startswith(base_klass.__package__)
+        if klass.__module__.startswith(base_klass.__name__)
     ]
 
 
@@ -48,15 +48,7 @@ def enumerate_plugins(
 
     base_mod = importlib.import_module(f"garak.{category}.base")
 
-    # consider replacing this with PLUGIN_CLASSES above or other singular conversion
-    if category == "harnesses":
-        root_plugin_classname = "Harness"
-    else:
-        root_plugin_classname = category.title()[:-1]
-
-    base_plugin_classnames = set(
-        _extract_modules_klasses(base_mod) + [root_plugin_classname]
-    )
+    base_plugin_classnames = set(_extract_modules_klasses(base_mod))
 
     plugin_class_names = []
 
@@ -77,9 +69,9 @@ def enumerate_plugins(
         module_plugin_names = set()
         for module_entry in module_entries:
             obj = getattr(mod, module_entry)
-            if inspect.isclass(obj):
-                # this relies on the order of templates implemented on a class
-                if obj.__bases__[-1].__name__ in base_plugin_classnames:
+            for interface in base_plugin_classnames:
+                klass = getattr(base_mod, interface)
+                if issubclass(obj, klass):
                     module_plugin_names.add((module_entry, obj.active))
 
         for module_plugin_name, active in sorted(module_plugin_names):
