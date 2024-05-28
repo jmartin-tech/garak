@@ -88,8 +88,8 @@ class OpenAICompatible(Generator):
     """Generator base class for OpenAI compatible text2text restful API. Implements shared initialization and execution methods."""
 
     ENV_VAR = "OpenAICompatible_API_KEY".upper()  # Placeholder override when extending
-    active = False  # this interface class is not active
 
+    active = False  # this interface class is not active
     supports_multiple_generations = True
     generator_family_name = "OpenAICompatible"  # Placeholder override when extending
 
@@ -121,22 +121,27 @@ class OpenAICompatible(Generator):
     def _validate_config(self):
         pass
 
-    def __init__(self, name, generations=10, config_root=_config):
+    def __init__(self, name="", generations=10, config_root=_config):
         self.name = name
+        if not self.loaded:
+            self._load_config(config_root)
         self.fullname = f"{self.generator_family_name} {self.name}"
 
-        self.api_key = os.getenv(self.ENV_VAR, default=None)
         if self.api_key is None:
-            raise APIKeyMissingError(
-                f'Put the {self.generator_family_name} API key in the {self.ENV_VAR} environment variable (this was empty)\n \
-                e.g.: export {self.ENV_VAR}="sk-123XXXXXXXXXXXX"'
-            )
+            self.api_key = os.getenv(self.ENV_VAR, default=None)
+            if self.api_key is None:
+                raise APIKeyMissingError(
+                    f'Put the {self.generator_family_name} API key in the {self.ENV_VAR} environment variable (this was empty)\n \
+                    e.g.: export {self.ENV_VAR}="sk-123XXXXXXXXXXXX"'
+                )
 
         self._load_client()
 
         self._validate_config()
 
-        super().__init__(name, generations=generations, config_root=config_root)
+        super().__init__(
+            self.name, generations=self.generations, config_root=config_root
+        )
 
         # clear client config to enable object to `pickle`
         self._clear_client()
@@ -217,6 +222,7 @@ class OpenAIGenerator(OpenAICompatible):
     """Generator wrapper for OpenAI text2text models. Expects API key in the OPENAI_API_KEY environment variable"""
 
     ENV_VAR = "OPENAI_API_KEY"
+    active = True
     generator_family_name = "OpenAI"
     active = True
 
@@ -250,11 +256,14 @@ class OpenAIGenerator(OpenAICompatible):
         self.generator = None
         self.client = None
 
-    def __init__(self, name, config_root=_config):
+    def __init__(self, name="", config_root=_config):
+        self._load_config(config_root)
         if self.name in context_lengths:
             self.context_len = context_lengths[self.name]
 
-        super().__init__(name, config_root=config_root)
+        super().__init__(
+            self.name, generations=self.generations, config_root=config_root
+        )
 
 
 DEFAULT_CLASS = "OpenAIGenerator"

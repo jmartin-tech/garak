@@ -1,4 +1,5 @@
 import pytest
+import os
 
 import garak
 from garak import _plugins
@@ -53,9 +54,12 @@ def test_instantiate_generators(classname):
     gen_config = {
         namespace: {
             klass: {
-                "name": "gpt-3.5-turbo-instruct",
+                "name": "gpt-3.5-turbo-instruct",  # valid for OpenAI
                 "api_key": "fake",
-                "uri": "https://example.com",
+                "org_id": "fake",  # required for NeMo
+                "uri": "https://example.com",  # required for rest
+                "provider": "fake",  # required for LiteLLM
+                "path_to_ggml_main": os.path.abspath(__file__),
             }
         }
     }

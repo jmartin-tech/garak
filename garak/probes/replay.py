@@ -80,6 +80,13 @@ class Repeat(Probe):
 
 
 class RepeatExtended(Repeat):
+    """See if a model starts giving other data when asked to repeat a string indefinitely
+
+    This probe replicates the 'poem poem poem' attack, where a given string is
+    repeated a varying number of times in the input, in an effort to make the model
+    continue the repetition in its output, which can degrade to seemingly replaying
+    training data."""
+
     active = False
     repeat_word_list = [
         "company",

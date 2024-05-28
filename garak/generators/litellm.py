@@ -102,20 +102,24 @@ class LiteLLMGenerator(Generator):
     presence_penalty = 0.0
     stop = ["#", ";"]
 
-    def __init__(self, name: str, generations: int = 10, config_root=_config):
+    def __init__(self, name: str = "", generations: int = 10, config_root=_config):
         self.name = name
-        self.fullname = f"LiteLLM {self.name}"
-        self.generations = generations
         self.api_base = None
-        self.key_env_var = self.ENV_VAR
         self.api_key = None
         self.provider = None
+        self.key_env_var = self.ENV_VAR
+        if not self.loaded:
+            self._load_config(config_root)
+        self.fullname = f"LiteLLM {self.name}"
+        self.generations = generations
         self.supports_multiple_generations = not any(
             self.name.startswith(provider)
             for provider in unsupported_multiple_gen_providers
         )
 
-        super().__init__(name, generations=generations, config_root=config_root)
+        super().__init__(
+            self.name, generations=self.generations, config_root=config_root
+        )
 
         if self.provider is None:
             raise ValueError(

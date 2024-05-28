@@ -15,7 +15,6 @@ be quite strong. Find your Hugging Face Inference API Key here:
 """
 
 import logging
-from math import log
 import re
 import os
 from typing import List, Union
@@ -65,11 +64,16 @@ class Pipeline(Generator, HFCompatible):
                 self.context_len = config.n_ctx
 
     def __init__(
-        self, name, do_sample=True, generations=10, device=0, config_root=_config
+        self, name="", do_sample=True, generations=10, device=0, config_root=_config
     ):
+        if not self.loaded:
+            self._load_config(config_root)
         self.fullname, self.name = name, name.split("/")[-1]
+        # this is another "special case" for configuration requirements
 
-        super().__init__(name, generations=generations, config_root=config_root)
+        super().__init__(
+            self.name, generations=self.generations, config_root=config_root
+        )
 
         from transformers import pipeline, set_seed
 

@@ -47,12 +47,14 @@ class CohereGenerator(Generator):
         self.fullname = f"Cohere {self.name}"
         self.generations = generations
 
-        super().__init__(name, generations=generations)
+        super().__init__(
+            self.name, generations=self.generations, config_root=config_root
+        )
 
         logging.debug(
             "Cohere generation request limit capped at %s", COHERE_GENERATION_LIMIT
         )
-        self.generator = cohere.Client(self.api_key, config_root=config_root)
+        self.generator = cohere.Client(self.api_key)
 
     @backoff.on_exception(backoff.fibo, cohere.error.CohereAPIError, max_value=70)
     def _call_cohere_api(self, prompt, request_size=COHERE_GENERATION_LIMIT):

@@ -107,11 +107,13 @@ class RestGenerator(Generator):
     DEFAULT_REQ_HEADERS = {}
     DEFAULT_REQ_METHOD = "post"
     DEFAULT_JSON_RESPONSE = False
+    DEFAULT_JSON_RESPONSE_FIELD = None
 
     # ENV_VAR = "REST_API_KEY"
     generator_family_name = "REST"
 
     _supported_params = (
+        "api_key",
         "name",
         "uri",
         "key_env_var",
@@ -134,12 +136,12 @@ class RestGenerator(Generator):
         self.req_template = self.DEFAULT_REQ_TEMPLATE
         self.supports_multiple_generations = False  # not implemented yet
         self.response_json = self.DEFAULT_JSON_RESPONSE
-        self.response_json_field = None
+        self.response_json_field = self.DEFAULT_JSON_RESPONSE_FIELD
         self.request_timeout = 20  # seconds
         self.ratelimit_codes = [429]
         self.escape_function = self._json_escape
         self.retry_5xx = True
-        # self.key_env_var = self.ENV_VAR
+        self.key_env_var = self.ENV_VAR if hasattr(self, "ENV_VAR") else None
 
         # load configuration since super.__init__ has not been called
         self._load_config(config_root)

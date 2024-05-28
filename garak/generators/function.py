@@ -60,7 +60,9 @@ class Single(Generator):
 
         gen_module_name, gen_function_name = self.name.split("#")
 
-        gen_module = importlib.import_module(gen_module_name)
+        gen_module = importlib.import_module(
+            gen_module_name
+        )  # limits ability to test this for general instantiation
         self.generator = getattr(gen_module, gen_function_name)
         # for name, klass in inspect.getmembers(base_klass, inspect.isclass)
         import inspect
