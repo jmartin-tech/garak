@@ -93,5 +93,5 @@ class RasaRestGenerator(RestGenerator):
 
     generator_family_name = "RASA"
 
-    def __init__(self, uri=None, generations=10, config_root=_config):
-        super().__init__(uri, generations=generations, config_root=config_root)
+
+DEFAULT_CLASS = "RasaRestGenerator"
