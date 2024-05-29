@@ -134,6 +134,7 @@ class RestGenerator(Generator):
         self.headers = self.DEFAULT_REQ_HEADERS
         self.method = self.DEFAULT_REQ_METHOD
         self.req_template = self.DEFAULT_REQ_TEMPLATE
+        self.generations = generations
         self.supports_multiple_generations = False  # not implemented yet
         self.response_json = self.DEFAULT_JSON_RESPONSE
         self.response_json_field = self.DEFAULT_JSON_RESPONSE_FIELD
@@ -206,6 +207,9 @@ class RestGenerator(Generator):
             generations = _config.run.generations
 
         super().__init__(uri, generations=generations, config_root=config_root)
+        super().__init__(
+            self.name, generations=self.generations, config_root=config_root
+        )
 
     def _json_escape(self, text: str) -> str:
         """JSON escape a string"""
