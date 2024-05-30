@@ -7,7 +7,7 @@ from garak import _plugins
 class Configurable:
     def _load_config(self, config_root=_config):
         if hasattr(self, "loaded"):
-            return  # only load once, this will ensure the
+            return  # only load once, this will ensure the config is not rerun for extending classes
         local_root = (
             config_root.plugins if hasattr(config_root, "plugins") else config_root
         )

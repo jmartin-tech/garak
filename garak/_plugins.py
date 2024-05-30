@@ -81,22 +81,6 @@ def enumerate_plugins(
     return plugin_class_names
 
 
-def configure_plugin(plugin_path: str, plugin: object, config_root: _config) -> object:
-    local_root = config_root.plugins if hasattr(config_root, "plugins") else config_root
-    category, module_name, plugin_class_name = plugin_path.split(".")
-    plugin_name = f"{module_name}.{plugin_class_name}"
-    # support for plain dictionary as root of config
-    plugin_type_config = {}
-    if isinstance(local_root, dict) and category in local_root:
-        plugin_type_config = local_root[category]
-    else:
-        plugin_type_config = getattr(local_root, category)
-    if plugin_name in plugin_type_config:
-        for k, v in plugin_type_config[plugin_name].items():
-            setattr(plugin, k, v)
-    return plugin
-
-
 def load_plugin(path, break_on_fail=True, config_root=_config) -> object:
     """load_plugin takes a path to a plugin class, and attempts to load that class.
     If successful, it returns an instance of that class.
@@ -165,7 +149,5 @@ def load_plugin(path, break_on_fail=True, config_root=_config) -> object:
             raise Exception(e) from e
         else:
             return False
-
-    plugin_instance = configure_plugin(path, plugin_instance, config_root)
 
     return plugin_instance
