@@ -85,7 +85,12 @@ def configure_plugin(plugin_path: str, plugin: object, config_root: _config) -> 
     local_root = config_root.plugins if hasattr(config_root, "plugins") else config_root
     category, module_name, plugin_class_name = plugin_path.split(".")
     plugin_name = f"{module_name}.{plugin_class_name}"
-    plugin_type_config = getattr(local_root, category)
+    # support for plain dictionary as root of config
+    plugin_type_config = {}
+    if isinstance(local_root, dict) and category in local_root:
+        plugin_type_config = local_root[category]
+    else:
+        plugin_type_config = getattr(local_root, category)
     if plugin_name in plugin_type_config:
         for k, v in plugin_type_config[plugin_name].items():
             setattr(plugin, k, v)
