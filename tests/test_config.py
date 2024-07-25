@@ -434,7 +434,6 @@ def test_cli_generator_options_overrides_yaml_probe_options():
             str(cli_generations_count),
             "--list_config",
         ]  # add list_config as the action so we don't actually run
-        print(args)
         garak.cli.main(args)
         os.remove(generator_yaml_file.name)
     # check it was loaded
@@ -623,3 +622,10 @@ def test_report_prefix_with_hitlog_no_explode():
     assert os.path.isfile("kjsfhgkjahpsfdg.report.jsonl")
     assert os.path.isfile("kjsfhgkjahpsfdg.report.html")
     assert os.path.isfile("kjsfhgkjahpsfdg.hitlog.jsonl")
+
+
+def test_nested():
+    importlib.reload(_config)
+
+    _config.plugins.generators["a"]["b"]["c"]["d"] = "e"
+    assert _config.plugins.generators["a"]["b"]["c"]["d"] == "e"

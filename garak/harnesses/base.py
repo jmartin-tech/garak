@@ -29,6 +29,8 @@ class Harness(Configurable):
 
     active = True
 
+    DEFAULT_PARAMS = {}
+
     def __init__(self, config_root=_config):
         self._load_config(config_root)
         logging.info("harness init: %s", self)
@@ -114,7 +116,9 @@ class Harness(Configurable):
                 detector_probe_name = d.detectorname.replace("garak.detectors.", "")
                 attempt_iterator.set_description("detectors." + detector_probe_name)
                 for attempt in attempt_iterator:
-                    attempt.detector_results[detector_probe_name] = d.detect(attempt)
+                    attempt.detector_results[detector_probe_name] = list(
+                        d.detect(attempt)
+                    )
 
                     if first_detector:
                         eval_outputs += attempt.outputs
