@@ -3,6 +3,8 @@
 
 """Functions for working with garak plugins (enumeration, loading, etc)"""
 
+import asyncio
+import atexit
 import importlib
 import inspect
 import json
@@ -16,6 +18,8 @@ from pathlib import Path
 
 from garak import _config
 from garak.exception import GarakException
+
+from watchfiles import watch, Change
 
 PLUGIN_TYPES = ("probes", "detectors", "generators", "harnesses", "buffs")
 PLUGIN_CLASSES = ("Probe", "Detector", "Generator", "Harness", "Buff")
@@ -293,6 +297,48 @@ class PluginCache:
         plugin_metadata["mod_time"] = mod_time.strftime(TIME_FORMAT)
 
         return plugin_metadata
+
+
+_stop_event = asyncio.Event()
+
+
+def _only_plugins(change: Change, path: str) -> bool:
+    """Filter watchfiles to only trigger on change to plugin files"""
+    allowed_extensions = ".py"
+    return any(plugin_type in path for plugin_type in PLUGIN_TYPES) and path.endswith(
+        allowed_extensions
+    )
+
+
+def _watch_cache():
+    """Watch the plugin paths for modifications"""
+    logging.getLogger(watch.__module__).setLevel(
+        logging.WARNING
+    )  # change watchfiles log level to avoid noise
+    for _ in watch(
+        _config.transient.package_dir,
+        watch_filter=_only_plugins,
+        stop_event=_stop_event,
+    ):
+        PluginCache()._build_plugin_cache()
+
+
+import threading
+
+_watcher = threading.Thread(
+    target=_watch_cache, name="Plugin Cache Maintainer", daemon=True
+)
+_watcher.start()
+
+
+def _stop_watching():
+    """Notify watch_cache of shutdown"""
+    global _stop_event, _watcher
+    _stop_event.set()
+    _watcher.join()
+
+
+atexit.register(_stop_watching)
 
 
 def plugin_info(plugin: Union[Callable, str]) -> dict:
