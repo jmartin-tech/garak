@@ -12,7 +12,7 @@ from garak.generators.openai import OpenAICompatible
 
 
 class NVOpenAIChat(OpenAICompatible):
-    """Wrapper for NVIDIA-hosted NIMs. Expects NIM_API_KEY environment variable.
+    """Impact to the cache - Wrapper for NVIDIA-hosted NIMs. Expects NIM_API_KEY environment variable.
 
     Uses the [OpenAI-compatible API](https://docs.nvidia.com/ai-enterprise/nim-llm/latest/openai-api.html)
     via direct HTTP request.
