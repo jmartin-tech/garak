@@ -353,15 +353,21 @@ def load_plugin(path, break_on_fail=True, config_root=_config) -> object:
         match len(parts):
             case 2:
                 category, module_name = parts
-                generator_mod = importlib.import_module(
-                    f"garak.{category}.{module_name}"
-                )
-                if generator_mod.DEFAULT_CLASS:
-                    plugin_class_name = generator_mod.DEFAULT_CLASS
-                else:
-                    raise ValueError(
-                        f"module {module_name} has no default class; pass module.ClassName to model_type"
+                try: 
+                    generator_mod = importlib.import_module(
+                        f"garak.{category}.{module_name}"
                     )
+                    if generator_mod.DEFAULT_CLASS:
+                        plugin_class_name = generator_mod.DEFAULT_CLASS
+                    else:
+                        raise ValueError(
+                            f"module {module_name} has no default class; pass module.ClassName to model_type"
+                        )
+                except ModuleNotFoundError as e:
+                    logging.warning("Module %s not found", exc_info=e)
+                    if break_on_fail:
+                        raise GarakException(e) from e
+                    return False
             case 3:
                 category, module_name, plugin_class_name = parts
             case _:
@@ -373,8 +379,7 @@ def load_plugin(path, break_on_fail=True, config_root=_config) -> object:
             raise ValueError(
                 f'Expected plugin name in format category.module_name.class_name, got "{path}"'
             ) from ve
-        else:
-            return False
+        return False
     module_path = f"garak.{category}.{module_name}"
     try:
         mod = importlib.import_module(module_path)
@@ -382,8 +387,7 @@ def load_plugin(path, break_on_fail=True, config_root=_config) -> object:
         logging.warning("Exception failed import of %s", module_path, exc_info=e)
         if break_on_fail:
             raise ValueError("Didn't successfully import " + module_name) from e
-        else:
-            return False
+        return False
 
     try:
         klass = getattr(mod, plugin_class_name)
@@ -402,7 +406,6 @@ def load_plugin(path, break_on_fail=True, config_root=_config) -> object:
         )
         if break_on_fail:
             raise GarakException(e) from e
-        else:
-            return False
+        return False
 
     return plugin_instance
