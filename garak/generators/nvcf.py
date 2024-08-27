@@ -150,9 +150,12 @@ class NvcfChat(Generator):
                 return [None]
 
         else:
-            response_body = response.json()
-
-            return self._extract_text_output(response_body)
+            try:
+                response_body = response.json()
+                return self._extract_text_output(response_body)
+            except requests.exceptions.JSONDecodeError as e:
+                logging.warn("failed to decode response as json", exc_info=e)
+                return [response.text()]
 
 
 class NvcfCompletion(NvcfChat):
