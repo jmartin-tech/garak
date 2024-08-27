@@ -155,7 +155,7 @@ class NvcfChat(Generator):
                 return self._extract_text_output(response_body)
             except requests.exceptions.JSONDecodeError as e:
                 logging.warn("failed to decode response as json", exc_info=e)
-                return [response.text()]
+                return [response.text]
 
 
 class NvcfCompletion(NvcfChat):
