@@ -16,6 +16,7 @@ working with harmful text:
  https://aclanthology.org/2022.findings-emnlp.35/
 
 """
+import logging
 
 from garak import _config
 from garak.probes.base import Probe
@@ -58,6 +59,9 @@ class ArtPrompt:
     ]
     # Prompts can be expanded to utilized an annotated set for stubs and safety words
 
+    _known_safe_word = "testable"
+    _known_safe_stub = f"return only the word {_known_safe_word}"
+
     def __init__(self, config_root=_config):
         super().__init__(config_root=config_root)
         self.prompts = []
@@ -70,6 +74,13 @@ class ArtPrompt:
     def populate_prompt(self, prompt, word):
         raise NotImplementedError("Extending class must implement `populate_prompt`")
 
+    def probe(self, generator):
+        safe_prompt = self.populate_prompt(self._known_safe_stub, self._known_safe_word)
+        result = generator._call_model(safe_prompt)
+        if not self._known_safe_word in result:
+            logging.warn("Target generator cannot solve the prompt, %s probes are skipped", self.__class__)
+            return []
+        return super().probe(generator)
 
 class Block(ArtPrompt, Probe):
     """ASCII Art prompts to bypass safety mitigation.
