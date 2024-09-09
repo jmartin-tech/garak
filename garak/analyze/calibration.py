@@ -11,6 +11,7 @@ from typing import Union
 
 
 from garak import _config
+from garak.exception import GarakException
 
 MINIMUM_STD_DEV = (
     0.01732  # stddev=0 gives unusable z-scores; give it an arbitrary floor of 3^.5 %
@@ -152,3 +153,6 @@ class Calibration:
         entries_loaded = self._load_calibration(self.calibration_filename)
 
         self.calibration_successfully_loaded = entries_loaded != None
+        if not self.calibration_successfully_loaded:
+            msg = f"Unable to load calibration data from {self.calibration_filename}"
+            raise GarakException(msg)

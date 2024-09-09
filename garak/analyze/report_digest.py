@@ -14,6 +14,7 @@ import jinja2
 import sqlite3
 
 from garak import _config
+from garak.exception import GarakException
 import garak.analyze.calibration
 
 if not _config.loaded:
@@ -76,7 +77,11 @@ def compile_digest(report_path, taxonomy=_config.reporting.taxonomy):
             elif record["entry_type"] == "start_run setup":
                 setup = record
 
-    calibration = garak.analyze.calibration.Calibration()
+    try:
+        calibration = garak.analyze.calibration.Calibration()
+    except GarakException as e:
+        calibration = None
+
     calibration_used = False
 
     digest_content = header_template.render(
@@ -214,12 +219,16 @@ def compile_digest(report_path, taxonomy=_config.reporting.taxonomy):
                             getattr(dm, detector_class).__doc__
                         )
 
-                        zscore = calibration.get_z_score(
-                            probe_module,
-                            probe_class,
-                            detector_module,
-                            detector_class,
-                            score / 100,
+                        zscore = (
+                            calibration.get_z_score(
+                                probe_module,
+                                probe_class,
+                                detector_module,
+                                detector_class,
+                                score / 100,
+                            )
+                            if calibration is not None
+                            else None
                         )
 
                         if zscore is None:

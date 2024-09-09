@@ -31,7 +31,10 @@ class Evaluator:
     def __init__(self):
         self.probename = ""
         if _config.system.show_z:
-            self.calibration = garak.analyze.calibration.Calibration()
+            try:
+                self.calibration = garak.analyze.calibration.Calibration()
+            except GarakException as e:
+                self.calibration = None
 
     def test(self, test_value: float) -> bool:
         """Function for converting the detector result to a boolean, True=pass
@@ -148,12 +151,16 @@ class Evaluator:
     def get_z_rating(self, probe_name, detector_name, asr_pct) -> str:
         probe_module, probe_classname = probe_name.split(".")
         detector_module, detector_classname = detector_name.split(".")
-        zscore = self.calibration.get_z_score(
-            probe_module,
-            probe_classname,
-            detector_module,
-            detector_classname,
-            1 - (asr_pct / 100),
+        zscore = (
+            self.calibration.get_z_score(
+                probe_module,
+                probe_classname,
+                detector_module,
+                detector_classname,
+                1 - (asr_pct / 100),
+            )
+            if self.calibration is not None
+            else None
         )
         zrating_symbol = ""
         if zscore is not None:

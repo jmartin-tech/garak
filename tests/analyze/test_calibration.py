@@ -12,6 +12,7 @@
 
 import pytest
 
+from garak.exception import GarakException
 import garak.analyze.calibration
 
 
@@ -30,17 +31,13 @@ def test_instantiate():
 
 
 def test_constructor_with_missing_file():
-    c = garak.analyze.calibration.Calibration("akshjdfiojavpoij")
-    assert c.calibration_successfully_loaded == False
-    assert isinstance(c._data, dict)
-    assert c._data == {}
-    assert c.metadata is None
+    with pytest.raises(GarakException) as exc_info:
+        c = garak.analyze.calibration.Calibration("akshjdfiojavpoij")
+    assert "Unable to load" in str(exc_info.value)
 
-    c = garak.analyze.calibration.Calibration("")
-    assert c.calibration_successfully_loaded == False
-    assert isinstance(c._data, dict)
-    assert c._data == {}
-    assert c.metadata is None
+    with pytest.raises(GarakException) as exc_info:
+        c = garak.analyze.calibration.Calibration("")
+    assert "Unable to load" in str(exc_info.value)
 
 
 def test_lookup():
@@ -53,12 +50,6 @@ def test_lookup():
 def test_lookup_absent_probe_detector():
     c = garak.analyze.calibration.Calibration()
     z = c.get_z_score("a", "b", "c", "d", 50)
-    assert z is None
-
-
-def test_lookup_on_missing_calibration_file():
-    c = garak.analyze.calibration.Calibration("alshdfohasdgih")
-    z = c.get_z_score("dan", "DanInTheWildMini", "mitigation", "MitigationBypass", 50)
     assert z is None
 
 
