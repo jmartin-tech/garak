@@ -55,6 +55,32 @@ def main(arguments=None) -> None:
     import re
     from colorama import Fore, Style
 
+    def _parse_specs_or_tags(args):
+        """Configuration is stored in _config, parse any args for supported specs and tags"""
+        parsable_specs = ["probe", "detector", "buff"]
+        parsed_specs = {}
+        for spec_type in parsable_specs:
+            spec_namespace = f"{spec_type}s"
+            config_spec = getattr(_config.plugins, f"{spec_type}_spec", "")
+            config_tags = getattr(_config.run, f"{spec_type}_tags", "")
+            names, rejected = _config.parse_plugin_spec(
+                config_spec, spec_namespace, config_tags
+            )
+            parsed_specs[spec_type] = names
+            if rejected is not None and len(rejected) > 0:
+                if hasattr(args, "skip_unknown"):  # attribute only set when True
+                    header = f"Unknown {spec_namespace}:"
+                    skip_msg = Fore.LIGHTYELLOW_EX + "SKIP" + Style.RESET_ALL
+                    msg = f"{Fore.LIGHTYELLOW_EX}{header}\n" + "\n".join(
+                        [f"{skip_msg} {spec}" for spec in rejected]
+                    )
+                    logging.warning(f"{header} " + ",".join(rejected))
+                    print(msg)
+                else:
+                    msg_list = ",".join(rejected)
+                    raise ValueError(f"❌Unknown {spec_namespace}❌: {msg_list}")
+        return parsed_specs
+
     log_filename = command.start_logging()
     _config.load_base_config()
 
@@ -524,28 +550,7 @@ def main(arguments=None) -> None:
                 logging.error(message)
                 raise ValueError(message)
 
-            parsable_specs = ["probe", "detector", "buff"]
-            parsed_specs = {}
-            for spec_type in parsable_specs:
-                spec_namespace = f"{spec_type}s"
-                config_spec = getattr(_config.plugins, f"{spec_type}_spec", "")
-                config_tags = getattr(_config.run, f"{spec_type}_tags", "")
-                names, rejected = _config.parse_plugin_spec(
-                    config_spec, spec_namespace, config_tags
-                )
-                parsed_specs[spec_type] = names
-                if rejected is not None and len(rejected) > 0:
-                    if hasattr(args, "skip_unknown"):  # attribute only set when True
-                        header = f"Unknown {spec_namespace}:"
-                        skip_msg = Fore.LIGHTYELLOW_EX + "SKIP" + Style.RESET_ALL
-                        msg = f"{Fore.LIGHTYELLOW_EX}{header}\n" + "\n".join(
-                            [f"{skip_msg} {spec}" for spec in rejected]
-                        )
-                        logging.warning(f"{header} " + ",".join(rejected))
-                        print(msg)
-                    else:
-                        msg_list = ",".join(rejected)
-                        raise ValueError(f"❌Unknown {spec_namespace}❌: {msg_list}")
+            parsed_specs = _parse_specs_or_tags(args)
 
             for probe in parsed_specs["probe"]:
                 # distribute `generations` to the probes
@@ -605,9 +610,7 @@ def main(arguments=None) -> None:
                     evaluator,
                     parsed_specs["buff"],
                 )
-
-            if "detectoronly" not in _config.plugins.harnesses:
-                command.end_run()
+            command.end_run()
 
         elif "detectoronly" in _config.plugins.harnesses:
 
@@ -615,10 +618,11 @@ def main(arguments=None) -> None:
                 logging.error("report path not specified")
                 raise ValueError("Specify jsonl report path using report_path")
 
-            if not parsed_specs[
-                "detector"
-            ]:  # If the user doesn't specify any detectors, repeat the same as the reoport's
-                # read from the report
+            parsed_specs = _parse_specs_or_tags(args)
+            evaluator = garak.evaluators.ThresholdEvaluator(_config.run.eval_threshold)
+
+            if parsed_specs["detector"] == []:
+                # If the user doesn't specify any detectors, repeat the same as the report's
                 logging.info("Using detectors from the report file")
                 f = open(_config.plugins.harnesses["DetectorOnly"]["report_path"], "r")
                 entry_line = None
@@ -638,9 +642,8 @@ def main(arguments=None) -> None:
                     ","
                 )
 
-            if not _config.plugins.model_type:  # Have not initialized the file yet
-                command.start_run()
-
+            command.start_run()
+            print(f"📜 reporting to {_config.transient.report_filename}")
             command.detector_only_run(parsed_specs["detector"], evaluator)
             command.end_run()
 

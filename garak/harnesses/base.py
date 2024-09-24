@@ -133,26 +133,28 @@ class Harness(Configurable):
     def run_detectors(self, detectors, attempt_results, evaluator, probe=None):
         for d in detectors:
             logging.debug("harness: run detector %s", d.detectorname)
-            attempt_iterator = tqdm.tqdm(attempt_results, leave=False)
-            detector_probe_name = d.detectorname.replace("garak.detectors.", "")
-            attempt_iterator.set_description("detectors." + detector_probe_name)
-            for attempt in attempt_iterator:
-                if d.skip:
-                    continue
-                attempt.detector_results[detector_probe_name] = list(d.detect(attempt))
+            detector_short_name = d.detectorname.replace("garak.detectors.", "")
+            if len(attempt_results) == 0:
+                msg = "zero attempt results: "
+                if probe is not None:
+                    msg += "probe %s, " % probe.probename
+                msg += "detector %s" % detector_short_name
+                logging.warning(msg)
+            else:
+                attempt_iterator = tqdm.tqdm(attempt_results, leave=False)
+                attempt_iterator.set_description("detectors." + detector_short_name)
+                for attempt in attempt_iterator:
+                    attempt.detector_results[detector_short_name] = list(
+                        d.detect(attempt)
+                    )
 
-            for attempt in attempt_results:
-                attempt.status = garak.attempt.ATTEMPT_COMPLETE
-                _config.transient.reportfile.write(json.dumps(attempt.as_dict()) + "\n")
+                for attempt in attempt_results:
+                    attempt.status = garak.attempt.ATTEMPT_COMPLETE
+                    _config.transient.reportfile.write(
+                        json.dumps(attempt.as_dict()) + "\n"
+                    )
 
-        if len(attempt_results) == 0:
-            logging.warning(
-                "zero attempt results: probe %s, detector %s",
-                probe.probename,
-                detector_probe_name,
-            )
-        else:
-            evaluator.evaluate(attempt_results)
+                evaluator.evaluate(attempt_results)
 
 
 def _modality_match(probe_modality, generator_modality, strict):
