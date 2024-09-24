@@ -9,24 +9,12 @@ Selects detectors to run for each probe based on that probe's recommendations
 import logging
 from colorama import Fore, Style
 
-from garak.detectors.base import Detector
 from garak.harnesses.base import Harness
 
 from garak import _config, _plugins
 
 
 class ProbewiseHarness(Harness):
-    def _load_detector(self, detector_name: str) -> Detector:
-        detector = _plugins.load_plugin(
-            "detectors." + detector_name, break_on_fail=False
-        )
-        if detector:
-            return detector
-        else:
-            print(f" detector load failed: {detector_name}, skipping >>")
-            logging.error(f" detector load failed: {detector_name}, skipping >>")
-        return False
-
     def run(self, model, probenames, evaluator, buff_names=None):
         """Execute a probe-by-probe scan
 
