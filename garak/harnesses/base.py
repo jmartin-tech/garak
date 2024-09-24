@@ -112,26 +112,29 @@ class Harness(Configurable):
             self.run_detectors(detectors, attempt_results, evaluator, probe)
 
         logging.debug("harness: probe list iteration completed")
-    
+
     def run_detectors(self, detectors, attempt_results, evaluator, probe=None):
         for d in detectors:
             logging.debug("harness: run detector %s", d.detectorname)
-            attempt_iterator = tqdm.tqdm(attempt_results, leave=False)
-            detector_probe_name = d.detectorname.replace("garak.detectors.", "")
-            attempt_iterator.set_description("detectors." + detector_probe_name)
-            for attempt in attempt_iterator:
-                attempt.detector_results[detector_probe_name] = list(
-                    d.detect(attempt)
-                )
-            
-        for attempt in attempt_results:
-            attempt.status = garak.attempt.ATTEMPT_COMPLETE
-            _config.transient.reportfile.write(json.dumps(attempt.as_dict()) + "\n")
+            detector_short_name = d.detectorname.replace("garak.detectors.", "")
+            if len(attempt_results) == 0:
+                msg = "zero attempt results: "
+                if probe is not None:
+                    msg += "probe %s, " % probe.probename
+                msg += "detector %s" % detector_short_name
+                logging.warning(msg)
+            else:
+                attempt_iterator = tqdm.tqdm(attempt_results, leave=False)
+                attempt_iterator.set_description("detectors." + detector_short_name)
+                for attempt in attempt_iterator:
+                    attempt.detector_results[detector_short_name] = list(
+                        d.detect(attempt)
+                    )
 
-        if len(attempt_results) == 0:
-            msg = "zero attempt results: attempt %s" % attempt.uuid()
-            if probe is not None:
-                msg += ", probe %s" % probe.probename
-            logging.warning(msg)
-        else:
-            evaluator.evaluate(attempt_results)
+                for attempt in attempt_results:
+                    attempt.status = garak.attempt.ATTEMPT_COMPLETE
+                    _config.transient.reportfile.write(
+                        json.dumps(attempt.as_dict()) + "\n"
+                    )
+
+                evaluator.evaluate(attempt_results)
