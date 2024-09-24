@@ -107,7 +107,7 @@ def start_run():
                 list,
                 set,
                 type(None),
-                float, # Without float eval_threshold was not being stored
+                float,  # Without float eval_threshold was not being stored
             ):
                 setup_dict[f"{subset}.{k}"] = v
 
@@ -275,21 +275,20 @@ def write_report_digest(report_filename, digest_filename):
     with open(digest_filename, "w", encoding="utf-8") as f:
         f.write(digest)
 
+
 def detector_only_run(detectors, evaluator):
     import garak.harnesses.detectoronly
     import garak.attempt
-    from garak import _config
 
-    config = _config.plugins.harnesses["DetectorOnly"]
+    detector_only_h = garak.harnesses.detectoronly.DetectorOnly()
 
-    with open(config["report_path"]) as f:
+    with open(detector_only_h.report_path) as f:
         data = [json.loads(line) for line in f]
-    
+
     data = [d for d in data if d["entry_type"] == "attempt" and d["status"] == 1]
     attempts = [garak.attempt.Attempt.from_dict(d) for d in data]
 
     if len(attempts) == 0:
-        raise ValueError("No attempts found in report.jsonl")
+        raise ValueError(f"No attempts found in {detector_only_h.report_path}")
 
-    detector_only_h = garak.harnesses.detectoronly.DetectorOnly()
     detector_only_h.run(attempts, detectors, evaluator)

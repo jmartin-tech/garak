@@ -50,13 +50,9 @@ class PxD(Harness):
                 continue
             detectors = []
             for detector_name in detector_names:
-                detector = _plugins.load_plugin(detector_name, break_on_fail=False)
+                detector = self._load_detector(detector_name)
                 if detector:
                     detectors.append(detector)
-                else:
-                    msg = f" detector load failed: {detector_name}, skipping >>"
-                    print(msg)
-                    logging.error(msg)
             h = Harness()
             h.run(model, [probe], detectors, evaluator, announce_probe=False)
             # del probe, h, detectors

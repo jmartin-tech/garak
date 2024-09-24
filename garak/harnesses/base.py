@@ -27,6 +27,8 @@ from garak.configurable import Configurable
 class Harness(Configurable):
     """Class to manage the whole process of probing, detecting and evaluating"""
 
+    from garak.detectors.base import Detector
+
     active = True
 
     DEFAULT_PARAMS = {
@@ -72,6 +74,20 @@ class Harness(Configurable):
 
     def _end_run_hook(self):
         _config.set_http_lib_agents(self._http_lib_user_agents)
+
+    def _load_detector(self, detector_name: str) -> Detector:
+        load_detector_name = (
+            "detectors." + detector_name
+            if not detector_name.startswith("detectors.")
+            else detector_name
+        )
+        detector = _plugins.load_plugin(load_detector_name, break_on_fail=False)
+        if detector:
+            return detector
+        else:
+            print(f" detector load failed: {detector_name}, skipping >>")
+            logging.error(f" detector load failed: {detector_name}, skipping >>")
+        return False
 
     def run(self, model, probes, detectors, evaluator, announce_probe=True) -> None:
         """Core harness method
