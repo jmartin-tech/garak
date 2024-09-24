@@ -621,27 +621,6 @@ def main(arguments=None) -> None:
             parsed_specs = _parse_specs_or_tags(args)
             evaluator = garak.evaluators.ThresholdEvaluator(_config.run.eval_threshold)
 
-            if parsed_specs["detector"] == []:
-                # If the user doesn't specify any detectors, repeat the same as the report's
-                logging.info("Using detectors from the report file")
-                f = open(_config.plugins.harnesses["DetectorOnly"]["report_path"], "r")
-                entry_line = None
-                while True:
-                    line = f.readline()
-                    line = json.loads(line)
-                    if "entry_type" in line and line["entry_type"] == "start_run setup":
-                        entry_line = line
-                        break
-                    if not line:
-                        break  # EOF
-
-                if not entry_line:
-                    raise ValueError("Report file missing setup entry")
-
-                parsed_specs["detector"] = entry_line["plugins.detector_spec"].split(
-                    ","
-                )
-
             command.start_run()
             print(f"📜 reporting to {_config.transient.report_filename}")
             command.detector_only_run(parsed_specs["detector"], evaluator)

@@ -282,11 +282,22 @@ def detector_only_run(detectors, evaluator):
 
     detector_only_h = garak.harnesses.detectoronly.DetectorOnly()
 
+    attempts = []
     with open(detector_only_h.report_path) as f:
-        data = [json.loads(line) for line in f]
+        for line in f:
+            entry = json.loads(line)
+            match entry["entry_type"]:
+                case "start_run setup":
+                    if detectors == []:
+                        # If the user doesn't specify any detectors, repeat the same as the report's
+                        logging.info("Using detectors from the report file")
+                        detectors = entry["plugins.detector_spec"].split(",")
+                case "attempt":
+                    if entry["status"] == 1:
+                        attempts.append(garak.attempt.Attempt.from_dict(entry))
 
-    data = [d for d in data if d["entry_type"] == "attempt" and d["status"] == 1]
-    attempts = [garak.attempt.Attempt.from_dict(d) for d in data]
+    if detectors == []:
+        raise ValueError("No detectors specified and report file missing setup entry")
 
     if len(attempts) == 0:
         raise ValueError(f"No attempts found in {detector_only_h.report_path}")
