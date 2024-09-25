@@ -279,6 +279,7 @@ def write_report_digest(report_filename, digest_filename):
 def detector_only_run(detectors, evaluator):
     import garak.harnesses.detectoronly
     import garak.attempt
+    from garak import _config, _plugins
 
     detector_only_h = garak.harnesses.detectoronly.DetectorOnly()
 
@@ -291,7 +292,28 @@ def detector_only_run(detectors, evaluator):
                     if detectors == []:
                         # If the user doesn't specify any detectors, repeat the same as the report's
                         logging.info("Using detectors from the report file")
-                        detectors = entry["plugins.detector_spec"].split(",")
+                        if entry["plugins.detector_spec"] == "auto":
+                            entry["plugins.probe_spec"]
+                            probes, _ = _config.parse_plugin_spec(
+                                entry["plugins.probe_spec"], "probes"
+                            )
+                            for probe in probes:
+                                detectors = list(
+                                    set(detectors)
+                                    | set(
+                                        _plugins.plugin_info(probe)[
+                                            "recommended_detector"
+                                        ]
+                                    )
+                                )
+                                primary = _plugins.plugin_info(probe)[
+                                    "primary_detector"
+                                ]
+                                if primary is not None:
+                                    detectors = list(set(detectors) | set(primary))
+
+                        else:
+                            detectors = entry["plugins.detector_spec"].split(",")
                 case "attempt":
                     if entry["status"] == 1:
                         attempts.append(garak.attempt.Attempt.from_dict(entry))
