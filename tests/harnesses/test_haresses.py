@@ -12,7 +12,7 @@ HARNESSES = [
 
 
 @pytest.mark.parametrize("classname", HARNESSES)
-def test_buff_structure(classname):
+def test_harness_structure(classname):
 
     m = importlib.import_module("garak." + ".".join(classname.split(".")[:-1]))
     c = getattr(m, classname.split(".")[-1])

@@ -1,4 +1,5 @@
 import pytest
+import pathlib
 import os
 from garak import _config
 
@@ -26,3 +27,14 @@ def config_report_cleanup(request):
                 os.remove(file)
 
     request.addfinalizer(remove_log_files)
+
+
+@pytest.fixture
+def sample_jsonl():
+    """Mock report jsonl"""
+    return (
+        pathlib.Path(__file__).parents[0]
+        / "resources"
+        / "report"
+        / "sample.lmrc.report.jsonl"
+    )
