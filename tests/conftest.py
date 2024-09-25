@@ -1,4 +1,5 @@
 import pytest
+import pathlib
 import os
 from garak import _config, _plugins
 
@@ -35,3 +36,14 @@ def config_report_cleanup(request):
 
     request.addfinalizer(remove_log_files)
     request.addfinalizer(clear_plugin_instances)
+
+
+@pytest.fixture
+def sample_jsonl():
+    """Mock report jsonl"""
+    return (
+        pathlib.Path(__file__).parents[0]
+        / "resources"
+        / "report"
+        / "openai.gpt4.test.report.jsonl"
+    )
