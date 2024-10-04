@@ -9,7 +9,7 @@ from tqdm import tqdm
 from logging import getLogger
 from typing import Union, Optional
 
-from .utils import (
+from ..red_team.conversation_utils import (
     prune,
     get_template,
     clean_attacks_and_convs,
@@ -17,14 +17,18 @@ from .utils import (
     process_target_response,
     random_string,
     extract_json,
+    token_count,
+    get_token_limit,
 )
-from .system_prompts import attacker_system_prompt, on_topic_prompt, judge_system_prompt
+from ..red_team.system_prompts import (
+    attacker_system_prompt,
+    on_topic_prompt,
+    judge_system_prompt,
+)
 from .generator_utils import (
     load_generator,
     supported_openai,
     supported_huggingface,
-    token_count,
-    get_token_limit,
 )
 
 import garak.generators
@@ -213,41 +217,6 @@ class AttackManager:
             for full_prompt in full_prompts[left:right]:
                 outputs_list.append(self.target_generator.generate(full_prompt)[0])
         return outputs_list
-
-    @staticmethod
-    def get_evaluator_prompt(attack_prompt, target_response):
-        prompt = f"[PROMPT]:{attack_prompt}\n[ASSISTANT'S RESPONSE]: {target_response}"
-        return prompt
-
-    @staticmethod
-    def get_evaluator_prompt_on_topic(attack_prompt):
-        prompt = f"[PROMPT]:{attack_prompt}"
-
-        return prompt
-
-    @staticmethod
-    def process_output_judge_score(raw_output):
-        # Captures numbers enclosed in double square brackets, i.e., strings of the form "[[<number>]]"
-        pattern = r"\[\[(\d+)\]\]"
-        match = re.search(pattern, raw_output)
-        output = int(match.group(1)) if match else None
-
-        if output is None:
-            output = 1
-
-        return output
-
-    @staticmethod
-    def process_output_on_topic_score(raw_output):
-        # Captures yes/no in double square brackets, i.e., "[[YES]]" or "[[NO]]"
-        pattern = r"\[\[(yes|no)\]\]"
-        match = re.search(pattern, raw_output.lower())
-        output = int(match.group(1) == "yes") if match else None
-
-        if output is None:
-            output = 1
-
-        return output
 
     def create_conv(self, full_prompt, system_prompt=None):
         if system_prompt is None:

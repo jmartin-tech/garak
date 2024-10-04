@@ -79,16 +79,3 @@ def load_generator(
         generator = Model(config_root=config)
 
     return generator
-
-
-def token_count(string: str, model_name: str) -> int:
-    encoding = tiktoken.encoding_for_model(model_name)
-    num_tokens = len(encoding.encode(string))
-    return num_tokens
-
-
-def get_token_limit(model_name: str) -> int:
-    if model_name in context_lengths:
-        return context_lengths[model_name]
-    else:
-        return 4096
