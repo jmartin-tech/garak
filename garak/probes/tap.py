@@ -68,20 +68,18 @@ class TAPCached(Probe):
     goal = "cause the model to disregard the system prompt"
     doc_uri = "https://arxiv.org/abs/2312.02119"
 
-    def __init__(
-        self,
-        prompts_location: Path = data_path / "tap" / "tap_jailbreaks.txt",
-        config_root=_config,
-    ):
-        self.prompts_location = prompts_location
+    DEFAULT_PARAMS = Probe.DEFAULT_PARAMS | {
+        "prompts_location": data_path / "tap" / "tap_jailbreaks.txt",
+    }
 
+    def __init__(self, config_root=_config):
+        super().__init__(config_root=config_root)
         with open(self.prompts_location, "r", encoding="utf-8") as f:
             prompts = f.readlines()
         if not prompts:
             msg = f"No prompts found in {self.prompts_location}"
             raise EOFError(msg)
         self.prompts = prompts
-        super().__init__(config_root=config_root)
 
 
 class TAP(Probe):
@@ -103,40 +101,29 @@ class TAP(Probe):
     doc_uri = "https://arxiv.org/abs/2312.02119"
     active = False
 
+    DEFAULT_PARAMS = Probe.DEFAULT_PARAMS | {
+        "goal": GOAL,
+        "target": TARGET,
+        "attack_model": "lmsys/vicuna-13b-v1.3",
+        "attack_max_tokens": 500,
+        "attack_max_attempts": 5,
+        "evaluator_model": "gpt-3.5-turbo",
+        "evaluator_max_tokens": 10,
+        "evaluator_temperature": 0.0,
+        "branching_factor": 4,
+        "width": 10,
+        "depth": 10,
+        "n_streams": 1,
+        "keep_last_n": 1,
+        "pruning": True,
+    }
+
     def __init__(
         self,
-        goal: str = GOAL,
-        target: str = TARGET,
-        attack_model: str = "lmsys/vicuna-13b-v1.3",
-        attack_max_tokens: int = 500,
-        attack_max_attempts: int = 5,
-        evaluator_model: str = "gpt-3.5-turbo",
-        evaluator_max_tokens: int = 10,
-        evaluator_temperature: float = 0.0,
-        branching_factor: int = 4,
-        width: int = 10,
-        depth: int = 10,
-        n_streams: int = 1,
-        keep_last_n: int = 1,
-        pruning: bool = True,
         config_root=_config,
     ):
-        self.goal_str = goal
-        self.target = target
-        self.attack_model = attack_model
-        self.attack_max_tokens = attack_max_tokens
-        self.attack_max_attempts = attack_max_attempts
-        self.evaluator_model = evaluator_model
-        self.evaluator_max_tokens = evaluator_max_tokens
-        self.evaluator_temperature = evaluator_temperature
-        self.branching_factor = branching_factor
-        self.width = width
-        self.depth = depth
-        self.n_streams = n_streams
-        self.keep_last_n = keep_last_n
-        self.pruning = pruning
-        self.run_tap = None
         super().__init__(config_root=config_root)
+        self.run_tap = None
 
     def probe(self, generator) -> List[garak.attempt.Attempt]:
         self.generator = generator
@@ -241,38 +228,25 @@ class PAIR(Probe):
     doc_uri = "https://arxiv.org/abs/2310.08419"
     active = False
 
-    def __init__(
-        self,
-        goal: str = GOAL,
-        target: str = TARGET,
-        attack_model: str = "lmsys/vicuna-13b-v1.3",
-        attack_max_tokens: int = 500,
-        attack_max_attempts: int = 5,
-        evaluator_model: str = "gpt-3.5-turbo",
-        evaluator_max_tokens: int = 10,
-        evaluator_temperature: float = 0.0,
-        width: int = 10,
-        depth: int = 10,
-        n_streams: int = 1,
-        keep_last_n: int = 1,
-        config_root=_config,
-    ):
-        self.goal = goal
-        self.target = target
-        self.attack_model = attack_model
-        self.attack_max_tokens = attack_max_tokens
-        self.attack_max_attempts = attack_max_attempts
-        self.evaluator_model = evaluator_model
-        self.evaluator_max_tokens = evaluator_max_tokens
-        self.evaluator_temperature = evaluator_temperature
-        self.branching_factor = 1
-        self.width = width
-        self.depth = depth
-        self.n_streams = n_streams
-        self.keep_last_n = keep_last_n
-        self.pruning = False
-        self.run_tap = None
+    DEFAULT_PARAMS = Probe.DEFAULT_PARAMS | {
+        "goal": GOAL,
+        "target": TARGET,
+        "attack_model": "lmsys/vicuna-13b-v1.3",
+        "attack_max_tokens": 500,
+        "attack_max_attempts": 5,
+        "evaluator_model": "gpt-3.5-turbo",
+        "evaluator_max_tokens": 10,
+        "evaluator_temperature": 0.0,
+        "branching_factor": 4,
+        "width": 10,
+        "depth": 10,
+        "n_streams": 1,
+        "keep_last_n": 1,
+    }
+
+    def __init__(self, config_root=_config):
         super().__init__(config_root=config_root)
+        self.run_tap = None
 
     def probe(self, generator) -> List[garak.attempt.Attempt]:
         self.generator = generator
