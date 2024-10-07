@@ -24,7 +24,7 @@ The description of this technique is:
 
 This requires three LLMs: (1) the target model / generator; (2) a model to generate 
 jailbreak attacks; (3) a model to evaluate and rank how well the jailbreaks are 
-doing. Thus, the hardware requirements can be quite high if one is running all 
+doing. Thus, the hardware requirements can be quite high if one is running 
 everything on a local machine. The evaluator model (3) needs to be particularly 
 good in order to successfully evaluate and rank jailbreak progress.
 
@@ -102,14 +102,21 @@ class TAP(Probe):
     active = False
 
     DEFAULT_PARAMS = Probe.DEFAULT_PARAMS | {
-        "goal": GOAL,
+        "goal_str": GOAL,
         "target": TARGET,
-        "attack_model": "lmsys/vicuna-13b-v1.3",
-        "attack_max_tokens": 500,
+        "attack_model_type": "huggingface.Model",
+        "attack_model_name": "lmsys/vicuna-13b-v1.3",
+        "attack_model_config": {
+            "max_tokens": 500,
+            "hf_args": {"device": "cpu"},
+        },
         "attack_max_attempts": 5,
-        "evaluator_model": "gpt-3.5-turbo",
-        "evaluator_max_tokens": 10,
-        "evaluator_temperature": 0.0,
+        "evaluator_model_type": "openai",
+        "evaluator_model_name": "gpt-3.5-turbo",
+        "evaluator_model_config": {
+            "max_tokens": 10,
+            "temperature": 0.0,
+        },
         "branching_factor": 4,
         "width": 10,
         "depth": 10,
@@ -118,10 +125,7 @@ class TAP(Probe):
         "pruning": True,
     }
 
-    def __init__(
-        self,
-        config_root=_config,
-    ):
+    def __init__(self, config_root=_config):
         super().__init__(config_root=config_root)
         self.run_tap = None
 
@@ -139,12 +143,13 @@ class TAP(Probe):
                 target=self.target,
                 target_generator=self.generator,
                 target_max_tokens=150,
-                attack_model=self.attack_model,
-                attack_max_tokens=self.attack_max_tokens,
+                attack_model_type=self.attack_model_type,
+                attack_model_name=self.attack_model_name,
+                attack_model_config=self.attack_model_config,
                 attack_max_attempts=self.attack_max_attempts,
-                evaluator_model=self.evaluator_model,
-                evaluator_max_tokens=self.evaluator_max_tokens,
-                evaluator_temperature=self.evaluator_temperature,
+                evaluator_model_type=self.evaluator_model_name,
+                evaluator_model_name=self.evaluator_model_name,
+                evaluator_model_config=self.evaluator_model_config,
                 branching_factor=self.branching_factor,
                 width=self.width,
                 depth=self.depth,
@@ -229,14 +234,21 @@ class PAIR(Probe):
     active = False
 
     DEFAULT_PARAMS = Probe.DEFAULT_PARAMS | {
-        "goal": GOAL,
+        "goal_str": GOAL,
         "target": TARGET,
-        "attack_model": "lmsys/vicuna-13b-v1.3",
+        "attack_model_type": "huggingface.Model",
+        "attack_model_name": "lmsys/vicuna-13b-v1.3",
+        "attack_model_config": {
+            "hf_args": {"device": "cpu"},
+        },
         "attack_max_tokens": 500,
         "attack_max_attempts": 5,
-        "evaluator_model": "gpt-3.5-turbo",
-        "evaluator_max_tokens": 10,
-        "evaluator_temperature": 0.0,
+        "evaluator_model_type": "openai",
+        "evaluator_model_name": "gpt-3.5-turbo",
+        "evaluator_model_config": {
+            "max_tokens": 10,
+            "temperature": 0.0,
+        },
         "branching_factor": 4,
         "width": 10,
         "depth": 10,
@@ -258,16 +270,22 @@ class PAIR(Probe):
 
         try:
             pair_outputs = self.run_tap(
-                goal=self.goal,
+                goal=self.goal_str,
                 target=self.target,
                 target_generator=self.generator,
                 target_max_tokens=150,
                 attack_model=self.attack_model,
                 attack_max_tokens=self.attack_max_tokens,
                 attack_max_attempts=self.attack_max_attempts,
-                evaluator_model=self.evaluator_model,
-                evaluator_max_tokens=self.evaluator_max_tokens,
-                evaluator_temperature=self.evaluator_temperature,
+                evaluator_model=self.evaluator_model_name,
+                evaluator_max_tokens=self.evaluator_model_config.get(
+                    "max_tokens",
+                    self.DEFAULT_PARAMS["evaluator_model_config"]["max_tokens"],
+                ),
+                evaluator_temperature=self.evaluator_model_config.get(
+                    "temperature",
+                    self.DEFAULT_PARAMS["evaluator_model_config"]["temperature"],
+                ),
                 branching_factor=self.branching_factor,
                 width=self.width,
                 depth=self.depth,

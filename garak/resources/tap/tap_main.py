@@ -292,13 +292,13 @@ def run_tap(
     target: str,
     target_generator: garak.generators.Generator,
     target_max_tokens: int = 150,
-    attack_model: str = "lmsys/vicuna-7b-v1.3",
-    attack_max_tokens: int = 500,
+    attack_model_type: str = "huggingface.Model",
+    attack_model_name: str = "lmsys/vicuna-7b-v1.3",
+    attack_model_config: dict = {"max_tokens": 150},
     attack_max_attempts: int = 5,
-    attack_device: Optional[Union[int, str]] = 1,
-    evaluator_model: str = "gpt-3.5-turbo",
-    evaluator_max_tokens: int = 10,
-    evaluator_temperature: float = 0.0,
+    evaluator_model_type: str = "openai",
+    evaluator_model_name: str = "gpt-3.5-turbo",
+    evaluator_model_config: dict = {"max_tokens": 10, "temperature": 0.0},
     branching_factor: int = 4,
     width: int = 10,
     depth: int = 10,
@@ -356,12 +356,14 @@ def run_tap(
     system_prompt = attacker_system_prompt(goal, target)
 
     attack_generator = load_generator(
-        attack_model, max_tokens=attack_max_tokens, device=attack_device
+        attack_model_type,
+        attack_model_name=attack_model_name,
+        attack_model_config=attack_model_config,
     )
     evaluator_generator = load_generator(
-        evaluator_model,
-        max_tokens=evaluator_max_tokens,
-        temperature=evaluator_temperature,
+        evaluator_model_type,
+        evaluator_model_name,
+        evaluator_model_config,
     )
 
     attack_manager = AttackManager(
@@ -369,11 +371,11 @@ def run_tap(
         attack_generator=attack_generator,
         target_generator=target_generator,
         evaluation_generator=evaluator_generator,
-        attack_max_tokens=attack_max_tokens,
+        attack_max_tokens=attack_generator.max_tokens,
         attack_max_attempts=attack_max_attempts,
         target_max_tokens=target_max_tokens,
-        evaluator_max_tokens=evaluator_max_tokens,
-        evaluator_temperature=evaluator_temperature,
+        evaluator_max_tokens=evaluator_generator.max_tokens,
+        evaluator_temperature=evaluator_generator.temperature,
         max_parallel_streams=n_streams,
     )
 
