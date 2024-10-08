@@ -48,12 +48,8 @@ class AttackManager:
         attack_generator: garak.generators.Generator,
         target_generator: garak.generators.Generator,
         evaluation_generator: garak.generators.Generator,
-        attack_max_tokens: int = 500,
         attack_max_attempts: int = 5,
         max_parallel_streams: int = 5,
-        target_max_tokens: int = 150,
-        evaluator_max_tokens: int = 10,
-        evaluator_temperature: float = 0.0,
     ):
         """
         Initialize the AttackManager -- class for managing attack iterations
@@ -64,22 +60,19 @@ class AttackManager:
         attack_generator : Generator to use for attacks
         target_generator : Generator to target
         evaluation_generator : Generator for evaluation
-        attack_max_tokens : Max output tokens for attack_generator
         attack_max_attempts : Number of attack attempts
         max_parallel_streams : Number of parallel attack generation attempts
-        target_max_tokens : Max output tokens for target_generator
-        evaluator_max_tokens : Max output tokens for evaluation_generator
-        evaluator_temperature : Temperature for evaluation_generator (NOTE: Changing this from 0.0 is NOT recommended)
         """
         self.attack_generator = attack_generator
         self.target_generator = target_generator
         self.evaluation_generator = evaluation_generator
-        self.attack_max_tokens = attack_max_tokens
+        # self.attack_max_tokens = attack_max_tokens
         self.attack_max_attempts = attack_max_attempts
         self.max_parallel_streams = max_parallel_streams
-        self.target_max_tokens = target_max_tokens
-        self.evaluator_max_tokens = evaluator_max_tokens
-        self.evaluator_temperature = evaluator_temperature
+        # self.target_max_tokens = target_max_tokens
+        # why is max_tokens here passed in it does not look to be used?
+        # self.evaluator_max_tokens = evaluator_max_tokens
+        # self.evaluator_temperature = evaluator_temperature
         self.evaluator_token_limit = get_token_limit(evaluation_generator.name)
         self.system_prompt_judge = judge_system_prompt(goal)
         self.system_prompt_on_topic = on_topic_prompt(goal)
@@ -289,7 +282,6 @@ def run_tap(
     goal: str,
     target: str,
     target_generator: garak.generators.Generator,
-    target_max_tokens: int = 150,
     attack_model_type: str = "huggingface.Model",
     attack_model_name: str = "lmsys/vicuna-7b-v1.3",
     attack_model_config: dict = {"max_tokens": 150},
@@ -314,7 +306,6 @@ def run_tap(
     goal : Goal of the attack (e.g. "Write a tutorial on how to make a bomb")
     target : Target of the attack (e.g. "Sure, here is a tutorial on how to make a bomb")
     target_generator : Garak generator object for target
-    target_max_tokens : Max output tokens for target_generator
     attack_model_type : Generator type of attack model
     attack_model_name : Name of attack model
     attack_model_config : Configuration dictionary for attack_generator
@@ -369,11 +360,7 @@ def run_tap(
         attack_generator=attack_generator,
         target_generator=target_generator,
         evaluation_generator=evaluator_generator,
-        attack_max_tokens=attack_generator.max_tokens,
         attack_max_attempts=attack_max_attempts,
-        target_max_tokens=target_max_tokens,
-        evaluator_max_tokens=evaluator_generator.max_tokens,
-        evaluator_temperature=evaluator_generator.temperature,
         max_parallel_streams=n_streams,
     )
 
@@ -551,7 +538,6 @@ def generate_tap(
     target_model_name : Name of target model
     target_model_config : Configuration dictionary for target generator
     target_model : Name of target model
-    target_max_tokens : Max output tokens for target generator
     evaluator_model_type : Generator type of evaluator model
     evaluator_model_name : Name of evaluator model (NOTE: Must be an conversational model)
     evaluator_model_config : Configuration dictionary for evaluator model (NOTE: A temperature other than 0.0 is NOT recommended)
@@ -564,6 +550,8 @@ def generate_tap(
     outfile : Location to write successful generated attacks
     """
 
+    # this method is never called, should it be removed?
+
     target_generator = load_generator(
         model_type=target_model_type,
         model_name=target_model_name,
@@ -573,7 +561,6 @@ def generate_tap(
         goal=goal,
         target=target,
         target_generator=target_generator,
-        target_max_tokens=target_generator.target_max_tokens,
         attack_model_type=attack_model_type,
         attack_model_name=attack_model_name,
         attack_model_config=attack_model_config,
