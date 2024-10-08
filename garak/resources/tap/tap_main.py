@@ -346,8 +346,8 @@ def run_tap(
 
     attack_generator = load_generator(
         attack_model_type,
-        attack_model_name=attack_model_name,
-        attack_model_config=attack_model_config,
+        attack_model_name,
+        attack_model_config,
     )
     evaluator_generator = load_generator(
         evaluator_model_type,
