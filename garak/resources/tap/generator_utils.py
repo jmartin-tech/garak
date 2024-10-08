@@ -56,6 +56,8 @@ def load_generator(
     # is this mapping still needed?
     if model_name.lower() in hf_dict.keys():
         model_root["name"] = hf_dict[model_name]
-    generator = _plugins.load_plugin(model_type, config_root=config_root)
+    generator = _plugins.load_plugin(
+        f"generators.{model_type}", config_root=config_root
+    )
 
     return generator
