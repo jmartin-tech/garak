@@ -7,6 +7,8 @@ from pathlib import Path
 from tqdm import tqdm
 from logging import getLogger
 
+import garak.generators.openai
+
 from ..red_team.conversation_utils import (
     prune,
     get_template,
@@ -19,6 +21,8 @@ from ..red_team.conversation_utils import (
     get_token_limit,
     get_evaluator_prompt,
     get_evaluator_prompt_on_topic,
+    process_output_judge_score,
+    process_output_on_topic_score,
 )
 from ..red_team.system_prompts import (
     attacker_system_prompt,
@@ -258,9 +262,7 @@ class AttackManager:
         raw_outputs = [
             self.evaluation_generator.generate(conv)[0] for conv in convs_list
         ]
-        outputs = [
-            self.process_output_judge_score(raw_output) for raw_output in raw_outputs
-        ]
+        outputs = [process_output_judge_score(raw_output) for raw_output in raw_outputs]
         return outputs
 
     def on_topic_score(self, attack_prompt_list):
@@ -275,7 +277,7 @@ class AttackManager:
             self.evaluation_generator.generate(conv)[0] for conv in convs_list
         ]
         outputs = [
-            self.process_output_on_topic_score(raw_output) for raw_output in raw_outputs
+            process_output_on_topic_score(raw_output) for raw_output in raw_outputs
         ]
         return outputs
 
@@ -325,11 +327,6 @@ def run_tap(
     outfile : Location to write successful generated attacks
 
     """
-    # Catch unsupported evaluators early -- only OpenAI currently supported for evaluators.
-    if evaluator_model_name not in supported_openai:
-        msg = f"Evaluation currently only supports OpenAI models.\nSupported models:{supported_openai}"
-        raise Exception(msg)
-
     if (
         target_generator.name not in supported_openai
         and target_generator.name not in supported_huggingface
@@ -356,6 +353,11 @@ def run_tap(
         evaluator_model_name,
         evaluator_model_config,
     )
+
+    # Catch unsupported evaluators early -- only OpenAI currently supported for evaluators.
+    if not isinstance(evaluator_generator, garak.generators.openai.OpenAICompatible):
+        msg = f"Evaluation currently only supports OpenAICompatible models.\nSupported models:{supported_openai}"
+        raise Exception(msg)
 
     attack_manager = AttackManager(
         goal=goal,
