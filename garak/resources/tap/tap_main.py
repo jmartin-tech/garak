@@ -17,6 +17,8 @@ from ..red_team.conversation_utils import (
     extract_json,
     token_count,
     get_token_limit,
+    get_evaluator_prompt,
+    get_evaluator_prompt_on_topic,
 )
 from ..red_team.system_prompts import (
     attacker_system_prompt,
@@ -250,7 +252,7 @@ class AttackManager:
 
     def judge_score(self, attack_prompt_list, target_response_list):
         convs_list = [
-            self.create_conv(self.get_evaluator_prompt(prompt, response))
+            self.create_conv(get_evaluator_prompt(prompt, response))
             for prompt, response in zip(attack_prompt_list, target_response_list)
         ]
         raw_outputs = [
@@ -264,7 +266,7 @@ class AttackManager:
     def on_topic_score(self, attack_prompt_list):
         convs_list = [
             self.create_conv(
-                self.get_evaluator_prompt_on_topic(prompt),
+                get_evaluator_prompt_on_topic(prompt),
                 system_prompt=self.system_prompt_on_topic,
             )
             for prompt in attack_prompt_list
