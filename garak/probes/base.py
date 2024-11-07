@@ -20,8 +20,19 @@ from garak.configurable import Configurable
 from garak.exception import PluginConfigurationError
 import garak.attempt
 import garak.resources.theme
-from garak.translator import SimpleTranslator, EncodingTranslator, GoodsideTranslator, DanTranslator
-from garak.translator import LocalDanTranslator, LocalTranslator, LocalEncodingTranslator, LocalGoodsideTranslator, is_english 
+from garak.translator import (
+    SimpleTranslator,
+    EncodingTranslator,
+    GoodsideTranslator,
+    DanTranslator,
+)
+from garak.translator import (
+    LocalDanTranslator,
+    LocalTranslator,
+    LocalEncodingTranslator,
+    LocalGoodsideTranslator,
+    is_english,
+)
 
 
 class Probe(Configurable):
@@ -78,18 +89,11 @@ class Probe(Configurable):
             else:
                 self.description = ""
 
-        if hasattr(config_root, 'plugins'):
-            if hasattr(config_root.plugins, 'generators'):
-                if "translation_service" in config_root.plugins.generators.keys():
-                    translation_service = config_root.plugins.generators["translation_service"]
-                    class_name = self.probename.split(".")[-2]
-                    self.translator = _config.load_translator(translation_service=translation_service, 
-                                                            classname=class_name)
-        if hasattr(self, 'triggers') and len(self.triggers) > 0:
-            if hasattr(self, 'translator'):
+        if hasattr(self, "triggers") and len(self.triggers) > 0:
+            if hasattr(self, "translator"):
                 if self.translator is not None:
                     self.triggers = self.translator.translate_triggers(self.triggers)
-    
+
     def _attempt_prestore_hook(
         self, attempt: garak.attempt.Attempt, seq: int
     ) -> garak.attempt.Attempt:
@@ -222,7 +226,7 @@ class Probe(Configurable):
         # build list of attempts
         attempts_todo: Iterable[garak.attempt.Attempt] = []
         prompts = list(self.prompts)
-        if hasattr(self, 'translator'):
+        if hasattr(self, "translator"):
             if self.translator is not None:
                 prompts = self.translator.translate_prompts(prompts)
         for seq, prompt in enumerate(prompts):
