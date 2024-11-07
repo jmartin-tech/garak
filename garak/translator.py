@@ -453,17 +453,97 @@ class LocalHFReverseTranslator(LocalHFTranslator):
         return translated_text
     
 
+    def translate_prompts(self, prompts):
+        logging.debug(f"before reverses translated prompts : {prompts}")
+        if hasattr(self, 'target_lang') is False or self.source_lang == "*":
+            return prompts 
+        translated_prompts = []
+        prompts = list(prompts)
+        for lang in self.target_lang.split(","):
+            if self.source_lang == lang:
+                continue 
+            for prompt in prompts:
+                mean_word_judge = is_meaning_string(prompt)
+                self.judge_list.append(mean_word_judge)
+                if mean_word_judge:
+                    translate_prompt = self._get_response(prompt, self.source_lang, lang)
+                    translated_prompts.append(translate_prompt)
+                else:
+                    translated_prompts.append(prompt)
+        logging.debug(f"reverse translated prompts : {translated_prompts}")
+        return translated_prompts 
+
 def load_translator(translation_service: str="", classname: str="") -> object:
-    translator_instance = None
-    logging.debug(f"translation_service: {translation_service} classname: {classname}")
+    translator = None
     if translation_service == "local":
-        if classname == "reverse":
-            translator_instance = LocalHFReverseTranslator()
+        if classname == "encoding":
+            translator = LocalEncodingTranslator(plugins.generators)
+        elif classname == "goodside":
+            translator = LocalGoodsideTranslator(plugins.generators)
+        elif classname == "dan":
+            translator = LocalDanTranslator(plugins.generators)
+        elif classname == "reverse":
+            translator = LocalReverseTranslator(plugins.generators)
         else:
-            translator_instance = LocalHFTranslator()
+            translator = LocalTranslator(plugins.generators)
     elif translation_service == "deepl" or translation_service == "nim":
-        if classname == "reverse":
-            translator_instance = ReverseTranslator()
+        if classname == "encoding":
+            translator = EncodingTranslator(plugins.generators)
+        elif classname == "goodside":
+            translator = GoodsideTranslator(plugins.generators)
+        elif classname == "dan":
+            translator = DanTranslator(plugins.generators)
+        elif classname == "reverse":
+            translator = ReverseTranslator(plugins.generators)
         else:
-            translator_instance = SimpleTranslator()
-    return translator_instance
+            translator = SimpleTranslator(plugins.generators)
+    return translator
+
+
+class NullTranslator(LocalTranslator):
+        
+    def _load_model(self):
+        pass
+
+    def _translate(self, text: str, source_lang: str, target_lang: str) -> str:
+        if source_lang == target_lang:
+            return text
+
+    def translate_prompts(self, prompts):
+        return prompts 
+
+def load_translator(translation_service: str="", classname: str="") -> object:
+    translator = None
+    if translation_service == "local":
+        if classname == "encoding":
+            translator = LocalEncodingTranslator(plugins.generators)
+        elif classname == "goodside":
+            translator = LocalGoodsideTranslator(plugins.generators)
+        elif classname == "dan":
+            translator = LocalDanTranslator(plugins.generators)
+        elif classname == "reverse":
+            translator = LocalReverseTranslator(plugins.generators)
+        else:
+            translator = LocalTranslator(plugins.generators)
+    elif translation_service == "deepl" or translation_service == "nim":
+        if classname == "encoding":
+            translator = EncodingTranslator(plugins.generators)
+        elif classname == "goodside":
+            translator = GoodsideTranslator(plugins.generators)
+        elif classname == "dan":
+            translator = DanTranslator(plugins.generators)
+        elif classname == "reverse":
+            translator = ReverseTranslator(plugins.generators)
+        else:
+            translator = SimpleTranslator(plugins.generators)
+    return translator
+
+
+from garak import _config
+classnames = ["encoding", "goodside", "dan", "reverse"]
+translators = {}
+for entry, classname in zip(_config.run.language, classnames):
+    translators[f"{entry.language}-{classname}"] = load_translator(translation_service=entry.language_model_type, classname)
+
+def getTranslator(source: str, dest: str, classname: str):
+    return translators[f"{source}-{dest}-{classname}"]
