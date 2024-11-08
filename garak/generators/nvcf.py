@@ -174,4 +174,24 @@ class NvcfCompletion(NvcfChat):
         return [c["text"] for c in response["choices"]]
 
 
+class Vision(NvcfChat):
+
+    modality = {"in": {"text", "image"}, "out": {"text"}}
+
+    def _build_payload(self, prompt) -> dict:
+
+        payload = {
+            "prompt": prompt,
+            "temperature": self.temperature,
+            "top_p": self.top_p,
+            "max_tokens": self.max_tokens,
+            "stream": False,
+        }
+
+        for k, v in self.extra_params.items():
+            payload[k] = v
+
+        return payload
+
+
 DEFAULT_CLASS = "NvcfChat"
