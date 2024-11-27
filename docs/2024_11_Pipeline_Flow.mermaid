@@ -1,0 +1,42 @@
+sequenceDiagram
+  participant CLI as cli
+  participant Log as Report Log
+  participant Harness
+  participant Evaluator
+  participant Probe
+  participant Attempt
+  participant Detector
+  participant Generator
+  participant LLM as LLM Endpoint
+  
+
+  CLI ->>+ CLI: Parse Args and Config
+  CLI ->>+ Generator: Create
+  CLI ->>+ Probe: Enumerate
+  CLI ->>+ Detector: Enumerate
+  CLI ->>+ Harness: Create with Probe List
+  CLI ->>+ Log: Start Run
+  CLI ->>+ Harness: Run
+  Harness ->> Probe: Create
+  loop For each selected Probe
+    Probe ->> Attempt: Create
+    Probe ->> Generator: Execute Attempt
+    Generator ->> LLM: Execute Attempt
+    LLM ->> Generator: Inference Response
+    Generator ->> Probe: Inference Response
+  end
+  Probe ->> Harness: List[Attempt]
+  loop For each Attempt
+    Harness ->> Log: Store Created Attempt
+  end
+  loop For each Detector
+    Harness ->> Detector: Create
+    loop For each Attempt
+      Harness ->> Detector: Detect
+    end
+  end
+  loop For each Attempt
+    Harness ->> Log: Store Completed Attempt
+  end
+  Harness ->> Evaluator: List[Attempt]
+  CLI ->> CLI: Analyze Results
