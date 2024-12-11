@@ -52,6 +52,7 @@ class Pipeline(Generator, HFCompatible):
             "do_sample": True,
             "device": None,
         },
+        "chat_template": '[{"role":"user", "content": {prompt}}]',
     }
     generator_family_name = "Hugging Face 🤗 pipeline"
     supports_multiple_generations = True
@@ -87,6 +88,10 @@ class Pipeline(Generator, HFCompatible):
             self.generator.tokenizer = AutoTokenizer.from_pretrained(
                 pipeline_kwargs["model"]
             )
+        self.use_chat = (
+            hasattr(self.generator.tokenizer, "chat_template")
+            and self.generator.tokenizer.chat_template is not None
+        )
         if not hasattr(self, "deprefix_prompt"):
             self.deprefix_prompt = self.name in models_to_deprefix
         if _config.loaded:
@@ -107,7 +112,23 @@ class Pipeline(Generator, HFCompatible):
             try:
                 with torch.no_grad():
                     # workaround for pipeline to truncate the input
-                    encoded_prompt = self.generator.tokenizer(prompt, truncation=True)
+
+                    # according to docs https://huggingface.co/docs/transformers/main/en/chat_templating
+                    # chat template should be automatically utilized if the pipeline tokenizer has support
+                    if self.use_chat:
+                        import json
+
+                        chat_prompt = self.generator.tokenizer.apply_chat_template(
+                            json.loads(self.chat_template.format(prompt)),
+                            tokenize=False,
+                            add_generation_prompt=True,
+                        )
+                    else:
+                        chat_prompt = prompt
+
+                    encoded_prompt = self.generator.tokenizer(
+                        chat_prompt, truncation=True
+                    )
                     truncated_prompt = self.generator.tokenizer.decode(
                         encoded_prompt["input_ids"], skip_special_tokens=True
                     )
@@ -431,6 +452,13 @@ class InferenceEndpoint(InferenceAPI):
 class Model(Pipeline, HFCompatible):
     """Get text generations from a locally-run Hugging Face model"""
 
+    # consider expanding this or creating a BaseModel / ChatModel path.
+    # How viable is it to detect if the tokenizer has chat support and is the chat pattern consistent across models?
+
+    DEFAULT_PARAMS = Pipeline.DEFAULT_PARAMS | {
+        "chat_template": '[{"role":"user", "content": {prompt}}]',
+    }
+
     generator_family_name = "Hugging Face 🤗 model"
     supports_multiple_generations = True
 
@@ -468,6 +496,12 @@ class Model(Pipeline, HFCompatible):
                 self.name, padding_side="left"
             )
 
+        # test tokenizer for `apply_chat_template` support
+        self.use_chat = (
+            hasattr(self.tokenizer, "chat_template")
+            and self.tokenizer.chat_template is not None
+        )
+
         self.generation_config = transformers.GenerationConfig.from_pretrained(
             self.name
         )
@@ -496,8 +530,19 @@ class Model(Pipeline, HFCompatible):
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", category=UserWarning)
             with torch.no_grad():
+                if self.use_chat:
+                    import json
+
+                    chat_prompt = self.tokenizer.apply_chat_template(
+                        json.loads(self.chat_template.format(prompt)),
+                        tokenize=False,
+                        add_generation_prompt=True,
+                    )
+                else:
+                    chat_prompt = prompt
+
                 inputs = self.tokenizer(
-                    prompt, truncation=True, return_tensors="pt"
+                    chat_prompt, truncation=True, return_tensors="pt"
                 ).to(self.device)
 
                 try:
