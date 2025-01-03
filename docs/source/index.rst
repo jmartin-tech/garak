@@ -11,7 +11,7 @@ in how garak works. There is a separate `User Guide <https://docs.garak.ai>`_ co
 on running garak and interpreting results. If you want to use the tool and get results,
 and you don't care about its internals, then you want the user guide. Take a look there! `<https://docs.garak.ai>`_
 
-On the other hand, if you'd like a to get into the the details or work out how 
+On the other hand, if you'd like a to get into the details or work out how 
 to contribute code, you're in the right place - welcome!
 
 You can also join our `Discord <https://discord.gg/uVch4puUCs>`_
@@ -38,7 +38,7 @@ Using garak
 
    how
    usage
-   reporting
+   FAQ <https://github.com/NVIDIA/garak/blob/main/FAQ.md>
 
 Advanced usage
 ^^^^^^^^^^^^^^

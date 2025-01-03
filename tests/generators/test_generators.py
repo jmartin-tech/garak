@@ -133,8 +133,12 @@ def test_parallel_requests():
     result = g.generate(prompt="this is a test", generations_this_call=3)
     assert isinstance(result, list), "Generator generate() should return a list"
     assert len(result) == 3, "Generator should return 3 results as requested"
-    assert all(isinstance(item, str) for item in result), "All items in the generate result should be strings"
-    assert all(len(item) > 0 for item in result), "All generated strings should be non-empty"
+    assert all(
+        isinstance(item, str) for item in result
+    ), "All items in the generate result should be strings"
+    assert all(
+        len(item) > 0 for item in result
+    ), "All generated strings should be non-empty"
 
 
 @pytest.mark.parametrize("classname", GENERATORS)
@@ -179,6 +183,7 @@ TESTABLE_GENERATORS = [
     for classname in GENERATORS
     if classname
     not in [
+        "generators.azure.AzureOpenAIGenerator",  # requires additional env variables tested in own test class
         "generators.function.Multiple",  # requires mock local function not implemented here
         "generators.function.Single",  # requires mock local function not implemented here
         "generators.ggml.GgmlGenerator",  # validates files on disk tested in own test class
@@ -189,7 +194,6 @@ TESTABLE_GENERATORS = [
         "generators.huggingface.OptimumPipeline",  # model name restrictions and cuda required
         "generators.huggingface.Pipeline",  # model name restrictions
         "generators.langchain.LangChainLLMGenerator",  # model name restrictions
-        "generators.openai.OpenAICompatible",  # template class not intended to ever be `Active`
     ]
 ]
 

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "garak"
-version = "0.9.0.16.post1"
+version = "0.10.1.post1"
 authors = [
   { name = "Leon Derczynski", email="lderczynski@nvidia.com" },
   { name = "Subho Majumdar", email="subho@vijil.ai" },
@@ -27,6 +27,13 @@ authors = [
   { name = "Arjun Krishna" },
   { name = "Mihailo Milenkovic" },
   { name = "Kai Greshake" },
+  { name = "Martin Borup-Larsen" },
+  { name = "Emmanuel Ferdman" },
+  { name = "Eric Therond" },
+  { name = "Zoe Nolan" },
+  { name = "Harsh Raj" },
+  { name = "Shine-afk" },
+  { name = "Rafael Sandroni" },  
 ]
 license = { file = "LICENSE" }
 description = "LLM vulnerability scanner"
@@ -86,9 +93,11 @@ dependencies = [
 [project.optional-dependencies]
 tests = [
   "pytest>=8.0",
+  "pytest-mock>=3.14.0",
   "requests-mock==1.12.1",
   "respx>=0.21.1",
-  "pytest-cov>=5.0.0"
+  "pytest-cov>=5.0.0",
+  "pytest_httpserver>=1.1.0"
 ]
 lint = [
   "black==24.4.2",
@@ -99,8 +108,8 @@ calibration = [
 ]
 
 [project.urls]
-"Homepage" = "https://github.com/leondz/garak"
-"Bug Tracker" = "https://github.com/leondz/garak/issues"
+"Homepage" = "https://github.com/NVIDIA/garak"
+"Bug Tracker" = "https://github.com/NVIDIA/garak/issues"
 
 [project.scripts]
 garak = "garak.__main__:main"
