@@ -15,6 +15,18 @@ run:
   generations: 5
   probe_tags:
   user_agent: "garak/{version} (LLM vulnerability scanner https://garak.ai)"
+  lang_spec: "en"
+  translators:
+    - language: "en-ja"
+      model_type: local
+      name: some_model_for_translation_to_ja_from_en
+      hf_args:
+        device: cpu
+    - language: "ja-en"
+      model_type: local
+      name: some_model_for_translation_to_en_from_ja
+      hf_args:
+        device: cpu
 
 plugins:
   model_type:

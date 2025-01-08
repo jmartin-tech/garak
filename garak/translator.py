@@ -6,10 +6,8 @@
 
 
 from collections.abc import Iterable
-import garak.attempt
 from typing import Optional, List
 from deepl import Translator
-import os
 import riva.client
 import re
 import unicodedata
@@ -134,7 +132,16 @@ def convert_json_string(json_string):
     return json_string
 
 
-class SimpleTranslator:
+# Can I make this `Configurable`? The root object would need to met the standard type search criteria
+# { translators: 
+#     "language": "<from>-<to>"
+#     "model_type": "local"
+#     "name": "model/name"
+#     "hf_args": {} # or any other translator specific values for the model_type
+# }
+from garak.configurable import Configurable
+
+class SimpleTranslator(Configurable):
     """DeepL or NIM translation option"""
 
     # Reference: https://developers.deepl.com/docs/resources/supported-languages
@@ -161,40 +168,39 @@ class SimpleTranslator:
     DEEPL_ENV_VAR = "DEEPL_API_KEY"
     NIM_ENV_VAR = "NIM_API_KEY"
 
-    def __init__(self, config_root: _config=_config, source_lang: str="en") -> None:
+    def __init__(self, config_root: dict={}) -> None:
+        self._load_config(config_root=config_root)
+
         self.translator = None
         self.nmt_client = None
-        self.translation_service = ""
-        self.source_lang = source_lang
-        self.translation_service = config_root.run.translation['translation_service']
-        self.target_lang = config_root.run.translation['lang_spec']
-        self.model_name = config_root.run.translation['model_spec']['model_name']
-        if self.translation_service == "deepl":
-            self.deepl_api_key = config_root.run.translation['api_key']
-        if self.translation_service == "nim":
-            self.nim_api_key = config_root.run.translation['api_key']
+        self.source_lang, self.target_lang = self.language.split("-")
 
-        if self.translation_service == "deepl" and not self.deepl_api_key:
-            raise ValueError(f"{self.deepl_api_key} environment variable is not set")
-        elif self.translation_service == "nim" and not self.nim_api_key:
-            raise ValueError(f"{self.nim_api_key} environment variable is not set")
+        self.target_lang = config_root.run.translation['lang_spec']
+
+        if self.model_type == "deepl":
+            self.key_env_var = self.DEEPL_ENV_VAR
+        if self.model_type == "nim":
+            self.key_env_var = self.NIM_ENV_VAR
+
+        self._validate_env_var()
 
         self._load_translator()
 
     def _load_translator(self):
-        if self.translation_service == "deepl" and self.translator is None:
-            self.translator = Translator(self.deepl_api_key)
-        elif self.translation_service == "nim" and self.nmt_client is None:
+        if self.model_type == "deepl" and self.translator is None:
+            self.translator = Translator(self.api_key)
+        elif self.model_type == "nim" and self.nmt_client is None:
             auth = riva.client.Auth(None, True, "grpc.nvcf.nvidia.com:443",
                                     [("function-id", "647147c1-9c23-496c-8304-2e29e7574510"),
-                                     ("authorization", "Bearer " + self.nim_api_key)])
+                                     ("authorization", "Bearer " + self.api_key)])
             self.nmt_client = riva.client.NeuralMachineTranslationClient(auth)
 
+    # should this be taking language values? If the translator has been created with known languages take them as params?
     def _translate(self, text: str, source_lang: str, target_lang: str) -> str:
         try:
-            if self.translation_service == "deepl":
+            if self.model_type == "deepl":
                 return self.translator.translate_text(text, source_lang=source_lang, target_lang=target_lang).text
-            elif self.translation_service == "nim":
+            elif self.model_type == "nim":
                 response = self.nmt_client.translate([text], "", source_lang, target_lang)
                 return response.translations[0].text
         except Exception as e:
@@ -341,23 +347,34 @@ class SimpleTranslator:
             )
         return translated_attempt_descrs
 
+class NullTranslator(SimpleTranslator):
+        
+    def _load_translator(self):
+        pass
+
+    def _translate(self, text: str, source_lang: str, target_lang: str) -> str:
+        if source_lang == target_lang:
+            return text
+
+    def translate_prompts(self, prompts: List[str], only_translate_word: bool=False, reverse_translate_judge: bool=False) -> List[str]:
+        return prompts 
 
 class ReverseTranslator(SimpleTranslator):
     
     def _translate(self, text: str, source_lang: str, target_lang: str) -> str:
         try:
-            if self.translation_service == "deepl":
+            if self.model_type == "deepl":
                 source_lang = "en-us"
                 return self.translator.translate_text(text, source_lang=target_lang, target_lang=source_lang).text
-            elif self.translation_service == "nim":
+            elif self.model_type == "nim":
                 response = self.nmt_client.translate([text], "", target_lang, source_lang)
                 return response.translations[0].text
         except Exception as e:
             logging.error(f"Translation error: {str(e)}")
             return text
-    
 
-class LocalHFTranslator(SimpleTranslator):
+from garak.resources.api.huggingface import HFCompatible
+class LocalHFTranslator(SimpleTranslator, HFCompatible):
     """Local translation using Huggingface m2m100 models
     Reference: 
       - https://huggingface.co/facebook/m2m100_1.2B 
@@ -365,29 +382,27 @@ class LocalHFTranslator(SimpleTranslator):
       - https://huggingface.co/docs/transformers/model_doc/marian
     """
 
-    def __init__(self, config_root: _config=_config, source_lang: str="en") -> None:
-        self.device = torch.device("cpu" if not torch.cuda.is_available() else "cuda")
-        self.source_lang = source_lang
-        self.lang_specs = config_root.run.translation['lang_spec']
-        self.target_lang = config_root.run.translation['lang_spec']
-        self.model_name = config_root.run.translation['model_spec']['model_name']
-        self.tokenizer_name = config_root.run.translation['model_spec']['model_name'] 
-        self._load_model()
+    def __init__(self, config_root: dict={}) -> None:
+        self._load_config(config_root=config_root)
+        self.device = self._select_hf_device()
+        super.__init__(config_root=config_root)
     
-    def _load_model(self):
+    def _load_translator(self):
+        # why does this need to test for `en`?
         if "m2m100" in self.model_name and self.target_lang != "en":
             self.model = M2M100ForConditionalGeneration.from_pretrained(self.model_name).to(self.device)
             self.tokenizer = M2M100Tokenizer.from_pretrained(self.tokenizer_name)
         else:
             self.models = {}
             self.tokenizers = {}
-        
-            for lang in self.lang_specs.split(","):
+
+            # is this attempting to create a set of models for translation at once?        
+            # refactor to create a model for the target language only
+            for lang in [self.target_lang]:
                 if lang != "en":
                     model_name = self.model_name.format(lang)
-                    tokenizer_name = self.tokenizer_name.format(lang)
                     self.models[lang] = MarianMTModel.from_pretrained(model_name).to(self.device)
-                    self.tokenizers[lang] = MarianTokenizer.from_pretrained(tokenizer_name)
+                    self.tokenizers[lang] = MarianTokenizer.from_pretrained(model_name)
 
     def _translate(self, text: str, source_lang: str, target_lang: str) -> str:
         if "m2m100" in self.model_name:
@@ -411,27 +426,8 @@ class LocalHFTranslator(SimpleTranslator):
 
             return translated_text
 
-
 class LocalHFReverseTranslator(LocalHFTranslator):
     
-    def __init__(self, config_root: _config=_config, source_lang: str="en") -> None:
-        super().__init__(config_root, source_lang)
-        self._load_model()
-    
-    def _load_model(self):
-        if "m2m100" in self.model_name:
-            self.model = M2M100ForConditionalGeneration.from_pretrained(self.model_name).to(self.device)
-            self.tokenizer = M2M100Tokenizer.from_pretrained(self.tokenizer_name)
-        else:
-            self.models = {}
-            self.tokenizers = {}
-        
-            for lang in self.lang_specs.split(","):
-                model_name = self.model_name.format(lang)
-                tokenizer_name = self.tokenizer_name.format(lang)
-                self.models[lang] = MarianMTModel.from_pretrained(model_name).to(self.device)
-                self.tokenizers[lang] = MarianTokenizer.from_pretrained(tokenizer_name)
-
     def _translate(self, text: str, source_lang: str, target_lang: str) -> str:
         if "m2m100" in self.model_name:
             self.tokenizer.src_lang = target_lang
@@ -473,77 +469,27 @@ class LocalHFReverseTranslator(LocalHFTranslator):
         logging.debug(f"reverse translated prompts : {translated_prompts}")
         return translated_prompts 
 
-def load_translator(translation_service: str="", classname: str="") -> object:
-    translator = None
+def load_translator(translation_service: dict={}, classname: str="") -> object:
+    translator_instance = None
+    logging.debug(f"translation_service: {translation_service['translators']['language']} classname: {classname}")
     if translation_service == "local":
-        if classname == "encoding":
-            translator = LocalEncodingTranslator(plugins.generators)
-        elif classname == "goodside":
-            translator = LocalGoodsideTranslator(plugins.generators)
-        elif classname == "dan":
-            translator = LocalDanTranslator(plugins.generators)
-        elif classname == "reverse":
-            translator = LocalReverseTranslator(plugins.generators)
+        if classname == "reverse":
+            translator_instance = LocalHFReverseTranslator(translation_service)
         else:
-            translator = LocalTranslator(plugins.generators)
+            translator_instance = LocalHFTranslator()
     elif translation_service == "deepl" or translation_service == "nim":
-        if classname == "encoding":
-            translator = EncodingTranslator(plugins.generators)
-        elif classname == "goodside":
-            translator = GoodsideTranslator(plugins.generators)
-        elif classname == "dan":
-            translator = DanTranslator(plugins.generators)
-        elif classname == "reverse":
-            translator = ReverseTranslator(plugins.generators)
+        if classname == "reverse":
+            translator_instance = ReverseTranslator(translation_service)
         else:
-            translator = SimpleTranslator(plugins.generators)
-    return translator
-
-
-class NullTranslator(LocalTranslator):
-        
-    def _load_model(self):
-        pass
-
-    def _translate(self, text: str, source_lang: str, target_lang: str) -> str:
-        if source_lang == target_lang:
-            return text
-
-    def translate_prompts(self, prompts):
-        return prompts 
-
-def load_translator(translation_service: str="", classname: str="") -> object:
-    translator = None
-    if translation_service == "local":
-        if classname == "encoding":
-            translator = LocalEncodingTranslator(plugins.generators)
-        elif classname == "goodside":
-            translator = LocalGoodsideTranslator(plugins.generators)
-        elif classname == "dan":
-            translator = LocalDanTranslator(plugins.generators)
-        elif classname == "reverse":
-            translator = LocalReverseTranslator(plugins.generators)
-        else:
-            translator = LocalTranslator(plugins.generators)
-    elif translation_service == "deepl" or translation_service == "nim":
-        if classname == "encoding":
-            translator = EncodingTranslator(plugins.generators)
-        elif classname == "goodside":
-            translator = GoodsideTranslator(plugins.generators)
-        elif classname == "dan":
-            translator = DanTranslator(plugins.generators)
-        elif classname == "reverse":
-            translator = ReverseTranslator(plugins.generators)
-        else:
-            translator = SimpleTranslator(plugins.generators)
-    return translator
-
+            translator_instance = SimpleTranslator(translation_service)
+    return translator_instance
 
 from garak import _config
 classnames = ["encoding", "goodside", "dan", "reverse"]
 translators = {}
 for entry, classname in zip(_config.run.language, classnames):
-    translators[f"{entry.language}-{classname}"] = load_translator(translation_service=entry.language_model_type, classname)
+    # example _config.run.language['language']: en-ja classname encoding result in key "en-ja-encoding"
+    translators[f"{entry['language']}-{classname}"] = load_translator(translation_service= { "translators": entry } , classname=classname)
 
 def getTranslator(source: str, dest: str, classname: str):
-    return translators[f"{source}-{dest}-{classname}"]
+    return translators.get(f"{source}-{dest}-{classname}", None)
