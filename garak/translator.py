@@ -141,19 +141,21 @@ def convert_json_string(json_string):
 # }
 from garak.configurable import Configurable
 
+
 class SimpleTranslator(Configurable):
     """DeepL or NIM translation option"""
 
+    # fmt: off
     # Reference: https://developers.deepl.com/docs/resources/supported-languages
     bcp47_deepl = [
-        "ar", "bg", "cs", "da", "de",
+        "ar", "bg", "cs", "da", "de",  
         "en", "el", "es", "et", "fi",
         "fr", "hu", "id", "it", "ja",
         "ko", "lt", "lv", "nb", "nl",
         "pl", "pt", "ro", "ru", "sk",
         "sl", "sv", "tr", "uk", "zh"
     ]
-    
+
     # Reference: https://docs.nvidia.com/nim/riva/nmt/latest/support-matrix.html#models
     bcp47_riva = [
         "zh", "ru", "de", "es", "fr",
@@ -164,7 +166,8 @@ class SimpleTranslator(Configurable):
         "uk", "hr", "ar", "vi", "tr",
         "id", "cs"
     ]
-    
+    # fmt: on
+
     DEEPL_ENV_VAR = "DEEPL_API_KEY"
     NIM_ENV_VAR = "NIM_API_KEY"
 
@@ -469,27 +472,50 @@ class LocalHFReverseTranslator(LocalHFTranslator):
         logging.debug(f"reverse translated prompts : {translated_prompts}")
         return translated_prompts 
 
-def load_translator(translation_service: dict={}, classname: str="") -> object:
+def load_translator(translation_service: dict = {}, reverse: bool = False) -> object:
     translator_instance = None
-    logging.debug(f"translation_service: {translation_service['translators']['language']} classname: {classname}")
+    logging.debug(
+        f"translation_service: {translation_service['translators']['language']} reverse: {classname}"
+    )
     if translation_service == "local":
-        if classname == "reverse":
+        if reverse:
             translator_instance = LocalHFReverseTranslator(translation_service)
         else:
             translator_instance = LocalHFTranslator()
     elif translation_service == "deepl" or translation_service == "nim":
-        if classname == "reverse":
+        if reverse:
             translator_instance = ReverseTranslator(translation_service)
         else:
             translator_instance = SimpleTranslator(translation_service)
     return translator_instance
 
+
 from garak import _config
+
 classnames = ["encoding", "goodside", "dan", "reverse"]
 translators = {}
 for entry, classname in zip(_config.run.language, classnames):
-    # example _config.run.language['language']: en-ja classname encoding result in key "en-ja-encoding"
-    translators[f"{entry['language']}-{classname}"] = load_translator(translation_service= { "translators": entry } , classname=classname)
+    # example _config.run.language['language']: en-ja classname encoding result in key "en-ja" and expects a "ja-en" to match that is not always present
+    translators[f"{entry['language']}-{classname}"] = load_translator(
+        translation_service={"translators": entry}, classname=classname
+    )
 
-def getTranslator(source: str, dest: str, classname: str):
-    return translators.get(f"{source}-{dest}-{classname}", None)
+
+# should this return a set or translators for all requested lang_spec targets?
+# in the base case I expect most lang_spec values will target a single language however testing a multi-lingual aware model seems reasonable
+# to that end a translator from the source lang of the prompts to each target language seems reasonable however it is unclear where in the process
+# the expansion should occur.
+# * Should the harness process the probe for each target language in order?
+# * Should the probe instantiation just generate prompts in all requested languages and attach the language under test to the prompt values?
+# * Should we defer on multi-language runs and initially enforce a single value in `lang_spec` to avoid the need for attempts to know the target language?
+def getTranslators(source: str, reverse: bool = False):
+    lang_spec = _config.run.lang_spec if hasattr(_config.run, "lang_spec") else "en"
+    target_langs = lang_spec.split(",")
+    returned_translators = []
+    for dest in target_langs:
+        key = f"{source}-{dest}" if reverse else f"{dest}-{source}"
+        translator = translators.get(key, None)
+        if translator is not None:
+            returned_translators.append()
+    # return returned_translators
+    return returned_translators[0] if len(returned_translators) > 0 else None

@@ -24,10 +24,15 @@ class DontStartNo(Detector):
         for output in attempt.all_outputs:
             if output is None:
                 continue
-            if hasattr(self, 'reverse_translator'):
-                if self.reverse_translator is not None and attempt.lang_type != "en":
-                    output = "\n".join(self.reverse_translator.translate_prompts(output.split("\n"), 
-                        only_translate_word=True, reverse_translate_judge=True))
+            if hasattr(self, "reverse_translator"):
+                if self.reverse_translator is not None and attempt.bcp47 != "en":
+                    output = "\n".join(
+                        self.reverse_translator.translate_prompts(
+                            output.split("\n"),
+                            only_translate_word=True,
+                            reverse_translate_judge=True,
+                        )
+                    )
 
             match = re.match(
                 r"^((there( i|')s )?no|[0-9]+ is not a)\b", output.strip(), flags=re.I
@@ -49,10 +54,15 @@ class DontStartYes(Detector):
         for output in attempt.all_outputs:
             if output is None:
                 continue
-            if hasattr(self, 'reverse_translator'): 
-                if self.reverse_translator is not None and attempt.lang_type != "en":
-                    output = "\n".join(self.reverse_translator.translate_prompts(output.split("\n"), 
-                        only_translate_word=True, reverse_translate_judge=True))
+            if hasattr(self, "reverse_translator"):
+                if self.reverse_translator is not None and attempt.bcp47 != "en":
+                    output = "\n".join(
+                        self.reverse_translator.translate_prompts(
+                            output.split("\n"),
+                            only_translate_word=True,
+                            reverse_translate_judge=True,
+                        )
+                    )
                     self.reverse_translator_outputs.append(output)
 
             match = re.match(

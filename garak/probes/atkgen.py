@@ -99,6 +99,8 @@ class Tox(Probe):
             calls_made = 0
             keep_going = True
 
+            # consider passing self.bcp47 here to initialize the language though
+            # the correct language here might be the `self.translator.target_lang`
             this_attempt = self._mint_attempt()  # don't set the prompt yet
 
             last_response = None
@@ -111,12 +113,23 @@ class Tox(Probe):
                 print("atkgen: 🆕 ⋅.˳˳.⋅ॱ˙˙ॱ New conversation ॱ˙˙ॱ⋅.˳˳.⋅ 🗣️")
 
             while calls_made < self.max_calls and keep_going:
-                turns, this_attempt, last_response, calls_made, keep_going = self._generate_and_log_turn(
-                    generator, t, output_is_conversation, last_response, turns, this_attempt, 
-                    red_team_model_short, calls_made, keep_going, challenge_translate=None, 
-                    lang_type="en"
+                turns, this_attempt, last_response, calls_made, keep_going = (
+                    self._generate_and_log_turn(
+                        generator,
+                        t,
+                        output_is_conversation,
+                        last_response,
+                        turns,
+                        this_attempt,
+                        red_team_model_short,
+                        calls_made,
+                        keep_going,
+                        challenge_translate=None,
+                        bcp47="en",
+                    )
                 )
-                this_attempt.lang_type = "en"
+                # why is the attempt language set here?
+                this_attempt.bcp47 = "en"
 
             if not output_is_conversation:
                 t.close()
@@ -127,14 +140,14 @@ class Tox(Probe):
                 json.dumps(this_attempt.as_dict()) + "\n"
             )
             attempts.append(copy.deepcopy(this_attempt))
-        
+
             if hasattr(self, "translator"):
                 if self.translator is not None:
                     for i, challenge_translate in enumerate(self.challenges_translate):
                         lang_type = self.lang_list[i]
                         calls_made = 0
                         keep_going = True
-                        
+
                         this_attempt = self._mint_attempt()  # don't set the prompt yet
 
                         last_response = None
@@ -146,12 +159,25 @@ class Tox(Probe):
                             print("atkgen: 🆕 ⋅.˳˳.⋅ॱ˙˙ॱ New conversation ॱ˙˙ॱ⋅.˳˳.⋅ 🗣️")
 
                         while calls_made < self.max_calls and keep_going:
-                           turns, this_attempt, last_response, calls_made, keep_going = self._generate_and_log_turn(
-                               generator, t, output_is_conversation, last_response, turns, this_attempt, 
-                               red_team_model_short, calls_made, keep_going, 
-                               challenge_translate=challenge_translate,
-                               lang_type=lang_type
-                           )
+                            (
+                                turns,
+                                this_attempt,
+                                last_response,
+                                calls_made,
+                                keep_going,
+                            ) = self._generate_and_log_turn(
+                                generator,
+                                t,
+                                output_is_conversation,
+                                last_response,
+                                turns,
+                                this_attempt,
+                                red_team_model_short,
+                                calls_made,
+                                keep_going,
+                                challenge_translate=challenge_translate,
+                                bcp47=lang_type,
+                            )
                         if not output_is_conversation:
                             t.close()
                         this_attempt.notes["turns"] = turns
@@ -167,15 +193,26 @@ class Tox(Probe):
             generator.max_new_tokens = prev_max_new_tokens
 
         return attempts
-    
 
-    def _generate_and_log_turn(self, generator: Generator, t: tqdm, output_is_conversation: bool, 
-        last_response: str, turns: List[Tuple[str, str]], this_attempt: garak.attempt.Attempt, 
-        red_team_model_short: str, calls_made: int, keep_going: bool, 
-        challenge_translate: str, lang_type: str) -> Tuple[str, List[Tuple[str, str]], garak.attempt.Attempt, bool, str]:
+    def _generate_and_log_turn(
+        self,
+        generator: Generator,
+        t: tqdm,
+        output_is_conversation: bool,
+        last_response: str,
+        turns: List[Tuple[str, str]],
+        this_attempt: garak.attempt.Attempt,
+        red_team_model_short: str,
+        calls_made: int,
+        keep_going: bool,
+        challenge_translate: str,
+        bcp47: str,  # this signature masks self.bcp47 so be sure about which is used in this method.
+    ) -> Tuple[str, List[Tuple[str, str]], garak.attempt.Attempt, bool, str]:
         if not output_is_conversation:
-            t.set_description(f" turn {t.n:02}: red teaming [{red_team_model_short[:10]:<10}]")
-    
+            t.set_description(
+                f" turn {t.n:02}: red teaming [{red_team_model_short[:10]:<10}]"
+            )
+
         if last_response == "" and self.constructive_tension:
             challenge = ""
         else:
@@ -183,43 +220,58 @@ class Tox(Probe):
                 last_response = last_response.split(". ")[0]
             else:
                 last_response = ""
-    
-            query = self.red_team_prompt_template.replace("[query]", last_response) if len(self.red_team_prompt_template) else last_response
-            if len(turns) == 0 and challenge_translate is not None: 
+
+            query = (
+                self.red_team_prompt_template.replace("[query]", last_response)
+                if len(self.red_team_prompt_template)
+                else last_response
+            )
+            if len(turns) == 0 and challenge_translate is not None:
                 challenge = challenge_translate
-                this_attempt.lang_type = lang_type 
+                this_attempt.bcp47 = bcp47  # the language of attempts should not change, why is this set here?
             else:
                 challenge = self.redteamer.generate(query)[0]
                 if self.red_team_postproc_rm_regex:
-                    challenge = re.sub(self.red_team_postproc_rm_regex, "", challenge).strip()
+                    challenge = re.sub(
+                        self.red_team_postproc_rm_regex, "", challenge
+                    ).strip()
 
-            if len(turns) == 0 and challenge_translate is None: 
+            if len(turns) == 0 and challenge_translate is None:
                 if hasattr(self, "translator"):
                     if self.translator is not None:
-                        self.challenges_translate = self.translator.translate_prompts([challenge])[1:]
-                        self.lang_list = self.translator.lang_list[1:]
-    
+                        self.challenges_translate = self.translator.translate_prompts(
+                            [challenge]
+                        )[1:]
+                        self.lang_list = [
+                            self.translator.target_lang
+                        ]  # this sets object state as a sideeffect, consider how this might be refactored
+                        # this list is unique to atkgen access as self.translator.target_lang as there should not be a `list` here yet
+
         if not output_is_conversation:
             t.update()
-    
+
         turn = ("probe", challenge)
         if len(turns) == 0:
             this_attempt.prompt = challenge
             this_attempt._expand_prompt_to_histories(1)
         else:
             this_attempt._add_turn("user", [challenge])
-    
+
         turns.append(turn)
         logging.debug("atkgen: probe: %s", turn)
         if output_is_conversation:
             probe_text = re.sub(r"[\r\n]+", "\n", turn[1]).strip()
-            print(f"atkgen: 🔴 probe: {Fore.LIGHTYELLOW_EX}{probe_text}{Style.RESET_ALL}")
+            print(
+                f"atkgen: 🔴 probe: {Fore.LIGHTYELLOW_EX}{probe_text}{Style.RESET_ALL}"
+            )
         else:
-            t.set_description(f" turn {t.n:02}: waiting for [{generator.name[:10]:<10}]")
-    
+            t.set_description(
+                f" turn {t.n:02}: waiting for [{generator.name[:10]:<10}]"
+            )
+
         response = generator.generate(challenge)
         response = response[0].strip() if response and response[0] is not None else ""
-    
+
         turn = ("model", response)
         this_attempt._add_turn("assistant", [response])
         turns.append(turn)
@@ -228,7 +280,7 @@ class Tox(Probe):
             print(f"atkgen: 🦜 model: {Style.BRIGHT}{turn[1]}{Style.RESET_ALL}")
         else:
             t.update()
-    
+
         # increment calls_made
         calls_made += 1
         # check if the resp is empty or if it matches the previous resp
@@ -239,7 +291,7 @@ class Tox(Probe):
         # update last_response
         last_response = response.replace("\n", " ").strip()
         self.redteamer.max_new_tokens = 170  # after first iter, give a limit
-    
+
         return turns, this_attempt, last_response, calls_made, keep_going
 
     def _build_red_team_model_config(self):
@@ -271,6 +323,4 @@ class Tox(Probe):
             logging.critical(msg)
             raise ValueError(msg)
 
-        if hasattr(_config, 'run'):
-            if hasattr(_config.run, 'translation'):
-                self.translator = self.get_translator()
+        self.translator = self.get_translator()
