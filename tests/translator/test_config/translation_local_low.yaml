@@ -1,7 +1,7 @@
 run:
-  translation:
-    translation_service: local 
-    lang_spec: jap
-    model_spec:
+  lang_spec: ja
+  # note that jap is expected to sub with {} in model_name
+  translators:
+    - language: en-ja
+      model_type: local 
       model_name: Helsinki-NLP/opus-mt-en-{} 
-      tokenizer_name: Helsinki-NLP/opus-mt-en-{}

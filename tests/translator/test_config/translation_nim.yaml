@@ -1,5 +1,6 @@
 run:
-  translation:
-    translation_service: nim
-    api_key: "" 
-    lang_spec: ja
+  lang_spec: ja
+  translator:
+    - language: en-ja
+      model_type: nim
+      api_key: ""
