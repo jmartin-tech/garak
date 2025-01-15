@@ -53,6 +53,8 @@ Let's take a look at the core config.
         eval_threshold: 0.5
         generations: 5
         probe_tags:
+        lang_spec: "en"
+        translators:
 
     plugins:
         model_type:
@@ -103,6 +105,8 @@ such as ``show_100_pass_modules``.
 * ``seed`` - An optional random seed
 * ``eval_threshold`` - At what point in the 0..1 range output by detectors does a result count as a successful attack / hit
 * ``user_agent`` - What HTTP user agent string should garak use? ``{version}`` can be used to signify where garak version ID should go
+* ``lang_spec`` - A comma separated list if bcp47 values the target application or LLM accepts as prompts
+* ``translators`` - A list of configurations representing translators for converting from probe bcp47 language to land_spec target bcp47 languages
 
 ``plugins`` config items
 """"""""""""""""""""""""

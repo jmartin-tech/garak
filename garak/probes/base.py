@@ -76,7 +76,7 @@ class Probe(Configurable):
             else:
                 self.description = ""
         self.translator = self.get_translator()
-        if hasattr(self, "triggers"):
+        if self.translator is not None and hasattr(self, "triggers"):
             self.triggers = self.translator.translate_prompts(self.triggers)
 
     def get_translator(self):

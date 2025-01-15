@@ -460,10 +460,16 @@ class LocalHFTranslator(SimpleTranslator, HFCompatible):
       - https://huggingface.co/docs/transformers/model_doc/marian
     """
 
+    DEFAULT_PARAMS = {
+        "hf_args": {
+            "device": "cpu",
+        }
+    }
+
     def __init__(self, config_root: dict = {}) -> None:
         self._load_config(config_root=config_root)
         self.device = self._select_hf_device()
-        super.__init__(config_root=config_root)
+        super().__init__(config_root=config_root)
 
     def _load_translator(self):
         # why does this need to test for `en`?
@@ -575,14 +581,19 @@ class LocalHFReverseTranslator(LocalHFTranslator):
 def load_translator(translation_service: dict = {}, reverse: bool = False) -> object:
     translator_instance = None
     logging.debug(
-        f"translation_service: {translation_service['translators']['language']} reverse: {classname}"
+        f"translation_service: {translation_service['translator']['language']} reverse: {reverse}"
     )
-    if translation_service == "local":
+    # code org here may need a rethink, this currently relies on the module level `translators` propagating to class types
+    translator_config = translation_service["translator"]
+    if translator_config["model_type"] == "local":
         if reverse:
             translator_instance = LocalHFReverseTranslator(translation_service)
         else:
-            translator_instance = LocalHFTranslator()
-    elif translation_service == "deepl" or translation_service == "nim":
+            translator_instance = LocalHFTranslator(translation_service)
+    elif (
+        translator_config["model_type"] == "deepl"
+        or translator_config["model_type"] == "nim"
+    ):
         if reverse:
             translator_instance = ReverseTranslator(translation_service)
         else:
@@ -592,16 +603,16 @@ def load_translator(translation_service: dict = {}, reverse: bool = False) -> ob
 
 from garak import _config
 
-classnames = ["encoding", "goodside", "dan", "reverse"]
 translators = {}
-for entry, classname in zip(_config.run.language, classnames):
+for entry in _config.run.translators:
     # example _config.run.language['language']: en-ja classname encoding result in key "en-ja" and expects a "ja-en" to match that is not always present
-    translators[f"{entry['language']}-{classname}"] = load_translator(
-        translation_service={"translators": entry}, classname=classname
+    translators[entry["language"]] = load_translator(
+        # TODO: align class naming for Configurable consistency
+        translation_service={"translator": entry}
     )
 
 
-# should this return a set or translators for all requested lang_spec targets?
+# should this return a set of translators for all requested lang_spec targets?
 # in the base case I expect most lang_spec values will target a single language however testing a multi-lingual aware model seems reasonable
 # to that end a translator from the source lang of the prompts to each target language seems reasonable however it is unclear where in the process
 # the expansion should occur.
