@@ -9,7 +9,6 @@ from typing import List
 
 from garak.attempt import Attempt
 from garak.detectors.base import Detector
-from garak.translator import is_english
 
 
 class AttackRogueString(Detector):

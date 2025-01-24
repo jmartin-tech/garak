@@ -7,7 +7,6 @@ output by the model
 from garak import _config
 from garak.attempt import Attempt
 from garak.detectors.base import Detector, StringDetector
-from garak.translator import is_english
 
 
 class DecodeMatch(StringDetector):

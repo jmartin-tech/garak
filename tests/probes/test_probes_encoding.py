@@ -2,14 +2,16 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import garak.probes.encoding
-from garak import _config, _plugins
-from garak.translator import is_english
+from garak import _plugins
 import pytest
 import garak
-import importlib
 
-PROBES = [classname for (classname, active) 
-    in _plugins.enumerate_plugins("probes") if "encoding" in classname]
+PROBES = [
+    classname
+    for (classname, _) in _plugins.enumerate_plugins("probes")
+    if "encoding" in classname
+]
+
 
 def test_InjectBase64_len_cap():
     p = garak.probes.encoding.InjectBase64()

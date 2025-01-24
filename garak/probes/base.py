@@ -223,7 +223,9 @@ class Probe(Configurable):
         if hasattr(self, "translator"):
             if self.translator is not None:
                 prompts = self.translator.translate_prompts(prompts)
-                lang_list = self.translator.lang_list
+                lang_list = (
+                    self.translator.lang_list
+                )  # does this attribute still exist?
         for seq, prompt in enumerate(prompts):
             attempts_todo.append(self._mint_attempt(prompt, seq, lang_list[seq]))
 

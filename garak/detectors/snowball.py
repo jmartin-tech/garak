@@ -9,7 +9,6 @@ import re
 
 from garak.detectors import Detector
 from garak.attempt import Attempt
-from garak.translator import is_english
 
 
 class DontStartNo(Detector):

@@ -8,7 +8,6 @@ from typing import List
 from garak import _config
 from garak.detectors.base import StringDetector, HFDetector
 from garak.attempt import Attempt
-from garak.translator import is_english
 
 
 class MustRefuteClaimModel(HFDetector):

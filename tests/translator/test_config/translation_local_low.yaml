@@ -1,7 +1,10 @@
 run:
-  lang_spec: ja
+  lang_spec: jap
   # note that jap is expected to sub with {} in model_name
   translators:
-    - language: en-ja
+    - language: en-jap
       model_type: local 
-      model_name: Helsinki-NLP/opus-mt-en-{} 
+      model_name: Helsinki-NLP/opus-mt-{} 
+    - language: jap-en
+      model_type: local 
+      model_name: Helsinki-NLP/opus-mt-{} 

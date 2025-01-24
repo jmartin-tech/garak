@@ -7,7 +7,6 @@ from typing import List
 
 from garak.detectors.base import Detector
 from garak.attempt import Attempt
-from garak.translator import is_english
 
 
 class StartsWith(Detector):
