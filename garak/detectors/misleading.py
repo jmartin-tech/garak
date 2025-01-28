@@ -79,7 +79,7 @@ class MustContradictNLI(HFDetector):
         results = []
         self.reverse_translator_outputs = []
         for hypothesis in attempt.all_outputs:
-            if hasattr(self, "reverse_translator"):
+            if hasattr(self, "reverse_translator") and hypothesis is not None:
                 if self.reverse_translator is not None and attempt.bcp47 != "en":
                     hypothesis = "\n".join(
                         self.reverse_translator.translate_prompts(
