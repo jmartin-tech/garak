@@ -242,17 +242,17 @@ class SimpleTranslator(Configurable):
         self, line: str, source_lang: str, target_lang: str, translated_lines: list
     ) -> str:
         if self.source_lang == "en" or line == "$":
+            # why is "$" a special line?
             mean_word_judge = is_english(line)
             if not mean_word_judge or line == "$":
-                # why does this test for "$"
                 translated_lines.append(line.strip())
-
-        cleaned_line = self._clean_line(line)
-        if cleaned_line:
-            translated_line = self._translate(
-                cleaned_line, source_lang=source_lang, target_lang=target_lang
-            )
-            translated_lines.append(translated_line)
+        else:
+            cleaned_line = self._clean_line(line)
+            if cleaned_line:
+                translated_line = self._translate(
+                    cleaned_line, source_lang=source_lang, target_lang=target_lang
+                )
+                translated_lines.append(translated_line)
 
         return translated_lines
 
@@ -298,7 +298,7 @@ class SimpleTranslator(Configurable):
             return prompts
         translated_prompts = []
         prompts = list(prompts)
-        self.lang_list = []
+        self.lang_list = []  # why is this here?
         for i in range(len(prompts)):
             self.lang_list.append(self.source_lang)
         for lang in self.target_lang.split(","):
