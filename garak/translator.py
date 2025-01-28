@@ -42,7 +42,7 @@ def load_translator(
     #         raise PluginConfigurationError(
     #             f"Unknown translator model_type: {translation_service["model_type"]}"
     #         )
-    _plugins.load_plugin(
+    translator_instance = _plugins.load_plugin(
         path=f"translators.{translation_service["model_type"]}",
         config_root=translator_config,
     )
@@ -60,24 +60,32 @@ def load_translators():
 
     from garak.exception import GarakException
 
+    run_target_lang = _config.run.lang_spec
+
     for entry in _config.run.translators:
         # example _config.run.language['language']: en-ja classname encoding result in key "en-ja" and expects a "ja-en" to match that is not always present
         translators[entry["language"]] = load_translator(
             # TODO: align class naming for Configurable consistency
             translation_service=entry
         )
-    if _config.run.lang_spec != "en" and len(translators) > 1:
-        # validate loaded translators have forward and reverse entries
-        for translator_key in translators.keys():
-            source_lang, target_lang = translator_key.split("-")
-            if translators.get(f"{target_lang}-{source_lang}", None) is None:
-                break
-        return True
-    elif len(translators) == 0:
-        # continue if no translation support is provided
-        return True
+    native_language = f"{run_target_lang}-{run_target_lang}"
+    if translators.get(native_language, None) is None:
+        # provide a native language object when configuration does not provide one
+        translators[native_language] = load_translator(
+            translation_service={"language": native_language, "model_type": "local"}
+        )
+    # validate loaded translators have forward and reverse entries
+    has_all_required = True
+    source_lang, target_lang = None, None
+    for translator_key in translators.keys():
+        source_lang, target_lang = translator_key.split("-")
+        if translators.get(f"{target_lang}-{source_lang}", None) is None:
+            has_all_required = False
+            break
+    if has_all_required:
+        return has_all_required
 
-    msg = f"To test with target lang_spec: {_config.run.lang_spec} configuration must specify translators for each direction"
+    msg = f"The translator configuration provided is missing language: {target_lang}-{source_lang}. Configuration must specify translators for each direction."
     logging.error(msg)
     raise GarakException(msg)
 
@@ -95,7 +103,7 @@ def getTranslators(source: str, reverse: bool = False):
     target_langs = lang_spec.split(",")
     returned_translators = []
     for dest in target_langs:
-        key = f"{source}-{dest}" if reverse else f"{dest}-{source}"
+        key = f"{source}-{dest}" if not reverse else f"{dest}-{source}"
         translator = translators.get(key, None)
         if translator is not None:
             returned_translators.append(translator)

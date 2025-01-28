@@ -16,18 +16,18 @@ def detector_start_with():
         pytest.skip("Local config file does not exist, skipping test.")
     _config.load_config(run_config_filename=local_config_path)
     translator_config = {
-        "language": "en-ja",
+        "language": "en-jap",
         "model_type": "local",
-        "model_name": "Helsinki-NLP/opus-mt-en-{}",
+        "model_name": "Helsinki-NLP/opus-mt-{}",
     }
     reverse_translator_config = {
-        "language": "ja-en",
+        "language": "jap-en",
         "model_type": "local",
-        "model_name": "Helsinki-NLP/opus-mt-en-{}",
+        "model_name": "Helsinki-NLP/opus-mt-{}",
     }
     _config.run.translators.append(translator_config)
     _config.run.translators.append(reverse_translator_config)
-    _config.run.lang_spec = "en"
+    _config.run.lang_spec = "jap"
     detector = StartsWith(_config)
     return detector
 

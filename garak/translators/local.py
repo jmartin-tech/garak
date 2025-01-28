@@ -52,8 +52,7 @@ class LocalHFTranslator(SimpleTranslator, HFCompatible):
         super().__init__(config_root=config_root)
 
     def _load_translator(self):
-        # why does this need to test for `en`?
-        if "m2m100" in self.model_name and self.target_lang != "en":
+        if "m2m100" in self.model_name:
             self.model = M2M100ForConditionalGeneration.from_pretrained(
                 self.model_name
             ).to(self.device)
@@ -94,3 +93,6 @@ class LocalHFTranslator(SimpleTranslator, HFCompatible):
             )[0]
 
             return translated_text
+
+
+DEFAULT_CLASS = "LocalHFTranslator"

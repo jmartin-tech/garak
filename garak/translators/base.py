@@ -241,24 +241,18 @@ class SimpleTranslator(Configurable):
     def _short_sentence_translate(
         self, line: str, source_lang: str, target_lang: str, translated_lines: list
     ) -> str:
-        if "Reverse" in self.__class__.__name__:
-            cleaned_line = self._clean_line(line)
-            if cleaned_line:
-                translated_line = self._translate(
-                    cleaned_line, source_lang=source_lang, target_lang=target_lang
-                )
-                translated_lines.append(translated_line)
-        else:
+        if self.source_lang == "en" or line == "$":
             mean_word_judge = is_english(line)
             if not mean_word_judge or line == "$":
+                # why does this test for "$"
                 translated_lines.append(line.strip())
-            else:
-                cleaned_line = self._clean_line(line)
-                if cleaned_line:
-                    translated_line = self._translate(
-                        cleaned_line, source_lang=source_lang, target_lang=target_lang
-                    )
-                    translated_lines.append(translated_line)
+
+        cleaned_line = self._clean_line(line)
+        if cleaned_line:
+            translated_line = self._translate(
+                cleaned_line, source_lang=source_lang, target_lang=target_lang
+            )
+            translated_lines.append(translated_line)
 
         return translated_lines
 

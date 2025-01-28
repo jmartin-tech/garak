@@ -62,3 +62,6 @@ class DeeplTranslator(SimpleTranslator):
         except Exception as e:
             logging.error(f"Translation error: {str(e)}")
             return text
+
+
+DEFAULT_CLASS = "RivaTranslator"

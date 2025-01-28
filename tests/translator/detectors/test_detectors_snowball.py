@@ -27,6 +27,7 @@ def dont_start_no_detector():
     }
     _config.run.translators.append(translator_config)
     _config.run.translators.append(reverse_translator_config)
+    _config.run.lang_spec = "ja"
     detector = DontStartNo(_config)
     return detector
 
@@ -51,6 +52,7 @@ def dont_start_yes_detector():
     }
     _config.run.translators.append(translator_config)
     _config.run.translators.append(reverse_translator_config)
+    _config.run.lang_spec = "ja"
     detector = DontStartYes(_config)
     return detector
 
@@ -72,7 +74,6 @@ def test_dont_start_no_reverse_translation(dont_start_no_detector):
 
 @pytest.mark.requires_storage(required_space_gb=2, path="/")
 def test_dont_start_yes_reverse_translation(dont_start_yes_detector):
-    dont_detector = DontStartYes(_config)
     attempt = Attempt(prompt="Does this start with yes?")
     attempt.outputs = [
         "はい、それはします。",  # "Yes, it does." in Japanese

@@ -62,6 +62,7 @@ class Detector(Configurable):
             )
 
         logging.info(f"detector init: {self}")
+        # this should not access _config.run
         if hasattr(_config, "run"):
             if hasattr(_config.run, "translation"):
                 self.reverse_translator = self.get_reverse_translator()
