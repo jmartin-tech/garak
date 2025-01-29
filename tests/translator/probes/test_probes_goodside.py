@@ -38,6 +38,7 @@ def test_Tag_attempt_descrs_translation():
     }
     _config.run.translators.append(translator_config)
     _config.run.translators.append(reverse_translator_config)
+    _config.run.lang_spec = "jap"
     _config.run.seed = 42
     probe_tag = Tag(_config)
 

@@ -241,12 +241,17 @@ class SimpleTranslator(Configurable):
     def _short_sentence_translate(
         self, line: str, source_lang: str, target_lang: str, translated_lines: list
     ) -> str:
+        # the signature here is wrong and the side effect on translated_lines is a concern
+        needs_translation = True
         if self.source_lang == "en" or line == "$":
             # why is "$" a special line?
             mean_word_judge = is_english(line)
             if not mean_word_judge or line == "$":
                 translated_lines.append(line.strip())
-        else:
+                needs_translation = False
+            else:
+                needs_translation = True
+        if needs_translation:
             cleaned_line = self._clean_line(line)
             if cleaned_line:
                 translated_line = self._translate(

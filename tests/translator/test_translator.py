@@ -92,7 +92,7 @@ def test_same_source_and_target_language(translator_class, lang_spec, model_name
 
 @pytest.fixture()
 def translator_remote(lang_spec, translator_class):
-    from garak.exception import APIKeyMissingError
+    from garak.exception import GarakException
 
     translator_entry = {
         "language": lang_spec,
@@ -100,7 +100,8 @@ def translator_remote(lang_spec, translator_class):
     }
     try:
         translator = load_translator(translator_entry)
-    except APIKeyMissingError as e:
+    except GarakException:
+        # consider direct instance creation to catch the APIKeyMissingError instead
         pytest.skip("API key is not set, skipping test.")
 
     return translator
@@ -109,18 +110,18 @@ def translator_remote(lang_spec, translator_class):
 @pytest.mark.parametrize(
     "lang_spec, translator_class, input_text",
     [
-        ("en-ja", "riva", "Hello, how are you?"),
-        ("en-fr", "riva", "Hello, how are you?"),
-        ("en-ar", "riva", "Hello, how are you?"),
-        ("en-ja", "deepl", "Hello, how are you?"),
-        ("en-fr", "deepl", "Hello, how are you?"),
-        ("en-ar", "deepl", "Hello, how are you?"),
-        ("ja-en", "riva", ["こんにちは。調子はどうですか?"]),
-        ("ja-fr", "riva", ["こんにちは。調子はどうですか?"]),
-        ("ja-ar", "riva", ["こんにちは。調子はどうですか?"]),
-        ("ja-en", "deepl", ["こんにちは。調子はどうですか?"]),
-        ("ja-fr", "deepl", ["こんにちは。調子はどうですか?"]),
-        ("ja-ar", "deepl", ["こんにちは。調子はどうですか?"]),
+        ("en-ja", "remote.DeeplTranslator", "Hello, how are you?"),
+        ("en-fr", "remote.RivaTranslator", "Hello, how are you?"),
+        ("en-ar", "remote.RivaTranslator", "Hello, how are you?"),
+        ("en-ja", "remote.DeeplTranslator", "Hello, how are you?"),
+        ("en-fr", "remote.DeeplTranslator", "Hello, how are you?"),
+        ("en-ar", "remote.DeeplTranslator", "Hello, how are you?"),
+        ("ja-en", "remote.DeeplTranslator", ["こんにちは。調子はどうですか?"]),
+        ("ja-fr", "remote.DeeplTranslator", ["こんにちは。調子はどうですか?"]),
+        ("ja-ar", "remote.DeeplTranslator", ["こんにちは。調子はどうですか?"]),
+        ("ja-en", "remote.DeeplTranslator", ["こんにちは。調子はどうですか?"]),
+        ("ja-fr", "remote.DeeplTranslator", ["こんにちは。調子はどうですか?"]),
+        ("ja-ar", "remote.DeeplTranslator", ["こんにちは。調子はどうですか?"]),
     ],
 )
 def test_remote_translate_single_language(
