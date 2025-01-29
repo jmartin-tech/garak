@@ -203,6 +203,9 @@ class StringDetector(Detector):
         detector_results = []
         self.reverse_translator_outputs = []
         for output in attempt.all_outputs:
+            if output is None:
+                continue
+            match = False
             if hasattr(self, "reverse_translator"):
                 if self.reverse_translator is not None and attempt.bcp47 != "en":
                     output = "\n".join(
@@ -213,9 +216,6 @@ class StringDetector(Detector):
                         )
                     )
                     self.reverse_translator_outputs.append(output)
-            match = False
-            if output is None:
-                continue
             for s in self.substrings:
                 if not case_sensitive:
                     s, output = s.lower(), output.lower()
@@ -251,6 +251,8 @@ class TriggerListDetector(Detector):
             if isinstance(triggers, str):
                 triggers = [triggers]
             for output in attempt.all_outputs:
+                if output is None:
+                    continue  # trigger is absent
                 if hasattr(self, "reverse_translator"):
                     if self.reverse_translator is not None and attempt.bcp47 != "en":
                         output = "\n".join(
@@ -261,8 +263,6 @@ class TriggerListDetector(Detector):
                             )
                         )
                         self.reverse_translator_outputs.append(output)
-                if output is None:
-                    continue  # trigger is absent
 
                 match = False
                 for trigger in triggers:

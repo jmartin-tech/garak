@@ -52,9 +52,11 @@ def load_translator(
 from garak import _config
 
 translators = {}
+native_translator = None
 
 
 def load_translators():
+    global translators, native_translator
     if len(translators) > 0:
         return True
 
@@ -74,6 +76,7 @@ def load_translators():
         translators[native_language] = load_translator(
             translation_service={"language": native_language, "model_type": "local"}
         )
+    native_translator = translators[native_language]
     # validate loaded translators have forward and reverse entries
     has_all_required = True
     source_lang, target_lang = None, None
@@ -108,4 +111,6 @@ def getTranslators(source: str, reverse: bool = False):
         if translator is not None:
             returned_translators.append(translator)
     # return only the first translator for now
-    return returned_translators[0] if len(returned_translators) > 0 else None
+    return (
+        returned_translators[0] if len(returned_translators) > 0 else native_translator
+    )
