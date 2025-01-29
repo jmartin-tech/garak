@@ -40,7 +40,7 @@ class LocalHFTranslator(SimpleTranslator, HFCompatible):
     """
 
     DEFAULT_PARAMS = {
-        "name": "Helsinki-NLP/opus-mt-en-{}",  # should this me `model_name` or align with generators?
+        "name": "Helsinki-NLP/opus-mt-{}",  # should this be `model_name` or align with generators?
         "hf_args": {
             "device": "cpu",
         },

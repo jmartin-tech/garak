@@ -33,7 +33,7 @@ Support translation service
 
 - Huggingface
   - This code uses the following translation models:
-    - `Helsinki-NLP/opus-mt-en-{lang} <https://huggingface.co/docs/transformers/model_doc/marian>`_
+    - `Helsinki-NLP/opus-mt-{<source_lang>-<target_lang>} <https://huggingface.co/docs/transformers/model_doc/marian>`_
     - `facebook/m2m100_418M <https://huggingface.co/facebook/m2m100_418M>`_
     - `facebook/m2m100_1.2B <https://huggingface.co/facebook/m2m100_1.2B>`_
 - `DeepL <https://www.deepl.com/docs-api>`_
@@ -162,7 +162,7 @@ run:
     translation_service: local
     lang_spec: jap 
     model_spec:
-      model_name: Helsinki-NLP/opus-mt-en-{}
+      model_name: Helsinki-NLP/opus-mt-{}
 
 
 .. code-block:: bash

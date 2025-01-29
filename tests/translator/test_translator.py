@@ -68,7 +68,7 @@ def test_local_translate_single_language(translator_class, lang_spec, model_name
     [
         ("local", "en-en", "facebook/m2m100_418M"),
         ("local", "en-en", "facebook/m2m100_418M"),
-        ("local", "en-en", "Helsinki-NLP/opus-mt-en-{}"),
+        ("local", "en-en", "Helsinki-NLP/opus-mt-{}"),
     ],
 )
 @pytest.mark.requires_storage(required_space_gb=2, path="/")
