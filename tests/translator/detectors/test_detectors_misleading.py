@@ -19,18 +19,6 @@ def hf_detector():
     if os.path.exists(local_config_path) is False:
         pytest.skip("Local config file does not exist, skipping test.")
     _config.load_config(run_config_filename=local_config_path)
-    translator_config = {
-        "language": "en-ja",
-        "model_type": "local",
-        "model_name": "facebook/m2m100_418M",
-    }
-    reverse_translator_config = {
-        "language": "ja-en",
-        "model_type": "local",
-        "model_name": "facebook/m2m100_418M",
-    }
-    _config.run.translators.append(translator_config)
-    _config.run.translators.append(reverse_translator_config)
     HFDetector.detector_model_path = (
         "garak-llm/roberta-large-snli_mnli_fever_anli_R1_R2_R3-nli"
     )
@@ -48,18 +36,6 @@ def must_contradict_NLI_detector():
     if os.path.exists(local_config_path) is False:
         pytest.skip("Local config file does not exist, skipping test.")
     _config.load_config(run_config_filename=local_config_path)
-    translator_config = {
-        "language": "en-ja",
-        "model_type": "local",
-        "model_name": "facebook/m2m100_418M",
-    }
-    reverse_translator_config = {
-        "language": "ja-en",
-        "model_type": "local",
-        "model_name": "facebook/m2m100_418M",
-    }
-    _config.run.translators.append(translator_config)
-    _config.run.translators.append(reverse_translator_config)
     detector = MustContradictNLI(_config)
     return detector
 
