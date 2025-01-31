@@ -40,7 +40,8 @@ def config_report_cleanup(request):
 
 def pytest_configure(config):
     config.addinivalue_line(
-        "markers", "requires_storage(required_space_gb=1, path='/'): Skip the test if insufficient disk space."
+        "markers",
+        "requires_storage(required_space_gb=1, path='/'): Skip the test if insufficient disk space.",
     )
 
 
@@ -71,9 +72,10 @@ def pytest_runtest_setup(item):
         path = marker.kwargs.get("path", "/")  # Default is the root directory
 
         if not check_storage(required_space_gb, path):
-            pytest.skip(f"❌ Skipping test. Not enough free space ({required_space_gb} GB) at '{path}'.")
+            pytest.skip(
+                f"❌ Skipping test. Not enough free space ({required_space_gb} GB) at '{path}'."
+            )
         else:
             total, used, free = shutil.disk_usage(path)
             free_gb = free / (2**30)  # Convert bytes to gigabytes
             print(f"✅ Sufficient free space ({free_gb:.2f} GB) confirmed.")
-
