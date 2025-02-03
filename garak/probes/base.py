@@ -77,7 +77,19 @@ class Probe(Configurable):
                 self.description = ""
         self.translator = self.get_translator()
         if self.translator is not None and hasattr(self, "triggers"):
-            self.triggers = self.translator.translate_prompts(self.triggers)
+            # check for triggers that are not type str|list
+            if len(self.triggers) > 0:
+                if isinstance(self.triggers[0], str):
+                    self.triggers = self.translator.translate_prompts(self.triggers)
+                elif isinstance(self.triggers[0], list):
+                    self.triggers = [
+                        self.translator.translate_prompts(trigger_list)
+                        for trigger_list in self.triggers
+                    ]
+                else:
+                    raise PluginConfigurationError(
+                        f"trigger type: {type(self.triggers[0])} is not supported."
+                    )
 
     def get_translator(self):
         # this can still return none when no translator configuration is found, currently this will return `1` translator

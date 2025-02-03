@@ -8,11 +8,8 @@
 import logging
 from garak import _config, _plugins
 
-# from garak.exception import PluginConfigurationError
 from garak.translators.base import SimpleTranslator
-from garak.translators.local import LocalHFTranslator, NullTranslator
-
-# from garak.translators.remote import RivaTranslator, DeeplTranslator
+from garak.translators.local import NullTranslator
 
 
 def load_translator(
