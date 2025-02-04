@@ -191,15 +191,16 @@ class Tag(Probe):
                                         }
                                     )
                                 )
-        if hasattr(_config, 'run'):
-            if hasattr(_config.run, 'translation'):
-                self.translator = self.get_translator()
-        
-        if hasattr(self, 'translator'):
-            if self.translator is not None:
-                self.triggers = self.translator.translate_prompts(self.triggers)
-                translated_attempt_descrs = self.translator.translate_descr(self.attempt_descrs)
-                self.attempt_descrs.extend(translated_attempt_descrs)
+        self.translator = self.get_translator()
+
+        if self.translator is not None:
+            self.triggers = self.translator.translate_prompts(
+                self.triggers, only_translate_word=True
+            )
+            translated_attempt_descrs = self.translator.translate_descr(
+                self.attempt_descrs
+            )
+            self.attempt_descrs.extend(translated_attempt_descrs)
 
     def _attempt_prestore_hook(self, attempt: Attempt, seq: int) -> Attempt:
         attempt.notes["triggers"] = [self.triggers[seq]]
