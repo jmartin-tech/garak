@@ -9,7 +9,12 @@ import os
 from garak import _config, _plugins
 
 
-NON_PROMPT_PROBES = ["probes.dan.AutoDAN", "probes.tap.TAP"]
+NON_PROMPT_PROBES = [
+    "probes.dan.AutoDAN",
+    "probes.tap.TAP",
+    "probes.suffix.BEAST",
+    "probes.suffix.GCG",
+]
 ATKGEN_PROMPT_PROBES = ["probes.atkgen.Tox", "probes.dan.Dan_10_0"]
 VISUAL_PROBES = [
     "probes.visual_jailbreak.FigStep",
@@ -26,7 +31,7 @@ openai_api_key_missing = not os.getenv("OPENAI_API_KEY")
 
 
 @pytest.fixture(autouse=True)
-def probe_pre_req():
+def probe_pre_req(classname):
     # this sets up config for probes that access _config still
     _config.run.seed = 42
     local_config_path = str(
@@ -36,16 +41,9 @@ def probe_pre_req():
         pytest.skip("Local config file does not exist, skipping test.")
     _config.load_config(run_config_filename=local_config_path)
 
-    return True
-
-
-def make_prompt_list(result):
-    prompt_list = []
-    for attempt in result:
-        for messages in attempt.messages:
-            for message in messages:
-                prompt_list.append(message["content"])
-    return prompt_list
+    # since this does not go through cli generations must be set
+    _, module, klass = classname.split(".")
+    _config.plugins.probes[module][klass]["generations"] = 1
 
 
 """
@@ -54,25 +52,67 @@ Skip probes.tap.PAIR because it needs openai api key and large gpu resource
 
 
 @pytest.mark.parametrize("classname", ATKGEN_PROMPT_PROBES)
-@pytest.mark.requires_storage(required_space_gb=2, path="/")
-def test_atkgen_probe_translation(classname, probe_instance):
+def test_atkgen_probe_translation(classname, mocker):
+    # how can tests for atkgen probes be expanded to ensure translation is called?
+    import garak.translator
+    import garak.translators.base
+    from garak.translators.local import NullTranslator
+
+    null_translator = NullTranslator(
+        {
+            "translators": {
+                "local": {
+                    "language": "en-en",
+                }
+            }
+        }
+    )
+
+    mocker.patch.object(
+        garak.translator, "getTranslators", return_value=null_translator
+    )
+
+    prompt_mock = mocker.patch.object(
+        null_translator,
+        "translate_prompts",
+        wraps=null_translator.translate_prompts,
+    )
+
+    descr_mock = mocker.patch.object(
+        null_translator,
+        "translate_descr",
+        wraps=null_translator.translate_descr,
+    )
+
+    probe_instance = _plugins.load_plugin(classname)
+
     if probe_instance.bcp47 != "en" or classname == "probes.tap.PAIR":
         return
 
-    g = _plugins.load_plugin("generators.test.Repeat", config_root=_config)
-    # the requirement to set a log file here suggests an encapsulation issue
+    generator_instance = _plugins.load_plugin("generators.test.Repeat")
     with tempfile.NamedTemporaryFile(mode="w+") as temp_report_file:
         _config.transient.reportfile = temp_report_file
         _config.transient.report_filename = temp_report_file.name
-        result = probe_instance.probe(g)
-        prompt_list = make_prompt_list(result)
-        assert prompt_list[0] == prompt_list[1]
-        assert prompt_list[0] != prompt_list[2]
-        assert prompt_list[0] != prompt_list[3]
+
+        probe_instance.probe(generator_instance)
+
+        expected_translation_calls = 1
+        if hasattr(probe_instance, "triggers"):
+            # increase prompt calls by 1 or if triggers are lists by the len of triggers
+            if isinstance(probe_instance.triggers[0], list):
+                expected_translation_calls += len(probe_instance.triggers)
+            else:
+                expected_translation_calls += 1
+
+        if hasattr(probe_instance, "attempt_descrs"):
+            # this only exists in goodside should it be standardized in some way?
+            descr_mock.assert_called_once()
+            expected_translation_calls += len(probe_instance.attempt_descrs) * 2
+
+        assert prompt_mock.call_count == expected_translation_calls
 
 
 @pytest.mark.parametrize("classname", PROBES)
-@pytest.mark.requires_storage(required_space_gb=2, path="/")
 def test_probe_prompt_translation(classname, mocker):
     # instead of active translation should this just check that translation is called?
     # for instance if there are triggers ensure `translate_prompts` is called at least twice
@@ -103,21 +143,15 @@ def test_probe_prompt_translation(classname, mocker):
     )
 
     prompt_mock = mocker.patch.object(
-        garak.translators.base.SimpleTranslator,
+        null_translator,
         "translate_prompts",
-        wraps=garak.translators.base.SimpleTranslator.translate_prompts,
-    )
-
-    trigger_mock = mocker.patch.object(
-        garak.translators.base.SimpleTranslator,
-        "translate_triggers",
-        wraps=garak.translators.base.SimpleTranslator.translate_triggers,
+        wraps=null_translator.translate_prompts,
     )
 
     descr_mock = mocker.patch.object(
-        garak.translators.base.SimpleTranslator,
+        null_translator,
         "translate_descr",
-        wraps=garak.translators.base.SimpleTranslator.translate_descr,
+        wraps=null_translator.translate_descr,
     )
 
     probe_instance = _plugins.load_plugin(classname)
@@ -125,24 +159,24 @@ def test_probe_prompt_translation(classname, mocker):
     if probe_instance.bcp47 != "en" or classname == "probes.tap.PAIR":
         return
 
-    # preform translation with a replacement translator against a limited set of triggers and prompts
-    if hasattr(probe_instance, "triggers"):
-        trigger_mock.assert_called_once()
+    generator_instance = _plugins.load_plugin("generators.test.Repeat")
+    with tempfile.NamedTemporaryFile(mode="w+") as temp_report_file:
+        _config.transient.reportfile = temp_report_file
+        _config.transient.report_filename = temp_report_file.name
 
-    if hasattr(probe_instance, "attempt_descr"):
-        descr_mock.assert_called_once()
+        probe_instance.probe(generator_instance)
 
-    prompt_mock.assert_called_once()
+        expected_translation_calls = 1
+        if hasattr(probe_instance, "triggers"):
+            # increase prompt calls by 1 or if triggers are lists by the len of triggers
+            if isinstance(probe_instance.triggers[0], list):
+                expected_translation_calls += len(probe_instance.triggers)
+            else:
+                expected_translation_calls += 1
 
-    # g = _plugins.load_plugin("generators.test.Repeat", config_root=_config)
-    # with tempfile.NamedTemporaryFile(mode="w+") as temp_report_file:
-    #     _config.transient.reportfile = temp_report_file
-    #     _config.transient.report_filename = temp_report_file.name
-    #     probe_instance.generations = 1
-    #     result = probe_instance.probe(g)
-    #     org_message_list = make_prompt_list(result)
+        if hasattr(probe_instance, "attempt_descrs"):
+            # this only exists in goodside should it be standardized in some way?
+            descr_mock.assert_called_once()
+            expected_translation_calls += len(probe_instance.attempt_descrs) * 2
 
-    #     probe_instance.translator = translator_instance
-    #     result = probe_instance.probe(g)
-    #     message_list = make_prompt_list(result)
-    #     assert len(org_message_list) <= len(message_list)
+        assert prompt_mock.call_count == expected_translation_calls
