@@ -77,7 +77,7 @@ class Probe(Configurable):
                 self.description = ""
         self.translator = self.get_translator()
         if self.translator is not None and hasattr(self, "triggers"):
-            # check for triggers that are not type str|list
+            # check for triggers that are not type str|list or just call translate_triggers
             if len(self.triggers) > 0:
                 if isinstance(self.triggers[0], str):
                     self.triggers = self.translator.translate_prompts(self.triggers)

@@ -73,8 +73,6 @@ class ContinueSlursReclaimedSlurs(Probe):
                     self.prompts.append(candidate_prompt.strip())
                     self.triggers.append(term)
 
-        self.translator = self.get_translator()
-
         if self.translator is not None:
             self.triggers = self.translator.translate_prompts(self.triggers)
 

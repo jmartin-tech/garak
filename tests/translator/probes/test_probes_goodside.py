@@ -2,11 +2,7 @@ import pytest
 from garak import _config, _plugins
 from garak.probes.goodside import Tag
 from garak.translators.base import convert_json_string
-import garak
-import importlib
 import json
-import pathlib
-import os
 
 
 PROBES = [
@@ -17,41 +13,40 @@ PROBES = [
 
 
 @pytest.mark.requires_storage(required_space_gb=2, path="/")
-def test_Tag_attempt_descrs_translation():
-    local_config_path = str(
-        pathlib.Path(__file__).parents[1]
-        / "test_config"
-        / ("translation_local_low.yaml")
-    )
-    if os.path.exists(local_config_path) is False:
-        pytest.skip("Local config file does not exist, skipping test.")
-    _config.load_config(run_config_filename=local_config_path)
-    translator_config = {
-        "language": "en-jap",
-        "model_type": "local",
-        "model_name": "Helsinki-NLP/opus-mt-{}",
-    }
-    reverse_translator_config = {
-        "language": "jap-en",
-        "model_type": "local",
-        "model_name": "Helsinki-NLP/opus-mt-{}",
-    }
-    _config.run.translators.append(translator_config)
-    _config.run.translators.append(reverse_translator_config)
-    _config.run.lang_spec = "jap"
-    _config.run.seed = 42
-    probe_tag = Tag(_config)
+def test_Tag_attempt_descrs_translation(mocker):
+    import garak.translator
+    from garak.translators.local import NullTranslator, LocalHFTranslator
 
-    translated_attempt_descrs = probe_tag.attempt_descrs
-    half_length = len(translated_attempt_descrs) // 2
+    mock_translator_return = mocker.patch.object(garak.translator, "getTranslators")
 
-    for i in range(half_length):
+    mock_translator_return.side_effect = [
+        NullTranslator(),  # First default lang probe
+        LocalHFTranslator(  # Second translated lang probe
+            {
+                "translators": {
+                    "local": {
+                        "language": "en-jap",
+                        "model_type": "local",
+                        "model_name": "Helsinki-NLP/opus-mt-{}",
+                    }
+                }
+            }
+        ),
+    ]
+    # default language probe
+    probe_tag_en = Tag(_config)
+    probe_tag_jap = Tag(_config)
+
+    attempt_descrs = probe_tag_en.attempt_descrs
+    translated_attempt_descrs = probe_tag_jap.attempt_descrs
+
+    for i in range(len(attempt_descrs)):
 
         convert_translated_attempt_descrs = json.loads(
-            convert_json_string(translated_attempt_descrs[half_length + i])
+            convert_json_string(translated_attempt_descrs[i])
         )
-        convert_descr = json.loads(convert_json_string(translated_attempt_descrs[i]))
-        if convert_descr["prompt_stub"] != "":
+        convert_descr = json.loads(convert_json_string(attempt_descrs[i]))
+        if convert_descr["prompt_stub"] != [""]:
             assert (
                 convert_descr["prompt_stub"]
                 != convert_translated_attempt_descrs["prompt_stub"]
@@ -60,6 +55,3 @@ def test_Tag_attempt_descrs_translation():
             assert (
                 convert_descr["payload"] != convert_translated_attempt_descrs["payload"]
             ), "Payload should be translated"
-
-    importlib.reload(garak._config)
-    garak._config.load_base_config()

@@ -25,8 +25,9 @@ PROBES = [
 openai_api_key_missing = not os.getenv("OPENAI_API_KEY")
 
 
-@pytest.fixture()
-def probe_instance(classname):
+@pytest.fixture(autouse=True)
+def probe_pre_req():
+    # this sets up config for probes that access _config still
     _config.run.seed = 42
     local_config_path = str(
         pathlib.Path(__file__).parents[1] / "test_config" / "translation_local_low.yaml"
@@ -34,9 +35,8 @@ def probe_instance(classname):
     if os.path.exists(local_config_path) is False:
         pytest.skip("Local config file does not exist, skipping test.")
     _config.load_config(run_config_filename=local_config_path)
-    probe_instance = _plugins.load_plugin(classname, config_root=_config)
 
-    return probe_instance
+    return True
 
 
 def make_prompt_list(result):
@@ -60,12 +60,10 @@ def test_atkgen_probe_translation(classname, probe_instance):
         return
 
     g = _plugins.load_plugin("generators.test.Repeat", config_root=_config)
-    translator_instance = probe_instance.get_translator()
     # the requirement to set a log file here suggests an encapsulation issue
     with tempfile.NamedTemporaryFile(mode="w+") as temp_report_file:
         _config.transient.reportfile = temp_report_file
         _config.transient.report_filename = temp_report_file.name
-        probe_instance.translator = translator_instance
         result = probe_instance.probe(g)
         prompt_list = make_prompt_list(result)
         assert prompt_list[0] == prompt_list[1]
@@ -75,27 +73,76 @@ def test_atkgen_probe_translation(classname, probe_instance):
 
 @pytest.mark.parametrize("classname", PROBES)
 @pytest.mark.requires_storage(required_space_gb=2, path="/")
-def test_probe_prompt_translation(classname, probe_instance):
+def test_probe_prompt_translation(classname, mocker):
+    # instead of active translation should this just check that translation is called?
+    # for instance if there are triggers ensure `translate_prompts` is called at least twice
+    # if the triggers are a a list called for each list
+    # then called for all actual `prompts`
+
+    # initial translation is front loaded on __init__ of a probe, simple validation
+    # of calls for translation should be sufficient as a unit test got all probes that follow
+    # this standard pattern. Any probe that needs to call translation during probing should
+    # have a unique validation that translation is called in the correct runtime stage
+
+    import garak.translator
+    import garak.translators.base
+    from garak.translators.local import NullTranslator
+
+    null_translator = NullTranslator(
+        {
+            "translators": {
+                "local": {
+                    "language": "en-en",
+                }
+            }
+        }
+    )
+
+    mocker.patch.object(
+        garak.translator, "getTranslators", return_value=null_translator
+    )
+
+    prompt_mock = mocker.patch.object(
+        garak.translators.base.SimpleTranslator,
+        "translate_prompts",
+        wraps=garak.translators.base.SimpleTranslator.translate_prompts,
+    )
+
+    trigger_mock = mocker.patch.object(
+        garak.translators.base.SimpleTranslator,
+        "translate_triggers",
+        wraps=garak.translators.base.SimpleTranslator.translate_triggers,
+    )
+
+    descr_mock = mocker.patch.object(
+        garak.translators.base.SimpleTranslator,
+        "translate_descr",
+        wraps=garak.translators.base.SimpleTranslator.translate_descr,
+    )
+
+    probe_instance = _plugins.load_plugin(classname)
+
     if probe_instance.bcp47 != "en" or classname == "probes.tap.PAIR":
         return
 
-    translator_instance = probe_instance.get_translator()
+    # preform translation with a replacement translator against a limited set of triggers and prompts
     if hasattr(probe_instance, "triggers"):
-        original_triggers = probe_instance.triggers[:2]
-        translate_triggers = translator_instance.translate_triggers(original_triggers)
-        assert len(translate_triggers) >= len(original_triggers)
+        trigger_mock.assert_called_once()
 
-    original_prompts = probe_instance.prompts[:2]
-    probe_instance.prompts = original_prompts
-    g = _plugins.load_plugin("generators.test.Repeat", config_root=_config)
-    with tempfile.NamedTemporaryFile(mode="w+") as temp_report_file:
-        _config.transient.reportfile = temp_report_file
-        _config.transient.report_filename = temp_report_file.name
-        probe_instance.generations = 1
-        result = probe_instance.probe(g)
-        org_message_list = make_prompt_list(result)
+    if hasattr(probe_instance, "attempt_descr"):
+        descr_mock.assert_called_once()
 
-        probe_instance.translator = translator_instance
-        result = probe_instance.probe(g)
-        message_list = make_prompt_list(result)
-        assert len(org_message_list) <= len(message_list)
+    prompt_mock.assert_called_once()
+
+    # g = _plugins.load_plugin("generators.test.Repeat", config_root=_config)
+    # with tempfile.NamedTemporaryFile(mode="w+") as temp_report_file:
+    #     _config.transient.reportfile = temp_report_file
+    #     _config.transient.report_filename = temp_report_file.name
+    #     probe_instance.generations = 1
+    #     result = probe_instance.probe(g)
+    #     org_message_list = make_prompt_list(result)
+
+    #     probe_instance.translator = translator_instance
+    #     result = probe_instance.probe(g)
+    #     message_list = make_prompt_list(result)
+    #     assert len(org_message_list) <= len(message_list)

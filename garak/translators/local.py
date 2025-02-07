@@ -15,6 +15,12 @@ from garak.resources.api.huggingface import HFCompatible
 
 class NullTranslator(SimpleTranslator):
 
+    def __init__(self, config_root: dict = {}) -> None:
+        self._load_config(config_root=config_root)
+        if hasattr(self, "language") and self.language:
+            self.source_lang, self.target_lang = self.language.split("-")
+        pass
+
     def _load_translator(self):
         pass
 
