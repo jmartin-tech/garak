@@ -92,11 +92,6 @@ def contains_invisible_unicode(text: str) -> bool:
     return True
 
 
-def is_nested_list(lst: list) -> bool:
-    """Check if the given list is a nested list."""
-    return any(isinstance(i, list) for i in lst)
-
-
 def is_meaning_string(text: str) -> bool:
     """Check if the input text is a meaningless sequence or invalid for translation."""
     DetectorFactory.seed = 0
@@ -222,26 +217,22 @@ class SimpleTranslator(Configurable):
             if contains_invisible_unicode(line):
                 continue
             if len(line) <= 200:
-                translated_lines = self._short_sentence_translate(
-                    line,
-                    source_lang=source_lang,
-                    target_lang=target_lang,
-                    translated_lines=translated_lines,
+                translated_lines += self._short_sentence_translate(
+                    line, source_lang=source_lang, target_lang=target_lang
                 )
             else:
-                translated_lines = self._long_sentence_translate(
+                translated_lines += self._long_sentence_translate(
                     line,
                     source_lang=source_lang,
                     target_lang=target_lang,
-                    translated_lines=translated_lines,
                 )
 
         return "\n".join(translated_lines)
 
     def _short_sentence_translate(
-        self, line: str, source_lang: str, target_lang: str, translated_lines: list
+        self, line: str, source_lang: str, target_lang: str
     ) -> str:
-        # the signature here is wrong and the side effect on translated_lines is a concern
+        translated_lines = []
         needs_translation = True
         if self.source_lang == "en" or line == "$":
             # why is "$" a special line?
@@ -262,8 +253,12 @@ class SimpleTranslator(Configurable):
         return translated_lines
 
     def _long_sentence_translate(
-        self, line: str, source_lang: str, target_lang: str, translated_lines: list
+        self,
+        line: str,
+        source_lang: str,
+        target_lang: str,
     ) -> str:
+        translated_lines = []
         sentences = re.split(r"(\. |\?)", line.strip())
         for sentence in sentences:
             cleaned_sentence = self._clean_line(sentence)
@@ -302,14 +297,14 @@ class SimpleTranslator(Configurable):
         ):
             return prompts
         translated_prompts = []
-        prompts = list(prompts)
+        prompts_to_process = list(prompts)
         self.lang_list = []  # why is this here?
-        for i in range(len(prompts)):
+        for i in range(len(prompts_to_process)):
             self.lang_list.append(self.source_lang)
         for lang in self.target_lang.split(","):
             if self.source_lang == lang:
                 continue
-            for prompt in prompts:
+            for prompt in prompts_to_process:
                 if reverse_translate_judge:
                     mean_word_judge = is_meaning_string(prompt)
                     if mean_word_judge:
@@ -326,27 +321,14 @@ class SimpleTranslator(Configurable):
                     translated_prompts.append(translate_prompt)
                 self.lang_list.append(lang)
         if len(translated_prompts) > 0:
-            prompts.extend(translated_prompts)
+            prompts_to_process.extend(translated_prompts)
         if only_translate_word:
             logging.debug(
                 f"prompts with translated translated_prompts: {translated_prompts}"
             )
             return translated_prompts
-        logging.debug(f"prompts with translated prompts: {prompts}")
-        return prompts
-
-    def translate_triggers(self, triggers: list):
-        if is_nested_list(triggers):
-            trigger_list = []
-            for trigger in triggers:
-                trigger_words = self.translate_prompts(trigger)
-                for word in trigger_words:
-                    trigger_list.append([word])
-            triggers = trigger_list
-            return triggers
-        else:
-            triggers = self.translate_prompts(triggers)
-            return triggers
+        logging.debug(f"prompts with translated prompts: {prompts_to_process}")
+        return prompts_to_process
 
     def translate_descr(self, attempt_descrs: List[str]) -> List[str]:
         translated_attempt_descrs = []
