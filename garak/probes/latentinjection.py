@@ -62,8 +62,6 @@ class LatentInjectionMixin:
                                 self.prompts.append(complete_prompt)
                                 self.triggers.append(payload_trigger)
 
-        self.translator = self.get_translator()
-
         if self.translator is not None:
             self.triggers = self.translator.translate_prompts(self.triggers)
 
@@ -555,7 +553,9 @@ class LatentJailbreakMini(LatentJailbreak):
     active = True  # has a lot of prompts - default to mini version
 
     def __init__(self, config_root=_config):
-        super().__init__(config_root)
+        Probe.__init__(
+            self, config_root
+        )  # call Probe.__init__ directly to avoid duplicate call _build_prompts_triggers()
 
         random.shuffle(self.contexts)
         self.contexts = self.contexts[: self.context_count]
@@ -644,7 +644,9 @@ class LatentWhoisSnippet(LatentInjectionFactSnippetEiffel):
     }
 
     def __init__(self, config_root=_config):
-        super().__init__(config_root)
+        Probe.__init__(
+            self, config_root
+        )  # can the really call Probe.__init__ or is there something in LatentInjectionFactSnippetEiffel.__init__ we need?
 
         self.contexts = []
         perms = list(itertools.permutations(self.paragraphs))
