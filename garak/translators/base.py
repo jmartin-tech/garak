@@ -139,33 +139,7 @@ from garak.configurable import Configurable
 
 
 class SimpleTranslator(Configurable):
-    """DeepL or NIM translation option"""
-
-    # fmt: off
-    # Reference: https://developers.deepl.com/docs/resources/supported-languages
-    bcp47_deepl = [
-        "ar", "bg", "cs", "da", "de",  
-        "en", "el", "es", "et", "fi",
-        "fr", "hu", "id", "it", "ja",
-        "ko", "lt", "lv", "nb", "nl",
-        "pl", "pt", "ro", "ru", "sk",
-        "sl", "sv", "tr", "uk", "zh"
-    ]
-
-    # Reference: https://docs.nvidia.com/nim/riva/nmt/latest/support-matrix.html#models
-    bcp47_riva = [
-        "zh", "ru", "de", "es", "fr",
-        "da", "el", "fi", "hu", "it",
-        "lt", "lv", "nl", "no", "pl",
-        "pt", "ro", "sk", "sv", "ja",
-        "hi", "ko", "et", "sl", "bg",
-        "uk", "hr", "ar", "vi", "tr",
-        "id", "cs"
-    ]
-    # fmt: on
-
-    DEEPL_ENV_VAR = "DEEPL_API_KEY"
-    NIM_ENV_VAR = "NIM_API_KEY"
+    """Base class for objects that execute translation"""
 
     def __init__(self, config_root: dict = {}) -> None:
         self._load_config(config_root=config_root)
@@ -173,11 +147,6 @@ class SimpleTranslator(Configurable):
         self.translator = None
         self.nmt_client = None
         self.source_lang, self.target_lang = self.language.split("-")
-
-        if self.model_type == "deepl":
-            self.key_env_var = self.DEEPL_ENV_VAR
-        if self.model_type == "nim":
-            self.key_env_var = self.NIM_ENV_VAR
 
         self._validate_env_var()
 

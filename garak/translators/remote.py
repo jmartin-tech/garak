@@ -7,10 +7,15 @@
 
 import logging
 
+from garak.exception import BadGeneratorException
 from garak.translators.base import SimpleTranslator
 
 
 class RivaTranslator(SimpleTranslator):
+    """Remote translation using NVIDIA Riva translation API
+
+    https://developer.nvidia.com/riva
+    """
 
     ENV_VAR = "RIVA_API_KEY"
     DEFAULT_PARAMS = {
@@ -18,7 +23,28 @@ class RivaTranslator(SimpleTranslator):
         "function_id": "647147c1-9c23-496c-8304-2e29e7574510",
     }
 
+    # fmt: off
+    # Reference: https://docs.nvidia.com/nim/riva/nmt/latest/support-matrix.html#models
+    bcp47_support = [
+        "zh", "ru", "de", "es", "fr",
+        "da", "el", "fi", "hu", "it",
+        "lt", "lv", "nl", "no", "pl",
+        "pt", "ro", "sk", "sv", "ja",
+        "hi", "ko", "et", "sl", "bg",
+        "uk", "hr", "ar", "vi", "tr",
+        "id", "cs", "en"
+    ]
+    # fmt: on
+
     def _load_translator(self):
+        if not (
+            self.source_lang in self.bcp47_support
+            and self.target_lang in self.bcp47_support
+        ):
+            raise BadGeneratorException(
+                f"Language pair {self.source_lang}-{self.target_lang} is not supported for this translator service."
+            )
+
         import riva.client
 
         if self.nmt_client is None:
@@ -44,12 +70,37 @@ class RivaTranslator(SimpleTranslator):
 
 
 class DeeplTranslator(SimpleTranslator):
+    """Remote translation using DeepL translation API
+
+    https://www.deepl.com/en/translator
+    """
 
     ENV_VAR = "DEEPL_API_KEY"
     DEFAULT_PARAMS = {}
 
+    # fmt: off
+    # Reference: https://developers.deepl.com/docs/resources/supported-languages
+    bcp47_support = [
+        "ar", "bg", "cs", "da", "de",  
+        "en", "el", "es", "et", "fi",
+        "fr", "hu", "id", "it", "ja",
+        "ko", "lt", "lv", "nb", "nl",
+        "pl", "pt", "ro", "ru", "sk",
+        "sl", "sv", "tr", "uk", "zh",
+        "en"
+    ]
+    # fmt: on
+
     def _load_translator(self):
         from deepl import Translator
+
+        if not (
+            self.source_lang in self.bcp47_support
+            and self.target_lang in self.bcp47_support
+        ):
+            raise BadGeneratorException(
+                f"Language pair {self.source_lang}-{self.target_lang} is not supported for this translator service."
+            )
 
         if self.translator is None:
             self.translator = Translator(self.api_key)

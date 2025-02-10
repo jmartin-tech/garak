@@ -14,6 +14,7 @@ from garak.resources.api.huggingface import HFCompatible
 
 
 class NullTranslator(SimpleTranslator):
+    """Stand-in translator for pass through"""
 
     def __init__(self, config_root: dict = {}) -> None:
         self._load_config(config_root=config_root)
@@ -31,14 +32,15 @@ class NullTranslator(SimpleTranslator):
     def translate_prompts(
         self,
         prompts: List[str],
-        only_translate_word: bool = False,
+        only_translate_word: bool = True,
         reverse_translate_judge: bool = False,
     ) -> List[str]:
         return prompts
 
 
 class LocalHFTranslator(SimpleTranslator, HFCompatible):
-    """Local translation using Huggingface m2m100 models
+    """Local translation using Huggingface m2m100 or Helsinki-NLP/opus-mt-* models
+
     Reference:
       - https://huggingface.co/facebook/m2m100_1.2B
       - https://huggingface.co/facebook/m2m100_418M
