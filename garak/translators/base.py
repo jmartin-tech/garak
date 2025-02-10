@@ -10,13 +10,16 @@ import re
 import unicodedata
 import string
 import logging
-import nltk
+from garak.resources.api import nltk
 from nltk.corpus import words
 from langdetect import detect, DetectorFactory, LangDetectException
 import json
 
 # Ensure the NLTK words corpus is downloaded
-nltk.download("words", quiet=True)
+try:
+    nltk.data.find("corpora/words")
+except LookupError as e:
+    nltk.download("words", quiet=True)
 
 
 def remove_english_punctuation(text: str) -> str:
