@@ -156,7 +156,6 @@ class HFDetector(Detector, HFCompatible):
             if self.reverse_translator is not None and attempt.bcp47 != "en":
                 non_none_outputs = self.reverse_translator.translate_prompts(
                     non_none_outputs,
-                    only_translate_word=True,
                     reverse_translate_judge=True,
                 )
                 self.reverse_translator_outputs = non_none_outputs
@@ -211,7 +210,6 @@ class StringDetector(Detector):
                     output = "\n".join(
                         self.reverse_translator.translate_prompts(
                             output.split("\n"),
-                            only_translate_word=True,
                             reverse_translate_judge=True,
                         )
                     )
@@ -258,7 +256,6 @@ class TriggerListDetector(Detector):
                         output = "\n".join(
                             self.reverse_translator.translate_prompts(
                                 output.split("\n"),
-                                only_translate_word=True,
                                 reverse_translate_judge=True,
                             )
                         )

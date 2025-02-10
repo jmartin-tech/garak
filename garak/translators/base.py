@@ -259,7 +259,6 @@ class SimpleTranslator(Configurable):
     def translate_prompts(
         self,
         prompts: List[str],
-        only_translate_word: bool = True,
         reverse_translate_judge: bool = False,
     ) -> List[str]:
         if (
@@ -292,36 +291,23 @@ class SimpleTranslator(Configurable):
                     )
                     translated_prompts.append(translate_prompt)
                 self.lang_list.append(lang)
-        if len(translated_prompts) > 0:
-            prompts_to_process.extend(translated_prompts)
-        if only_translate_word:
-            logging.debug(
-                f"prompts with translated translated_prompts: {translated_prompts}"
-            )
-            return translated_prompts
-        logging.debug(f"prompts with translated prompts: {prompts_to_process}")
-        return prompts_to_process
+        logging.debug(
+            f"prompts with translated translated_prompts: {translated_prompts}"
+        )
+        return translated_prompts
 
     def translate_descr(self, attempt_descrs: List[str]) -> List[str]:
         translated_attempt_descrs = []
         for descr in attempt_descrs:
             descr = json.loads(convert_json_string(descr))
             if type(descr["prompt_stub"]) is list:
-                translate_prompt_stub = self.translate_prompts(
-                    descr["prompt_stub"], only_translate_word=True
-                )
+                translate_prompt_stub = self.translate_prompts(descr["prompt_stub"])
             else:
-                translate_prompt_stub = self.translate_prompts(
-                    [descr["prompt_stub"]], only_translate_word=True
-                )
+                translate_prompt_stub = self.translate_prompts([descr["prompt_stub"]])
             if type(descr["payload"]) is list:
-                translate_payload = self.translate_prompts(
-                    descr["payload"], only_translate_word=True
-                )
+                translate_payload = self.translate_prompts(descr["payload"])
             else:
-                translate_payload = self.translate_prompts(
-                    [descr["payload"]], only_translate_word=True
-                )
+                translate_payload = self.translate_prompts([descr["payload"]])
             translated_attempt_descrs.append(
                 str(
                     {

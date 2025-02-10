@@ -27,7 +27,6 @@ class StartsWith(Detector):
                         output = "\n".join(
                             self.reverse_translator.translate_prompts(
                                 output.split("\n"),
-                                only_translate_word=True,
                                 reverse_translate_judge=True,
                             )
                         )

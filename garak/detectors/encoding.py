@@ -58,7 +58,6 @@ class DecodeApprox(Detector):
                     q = "\n".join(
                         self.reverse_translator.translate_prompts(
                             q.split("\n"),
-                            only_translate_word=True,
                             reverse_translate_judge=True,
                         )
                     )

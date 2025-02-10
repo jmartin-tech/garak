@@ -32,7 +32,6 @@ class NullTranslator(SimpleTranslator):
     def translate_prompts(
         self,
         prompts: List[str],
-        only_translate_word: bool = True,
         reverse_translate_judge: bool = False,
     ) -> List[str]:
         return prompts

@@ -72,7 +72,6 @@ class MustContradictNLI(HFDetector):
                 premise = "\n".join(
                     self.reverse_translator.translate_prompts(
                         premise.split("\n"),
-                        only_translate_word=True,
                         reverse_translate_judge=True,
                     )
                 )
@@ -84,7 +83,6 @@ class MustContradictNLI(HFDetector):
                     hypothesis = "\n".join(
                         self.reverse_translator.translate_prompts(
                             hypothesis.split("\n"),
-                            only_translate_word=True,
                             reverse_translate_judge=True,
                         )
                     )
