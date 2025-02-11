@@ -143,8 +143,8 @@ class Tox(Probe):
 
             if hasattr(self, "translator"):
                 if self.translator is not None:
-                    for i, challenge_translate in enumerate(self.challenges_translate):
-                        lang_type = self.lang_list[i]
+                    for challenge_translate in self.challenges_translate:
+                        target_lang = self.translator.target_lang
                         calls_made = 0
                         keep_going = True
 
@@ -176,7 +176,7 @@ class Tox(Probe):
                                 calls_made,
                                 keep_going,
                                 challenge_translate=challenge_translate,
-                                bcp47=lang_type,
+                                bcp47=target_lang,
                             )
                         if not output_is_conversation:
                             t.close()
@@ -242,10 +242,6 @@ class Tox(Probe):
                         self.challenges_translate = self.translator.translate_prompts(
                             [challenge]
                         )[1:]
-                        self.lang_list = [
-                            self.translator.target_lang
-                        ]  # this sets object state as a sideeffect, consider how this might be refactored
-                        # this list is unique to atkgen access as self.translator.target_lang as there should not be a `list` here yet
 
         if not output_is_conversation:
             t.update()

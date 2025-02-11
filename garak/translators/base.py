@@ -269,12 +269,7 @@ class SimpleTranslator(Configurable):
             return prompts
         translated_prompts = []
         prompts_to_process = list(prompts)
-        self.lang_list = []  # why is this here?
-        for i in range(len(prompts_to_process)):
-            self.lang_list.append(self.source_lang)
         for lang in self.target_lang.split(","):
-            if self.source_lang == lang:
-                continue
             for prompt in prompts_to_process:
                 if reverse_translate_judge:
                     mean_word_judge = is_meaning_string(prompt)
@@ -290,7 +285,6 @@ class SimpleTranslator(Configurable):
                         prompt, self.source_lang, lang
                     )
                     translated_prompts.append(translate_prompt)
-                self.lang_list.append(lang)
         logging.debug(
             f"prompts with translated translated_prompts: {translated_prompts}"
         )
