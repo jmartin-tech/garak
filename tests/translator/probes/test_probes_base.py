@@ -69,7 +69,7 @@ def test_atkgen_probe_translation(classname, mocker):
     )
 
     mocker.patch.object(
-        garak.translator, "getTranslators", return_value=null_translator
+        garak.translator, "get_translator", return_value=null_translator
     )
 
     prompt_mock = mocker.patch.object(
@@ -114,15 +114,15 @@ def test_atkgen_probe_translation(classname, mocker):
 
 @pytest.mark.parametrize("classname", PROBES)
 def test_probe_prompt_translation(classname, mocker):
-    # instead of active translation should this just check that translation is called?
+    # instead of active translation this just checks that translation is called.
     # for instance if there are triggers ensure `translate_prompts` is called at least twice
-    # if the triggers are a a list called for each list
-    # then called for all actual `prompts`
+    # if the triggers are a list call for each list
+    # then call for all actual `prompts`
 
-    # initial translation is front loaded on __init__ of a probe, simple validation
-    # of calls for translation should be sufficient as a unit test got all probes that follow
-    # this standard pattern. Any probe that needs to call translation during probing should
-    # have a unique validation that translation is called in the correct runtime stage
+    # initial translation is front loaded on __init__ of a probe for triggers, simple validation
+    # of calls for translation should be sufficient as a unit test on all probes that follow
+    # this standard pattern. Any probe that needs to call translation more than once during probing
+    # should have a unique validation that translation is called in the correct runtime stage
 
     import garak.translator
     import garak.translators.base
@@ -139,7 +139,7 @@ def test_probe_prompt_translation(classname, mocker):
     )
 
     mocker.patch.object(
-        garak.translator, "getTranslators", return_value=null_translator
+        garak.translator, "get_translator", return_value=null_translator
     )
 
     prompt_mock = mocker.patch.object(

@@ -17,7 +17,7 @@ def test_Tag_attempt_descrs_translation(mocker):
     import garak.translator
     from garak.translators.local import NullTranslator, LocalHFTranslator
 
-    mock_translator_return = mocker.patch.object(garak.translator, "getTranslators")
+    mock_translator_return = mocker.patch.object(garak.translator, "get_translator")
 
     mock_translator_return.side_effect = [
         NullTranslator(),  # First default lang probe

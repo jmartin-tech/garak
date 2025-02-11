@@ -77,9 +77,9 @@ class Detector(Configurable):
 
     def get_reverse_translator(self):
         # this can still return none when no translator configuration is found
-        from garak.translator import getTranslators
+        from garak.translator import get_translator
 
-        translator_instance = getTranslators(self.bcp47, True)
+        translator_instance = get_translator(self.bcp47, True)
         return translator_instance
 
 
