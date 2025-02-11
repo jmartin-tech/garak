@@ -294,7 +294,7 @@ class Tox(Probe):
         try:
             rt_model_module, rt_model_class = self.red_team_model_type.split(".")
         except ValueError as e:
-            msg = f"red team model type needs to be fully specifed, w.g. 'module.Class'. Got {self.red_team_model_type}"
+            msg = f"red team model type needs to be fully specified, w.g. 'module.Class'. Got {self.red_team_model_type}"
             logging.critical(msg)
             raise ValueError() from e
         rt_config = {

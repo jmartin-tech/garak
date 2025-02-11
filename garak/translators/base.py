@@ -131,12 +131,13 @@ def convert_json_string(json_string):
     return json_string
 
 
-# Can I make this `Configurable`? The root object would need to met the standard type search criteria
+# To be `Configurable` the root object would must met the standard type search criteria
 # { translators:
-#     "language": "<from>-<to>"
-#     "model_type": "local"
-#     "name": "model/name"
-#     "hf_args": {} # or any other translator specific values for the model_type
+#     "local": { # model_type
+#       "language": "<from>-<to>"
+#       "name": "model/name" # model_name
+#       "hf_args": {} # or any other translator specific values for the model_type
+#     }
 # }
 from garak.configurable import Configurable
 

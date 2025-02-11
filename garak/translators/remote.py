@@ -48,7 +48,6 @@ class RivaTranslator(SimpleTranslator):
         import riva.client
 
         if self.nmt_client is None:
-            # this is not really a nim, this is `riva` consider a rename
             auth = riva.client.Auth(
                 None,
                 True,
