@@ -1,58 +1,53 @@
-The `translator.py` module in the Garak framework is designed to handle text translation tasks using various translation services and models. 
-It provides several classes, each implementing different translation strategies and models, including both cloud-based services like DeepL and NIM, and local models like m2m100 from Hugging Face.
+The ``translator.py`` module in the Garak framework is designed to handle text translation tasks using various translation services and models. 
+It provides several classes, each implementing different translation strategies and models, including both cloud-based services, 
+like `DeepL<https://www.deepl.com/>`_ and `NVIDIA Riva<https://build.nvidia.com/nvidia/megatron-1b-nmt>`_, and local models like facebook/m2m100 available on `Hugging Face<https://huggingface.co/>`_.
 
 garak.translator
-=============
+================
 
 .. automodule:: garak.translator
    :members:
    :undoc-members:
    :show-inheritance:   
 
-Multilingual support
-====================
+Translation support
+===================
 
-This feature adds multilingual probes and detector keywords and triggers.
-You can check the model vulnerability for multilingual languages.
+This module adds translation support for probe and detector keywords and triggers.
+Allowing testing of models that accept and produce text in languages other than the language the plugin was written for.
 
-* limitation:
-  - This function only supports for `bcp47` code is "en".
-  - Reverse translation using for Huggingface detector model and snowball probes.
-  - Huggingface detector only supports English. You need to bring the target language NLI model for the detector.
-  - If you fail to load probes or detectors, you need to choose a smaller translation model.
+* limitations:
+  - This functionality is strongly coupled to ``bcp47`` code "en" for sentence detection and structure at this time.
+  - Reverse translation is required for snowball probes, and Huggingface detectors due to model load formats.
+  - Huggingface detectors primarily load English models. Requiring a target language NLI model for the detector.
+  - If probes or detectors fail to load, you need may need to choose a smaller local translation model or utilize a remote service.
+  - Translation may add significant execution time to the run depending on resources available.
 
-pre-requirements
-----------------
-
-.. code-block:: bash
-
-    pip install nvidia-riva-client==2.16.0 
-
-Support translation service
----------------------------
+Supported translation services
+------------------------------
 
 - Huggingface
-  - This code uses the following translation models:
+  - This project supports usage of the following translation models:
     - `Helsinki-NLP/opus-mt-{<source_lang>-<target_lang>} <https://huggingface.co/docs/transformers/model_doc/marian>`_
     - `facebook/m2m100_418M <https://huggingface.co/facebook/m2m100_418M>`_
     - `facebook/m2m100_1.2B <https://huggingface.co/facebook/m2m100_1.2B>`_
 - `DeepL <https://www.deepl.com/docs-api>`_
-- `NIM <https://build.nvidia.com/nvidia/megatron-1b-nmt>`_
+- `NVIDIA Riva <https://build.nvidia.com/nvidia/megatron-1b-nmt>`_
 
-API KEY
--------
+API KEY Requirements
+--------------------
 
-You can use DeepL API or NIM API to translate probe and detector keywords and triggers.
+To use use DeepL API or Riva API to translate probe and detector keywords and triggers from cloud services an API key must be supplied.
 
-You need an API key for the preferred service.
+API keys for the preferred service can be obtained in following locations:
 - `DeepL <https://www.deepl.com/en/pro-api>`_
-- `NIM <https://build.nvidia.com/nvidia/megatron-1b-nmt>`_
+- `Riva <https://build.nvidia.com/nvidia/megatron-1b-nmt>`_
 
-Supported languages:
+Supported languages for remote services:
 - `DeepL <https://developers.deepl.com/docs/resources/supported-languages>`_
-- `NIM <https://build.nvidia.com/nvidia/megatron-1b-nmt/modelcard>`_
+- `Riva <https://docs.nvidia.com/nim/riva/nmt/latest/getting-started.html#supported-languages>`_
 
-Set up the API key with the following command:
+API keys can be stored in environment variables with the following commands:
 
 DeepL
 ~~~~~
@@ -61,52 +56,71 @@ DeepL
 
     export DEEPL_API_KEY=xxxx
 
-NIM
+RIVA
 ~~~
 
 .. code-block:: bash
 
-    export NIM_API_KEY=xxxx
+    export RIVA_API_KEY=xxxx
 
-config file
------------
+Configuration file
+------------------
 
-You can pass the translation service, source language, and target language by the argument.
+Translation function is configured in the `run` section of a configuration with the following keys:
 
-- translation_service: "nim" or "deepl", "local"
-- lang_spec: "ja", "ja,fr" etc. (you can set multiple language codes)
+lang_spec   - A single `bcp47` entry designating the language of the target under test. "ja", "fr", "jap" etc.
+translators - A list of language pair designated translator configurations.
 
-* Note: The `Helsinki-NLP/opus-mt-en-{lang}` case uses different language formats. The language codes used to name models are inconsistent. Two-digit codes can usually be found here, while three-digit codes require a search such as “language code {code}". More details can be found `here <https://github.com/Helsinki-NLP/OPUS-MT-train/tree/master/models>`_.
+* Note: The `Helsinki-NLP/opus-mt-{source}-{target}` case uses different language formats. The language codes used to name models are inconsistent. 
+Two-digit codes can usually be found `here<https://developers.google.com/admin-sdk/directory/v1/languages>`_, while three-digit codes require
+a search such as “language code {code}". More details can be found `here <https://github.com/Helsinki-NLP/OPUS-MT-train/tree/master/models>`_.
 
-The translator config writes to a file and the path passed, with 
-You can also configure this via a config file:
-is given in `Translator Config with yaml <translator_with_yaml>`_ below.
+A translator configuration is provided using the project's configurable pattern with the following required keys:
+
+* ``language``   - A `-` separated pair of `bcp47` entires describing translation format provided by the configuration
+* ``model_type`` - the module and optional instance class to be instantiated. local, remote, remote.DeeplTranslator etc.
+* ``model_name`` - (optional) the model name loaded for translation, required for ``local`` translator model_type
+
+(Optional) Model specific parameters defined by the translator model type may exist.
+
+* Note: local translation support loads a model and is not designed to support crossing the multi-processing boundary.
+
+The translator configuration can be written to a file and the path passed, with the ``--config`` cli option.
+
+An example template is provided below.
 
 .. code-block:: yaml 
 run:
-  translation:
-    translation_service: {translation service}
-    api_key: {your API key}
-    lang_spec: {language code} 
-    model_spec:
+  lang_spec: {target language code}
+  translators:
+    - language: {source language code}-{target language code}
+      api_key: {your API key}
+      model_type: {translator module or module.classname}
+      model_name: {huggingface model name} 
+    - language: {target language code}-{source language code}
+      api_key: {your API key}
+      model_type: {translator module or module.classname}
       model_name: {huggingface model name} 
 
+* Note: each translator is configured for a single translation pair and specification is required in each direction for a run to proceed.
 
-Examples for multilingual
--------------------------
+Examples for translation configuration
+--------------------------------------
 
 DeepL
 ~~~~~
 
-To use the translation option for garak, run the following command:
+To use DeepL translation in garak, run the following command:
 You use the following yaml config.
 
 .. code-block:: yaml 
 run:
-  translation:
-    translation_service: deepl
-    api_key: {your API key}
-    lang_spec: ja
+  lang_spec: {target language code}
+  translator:
+    - language: {source language code}-{target language code}
+      model_type: remote.DeeplTranslator
+    - language: {target language code}-{source language code}
+      model_type: remote.DeeplTranslator
 
 
 .. code-block:: bash
@@ -115,24 +129,25 @@ run:
     python3 -m garak --model_type nim --model_name meta/llama-3.1-8b-instruct --probes encoding --config {path to your yaml config file} 
 
 
-NIM
-~~~
+Riva
+~~~~
 
-For NIM, run the following command:
+For Riva, run the following command:
 You use the following yaml config.
 
 .. code-block:: yaml 
 
 run:
   translation:
-    translation_service: nim
-    api_key: {your API key}
-    lang_spec: ja
+    - language: {source language code}-{target language code}
+      model_type: remote
+    - language: {target language code}-{source language code}
+      model_type: remote
 
 
 .. code-block:: bash
 
-    export NIM_API_KEY=xxxx
+    export RIVA_API_KEY=xxxx
     python3 -m garak --model_type nim --model_name meta/llama-3.1-8b-instruct --probes encoding --config {path to your yaml config file} 
 
 
@@ -144,11 +159,14 @@ You use the following yaml config.
 
 .. code-block:: yaml 
 run:
-  translation:
-    translation_service: local
-    lang_spec: ja 
-    model_spec:
-      model_name: facebook/m2m100_418M 
+  lang_spec: ja
+  translators:
+    - language: en-ja
+      model_type: local
+      model_name: facebook/m2m100_418M
+    - language: jap-en
+      model_type: local
+      model_name: facebook/m2m100_418M
 
 
 .. code-block:: bash
@@ -158,12 +176,14 @@ run:
 
 .. code-block:: yaml 
 run:
-  translation:
-    translation_service: local
-    lang_spec: jap 
-    model_spec:
+  lang_spec: jap
+  translators:
+    - language: en-jap
+      model_type: local
       model_name: Helsinki-NLP/opus-mt-{}
-
+    - language: jap-en
+      model_type: local
+      model_name: Helsinki-NLP/opus-mt-{}
 
 .. code-block:: bash
 
