@@ -53,8 +53,6 @@ Let's take a look at the core config.
         eval_threshold: 0.5
         generations: 5
         probe_tags:
-        lang_spec: "en"
-        translators:
 
     plugins:
         model_type:
