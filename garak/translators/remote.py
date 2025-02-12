@@ -8,10 +8,10 @@
 import logging
 
 from garak.exception import BadGeneratorException
-from garak.translators.base import SimpleTranslator
+from garak.translators.base import Translator
 
 
-class RivaTranslator(SimpleTranslator):
+class RivaTranslator(Translator):
     """Remote translation using NVIDIA Riva translation API
 
     https://developer.nvidia.com/riva
@@ -68,7 +68,7 @@ class RivaTranslator(SimpleTranslator):
             return text
 
 
-class DeeplTranslator(SimpleTranslator):
+class DeeplTranslator(Translator):
     """Remote translation using DeepL translation API
 
     https://www.deepl.com/en/translator

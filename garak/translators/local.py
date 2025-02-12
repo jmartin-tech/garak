@@ -9,25 +9,23 @@ from typing import List
 from transformers import M2M100ForConditionalGeneration, M2M100Tokenizer
 from transformers import MarianMTModel, MarianTokenizer
 
-from garak.translators.base import SimpleTranslator
+from garak.translators.base import Translator
 from garak.resources.api.huggingface import HFCompatible
 
 
-class NullTranslator(SimpleTranslator):
+class NullTranslator(Translator):
     """Stand-in translator for pass through"""
 
     def __init__(self, config_root: dict = {}) -> None:
         self._load_config(config_root=config_root)
         if hasattr(self, "language") and self.language:
             self.source_lang, self.target_lang = self.language.split("-")
-        pass
 
     def _load_translator(self):
         pass
 
-    def _translate(self, text: str, source_lang: str, target_lang: str) -> str:
-        if source_lang == target_lang:
-            return text
+    def _translate(self, text: str) -> str:
+        return text
 
     def translate_prompts(
         self,
@@ -37,7 +35,7 @@ class NullTranslator(SimpleTranslator):
         return prompts
 
 
-class LocalHFTranslator(SimpleTranslator, HFCompatible):
+class LocalHFTranslator(Translator, HFCompatible):
     """Local translation using Huggingface m2m100 or Helsinki-NLP/opus-mt-* models
 
     Reference:
@@ -71,15 +69,15 @@ class LocalHFTranslator(SimpleTranslator, HFCompatible):
             self.model = MarianMTModel.from_pretrained(model_name).to(self.device)
             self.tokenizer = MarianTokenizer.from_pretrained(model_name)
 
-    def _translate(self, text: str, source_lang: str, target_lang: str) -> str:
+    def _translate(self, text: str) -> str:
         if "m2m100" in self.model_name:
-            self.tokenizer.src_lang = source_lang
+            self.tokenizer.src_lang = self.source_lang
 
             encoded_text = self.tokenizer(text, return_tensors="pt").to(self.device)
 
             translated = self.model.generate(
                 **encoded_text,
-                forced_bos_token_id=self.tokenizer.get_lang_id(target_lang),
+                forced_bos_token_id=self.tokenizer.get_lang_id(self.target_lang),
             )
 
             translated_text = self.tokenizer.batch_decode(

@@ -5,7 +5,7 @@
 """ Translator that translates a prompt. """
 
 
-from typing import Optional, List
+from typing import List
 import re
 import unicodedata
 import string
@@ -142,7 +142,7 @@ def convert_json_string(json_string):
 from garak.configurable import Configurable
 
 
-class SimpleTranslator(Configurable):
+class Translator(Configurable):
     """Base class for objects that execute translation"""
 
     def __init__(self, config_root: dict = {}) -> None:
@@ -159,22 +159,11 @@ class SimpleTranslator(Configurable):
     def _load_translator(self):
         raise NotImplementedError
 
-    # should this be taking language values? If the translator has been created with known languages take them as params?
-    def _translate(self, text: str, source_lang: str, target_lang: str) -> str:
+    def _translate(self, text: str) -> str:
         raise NotImplementedError
 
-    def _get_response(
-        self,
-        input_text: str,
-        source_lang: Optional[str] = None,
-        target_lang: Optional[str] = None,
-    ):
-        if source_lang is None:
-            source_lang = self.source_lang
-        if target_lang is None:
-            target_lang = self.target_lang
-
-        if source_lang is None or target_lang is None:
+    def _get_response(self, input_text: str):
+        if self.source_lang is None or self.target_lang is None:
             return input_text
 
         translated_lines = []
@@ -190,21 +179,13 @@ class SimpleTranslator(Configurable):
             if contains_invisible_unicode(line):
                 continue
             if len(line) <= 200:
-                translated_lines += self._short_sentence_translate(
-                    line, source_lang=source_lang, target_lang=target_lang
-                )
+                translated_lines += self._short_sentence_translate(line)
             else:
-                translated_lines += self._long_sentence_translate(
-                    line,
-                    source_lang=source_lang,
-                    target_lang=target_lang,
-                )
+                translated_lines += self._long_sentence_translate(line)
 
         return "\n".join(translated_lines)
 
-    def _short_sentence_translate(
-        self, line: str, source_lang: str, target_lang: str
-    ) -> str:
+    def _short_sentence_translate(self, line: str) -> str:
         translated_lines = []
         needs_translation = True
         if self.source_lang == "en" or line == "$":
@@ -218,19 +199,12 @@ class SimpleTranslator(Configurable):
         if needs_translation:
             cleaned_line = self._clean_line(line)
             if cleaned_line:
-                translated_line = self._translate(
-                    cleaned_line, source_lang=source_lang, target_lang=target_lang
-                )
+                translated_line = self._translate(cleaned_line)
                 translated_lines.append(translated_line)
 
         return translated_lines
 
-    def _long_sentence_translate(
-        self,
-        line: str,
-        source_lang: str,
-        target_lang: str,
-    ) -> str:
+    def _long_sentence_translate(self, line: str) -> str:
         translated_lines = []
         sentences = re.split(r"(\. |\?)", line.strip())
         for sentence in sentences:
@@ -238,9 +212,7 @@ class SimpleTranslator(Configurable):
             if self._should_skip_line(cleaned_sentence):
                 translated_lines.append(cleaned_sentence)
                 continue
-            translated_line = self._translate(
-                cleaned_sentence, source_lang=source_lang, target_lang=target_lang
-            )
+            translated_line = self._translate(cleaned_sentence)
             translated_lines.append(translated_line)
 
         return translated_lines
@@ -270,25 +242,18 @@ class SimpleTranslator(Configurable):
             return prompts
         translated_prompts = []
         prompts_to_process = list(prompts)
-        for lang in self.target_lang.split(","):
-            for prompt in prompts_to_process:
-                if reverse_translate_judge:
-                    mean_word_judge = is_meaning_string(prompt)
-                    if mean_word_judge:
-                        translate_prompt = self._get_response(
-                            prompt, self.source_lang, lang
-                        )
-                        translated_prompts.append(translate_prompt)
-                    else:
-                        translated_prompts.append(prompt)
-                else:
-                    translate_prompt = self._get_response(
-                        prompt, self.source_lang, lang
-                    )
+        for prompt in prompts_to_process:
+            if reverse_translate_judge:
+                mean_word_judge = is_meaning_string(prompt)
+                if mean_word_judge:
+                    translate_prompt = self._get_response(prompt)
                     translated_prompts.append(translate_prompt)
-        logging.debug(
-            f"prompts with translated translated_prompts: {translated_prompts}"
-        )
+                else:
+                    translated_prompts.append(prompt)
+            else:
+                translate_prompt = self._get_response(prompt)
+                translated_prompts.append(translate_prompt)
+        logging.debug(f"translated_prompts: {translated_prompts}")
         return translated_prompts
 
     def translate_descr(self, attempt_descrs: List[str]) -> List[str]:

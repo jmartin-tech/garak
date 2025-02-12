@@ -8,13 +8,13 @@
 import logging
 from garak import _config, _plugins
 
-from garak.translators.base import SimpleTranslator
+from garak.translators.base import Translator
 from garak.translators.local import NullTranslator
 
 
 def load_translator(
     translation_service: dict = {}, reverse: bool = False
-) -> SimpleTranslator:
+) -> Translator:
     """Load a single translator based on the configuration provided."""
     translator_instance = None
     translator_config = {
