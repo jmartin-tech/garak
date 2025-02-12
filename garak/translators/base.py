@@ -131,7 +131,7 @@ def convert_json_string(json_string):
     return json_string
 
 
-# To be `Configurable` the root object would must met the standard type search criteria
+# To be `Configurable` the root object must met the standard type search criteria
 # { translators:
 #     "local": { # model_type
 #       "language": "<from>-<to>"

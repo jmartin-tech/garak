@@ -92,7 +92,6 @@ class Probe(Configurable):
                     )
 
     def get_translator(self):
-        # this can still return none when no translator configuration is found, currently this will return `1` translator
         from garak.translator import get_translator
 
         translator_instance = get_translator(self.bcp47)

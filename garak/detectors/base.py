@@ -62,10 +62,7 @@ class Detector(Configurable):
             )
 
         logging.info(f"detector init: {self}")
-        # this should not access _config.run
-        if hasattr(_config, "run"):
-            if hasattr(_config.run, "translators"):
-                self.reverse_translator = self.get_reverse_translator()
+        self.reverse_translator = self.get_reverse_translator()
 
         self.reverse_translator_outputs = []
 
@@ -76,7 +73,6 @@ class Detector(Configurable):
         return [0.5] * len(attempt.all_outputs)
 
     def get_reverse_translator(self):
-        # this can still return none when no translator configuration is found
         from garak.translator import get_translator
 
         translator_instance = get_translator(self.bcp47, True)
