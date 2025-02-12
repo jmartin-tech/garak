@@ -40,6 +40,10 @@ def probe_pre_req(classname):
     if os.path.exists(local_config_path) is False:
         pytest.skip("Local config file does not exist, skipping test.")
     _config.load_config(run_config_filename=local_config_path)
+    # detectors run by probes write to the report file
+    temp_report_file = tempfile.NamedTemporaryFile(mode="w+", delete=False)
+    _config.transient.reportfile = temp_report_file
+    _config.transient.report_filename = temp_report_file.name
 
     # since this does not go through cli generations must be set
     _, module, klass = classname.split(".")
@@ -90,34 +94,30 @@ def test_atkgen_probe_translation(classname, mocker):
         return
 
     generator_instance = _plugins.load_plugin("generators.test.Repeat")
-    with tempfile.NamedTemporaryFile(mode="w+") as temp_report_file:
-        _config.transient.reportfile = temp_report_file
-        _config.transient.report_filename = temp_report_file.name
 
-        probe_instance.probe(generator_instance)
+    probe_instance.probe(generator_instance)
 
-        expected_translation_calls = 1
-        if hasattr(probe_instance, "triggers"):
-            # increase prompt calls by 1 or if triggers are lists by the len of triggers
-            if isinstance(probe_instance.triggers[0], list):
-                expected_translation_calls += len(probe_instance.triggers)
-            else:
-                expected_translation_calls += 1
+    expected_translation_calls = 1
+    if hasattr(probe_instance, "triggers"):
+        # increase prompt calls by 1 or if triggers are lists by the len of triggers
+        if isinstance(probe_instance.triggers[0], list):
+            expected_translation_calls += len(probe_instance.triggers)
+        else:
+            expected_translation_calls += 1
 
-        if hasattr(probe_instance, "attempt_descrs"):
-            # this only exists in goodside should it be standardized in some way?
-            descr_mock.assert_called_once()
-            expected_translation_calls += len(probe_instance.attempt_descrs) * 2
+    if hasattr(probe_instance, "attempt_descrs"):
+        # this only exists in goodside should it be standardized in some way?
+        descr_mock.assert_called_once()
+        expected_translation_calls += len(probe_instance.attempt_descrs) * 2
 
-        assert prompt_mock.call_count == expected_translation_calls
+    assert prompt_mock.call_count == expected_translation_calls
 
 
 @pytest.mark.parametrize("classname", PROBES)
 def test_probe_prompt_translation(classname, mocker):
     # instead of active translation this just checks that translation is called.
     # for instance if there are triggers ensure `translate_prompts` is called at least twice
-    # if the triggers are a list call for each list
-    # then call for all actual `prompts`
+    # if the triggers are a list call for each list then call for all actual `prompts`
 
     # initial translation is front loaded on __init__ of a probe for triggers, simple validation
     # of calls for translation should be sufficient as a unit test on all probes that follow
@@ -160,23 +160,20 @@ def test_probe_prompt_translation(classname, mocker):
         return
 
     generator_instance = _plugins.load_plugin("generators.test.Repeat")
-    with tempfile.NamedTemporaryFile(mode="w+") as temp_report_file:
-        _config.transient.reportfile = temp_report_file
-        _config.transient.report_filename = temp_report_file.name
 
-        probe_instance.probe(generator_instance)
+    probe_instance.probe(generator_instance)
 
-        expected_translation_calls = 1
-        if hasattr(probe_instance, "triggers"):
-            # increase prompt calls by 1 or if triggers are lists by the len of triggers
-            if isinstance(probe_instance.triggers[0], list):
-                expected_translation_calls += len(probe_instance.triggers)
-            else:
-                expected_translation_calls += 1
+    expected_translation_calls = 1
+    if hasattr(probe_instance, "triggers"):
+        # increase prompt calls by 1 or if triggers are lists by the len of triggers
+        if isinstance(probe_instance.triggers[0], list):
+            expected_translation_calls += len(probe_instance.triggers)
+        else:
+            expected_translation_calls += 1
 
-        if hasattr(probe_instance, "attempt_descrs"):
-            # this only exists in goodside should it be standardized in some way?
-            descr_mock.assert_called_once()
-            expected_translation_calls += len(probe_instance.attempt_descrs) * 2
+    if hasattr(probe_instance, "attempt_descrs"):
+        # this only exists in goodside should it be standardized in some way?
+        descr_mock.assert_called_once()
+        expected_translation_calls += len(probe_instance.attempt_descrs) * 2
 
-        assert prompt_mock.call_count == expected_translation_calls
+    assert prompt_mock.call_count == expected_translation_calls
