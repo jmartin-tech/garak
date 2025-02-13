@@ -6,7 +6,7 @@
 A harness coordinates running probes on a generator, running detectors on the 
 outputs, and evaluating the results.
 
-This module ncludes the class Harness, which all `garak` harnesses must 
+This module includes the class Harness, which all `garak` harnesses must 
 inherit from.
 """
 
@@ -29,7 +29,9 @@ class Harness(Configurable):
 
     active = True
 
-    DEFAULT_PARAMS = {}
+    DEFAULT_PARAMS = {
+        "strict_modality_match": False,
+    }
 
     def __init__(self, config_root=_config):
         self._load_config(config_root)
@@ -64,6 +66,13 @@ class Harness(Configurable):
                     logging.warning(err_msg)
                     continue
 
+    def _start_run_hook(self):
+        self._http_lib_user_agents = _config.get_http_lib_agents()
+        _config.set_all_http_lib_agents(_config.run.user_agent)
+
+    def _end_run_hook(self):
+        _config.set_http_lib_agents(self._http_lib_user_agents)
+
     def run(self, model, probes, detectors, evaluator, announce_probe=True) -> None:
         """Core harness method
 
@@ -92,12 +101,18 @@ class Harness(Configurable):
                 print(msg)
             raise ValueError(msg)
 
+        self._start_run_hook()
+
         for probe in probes:
             logging.debug("harness: probe start for %s", probe.probename)
             if not probe:
                 continue
-            # TODO: refactor this to allow `compatible` probes instead of direct match
-            if probe.modality["in"] != model.modality["in"]:
+
+            modality_match = _modality_match(
+                probe.modality["in"], model.modality["in"], self.strict_modality_match
+            )
+
+            if not modality_match:
                 logging.warning(
                     "probe skipped due to modality mismatch: %s - model expects %s",
                     probe.probename,
@@ -111,8 +126,10 @@ class Harness(Configurable):
             ), "probing should always return an ordered iterable"
             self.run_detectors(detectors, attempt_results, evaluator, probe)
 
+        self._end_run_hook()
+
         logging.debug("harness: probe list iteration completed")
-    
+
     def run_detectors(self, detectors, attempt_results, evaluator, probe=None):
         for d in detectors:
             logging.debug("harness: run detector %s", d.detectorname)
@@ -120,18 +137,30 @@ class Harness(Configurable):
             detector_probe_name = d.detectorname.replace("garak.detectors.", "")
             attempt_iterator.set_description("detectors." + detector_probe_name)
             for attempt in attempt_iterator:
-                attempt.detector_results[detector_probe_name] = list(
-                    d.detect(attempt)
-                )
-            
-        for attempt in attempt_results:
-            attempt.status = garak.attempt.ATTEMPT_COMPLETE
-            _config.transient.reportfile.write(json.dumps(attempt.as_dict()) + "\n")
+                if d.skip:
+                    continue
+                attempt.detector_results[detector_probe_name] = list(d.detect(attempt))
+
+            for attempt in attempt_results:
+                attempt.status = garak.attempt.ATTEMPT_COMPLETE
+                _config.transient.reportfile.write(json.dumps(attempt.as_dict()) + "\n")
 
         if len(attempt_results) == 0:
-            msg = "zero attempt results: attempt %s" % attempt.uuid()
-            if probe is not None:
-                msg += ", probe %s" % probe.probename
-            logging.warning(msg)
+            logging.warning(
+                "zero attempt results: probe %s, detector %s",
+                probe.probename,
+                detector_probe_name,
+            )
         else:
             evaluator.evaluate(attempt_results)
+
+
+def _modality_match(probe_modality, generator_modality, strict):
+    if strict:
+        # must be perfect match
+        return probe_modality == generator_modality
+    else:
+        # everything probe wants must be accepted by model
+        return set(probe_modality).intersection(generator_modality) == set(
+            probe_modality
+        )

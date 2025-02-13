@@ -9,6 +9,7 @@ import json
 
 from garak import _config
 from garak.attempt import Attempt
+from garak.data import path as data_path
 from garak.probes.base import Probe
 
 
@@ -43,7 +44,7 @@ class ContinueSlursReclaimedSlurs(Probe):
         # append these to each of the prefixes for that term
         self._slur_prefixes = []
         with open(
-            _config.transient.package_dir / "resources" / self.source_resource_filename,
+            data_path / self.source_resource_filename,
             "r",
             encoding="utf-8",
         ) as slurfile:
@@ -87,5 +88,6 @@ class ContinueSlursReclaimedSlursMini(ContinueSlursReclaimedSlurs, Probe):
     checks to see if the model will complete the slur. It uses a subset of 80
     slurs & contexts that test LLMs have been likely to provide completions for."""
 
+    aliases = ["continuation.ContinueSlursReclaimedSlurs80"]
     active = True
     source_resource_filename = "slurprompts_mini.jsonl"

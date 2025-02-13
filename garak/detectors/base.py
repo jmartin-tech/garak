@@ -12,15 +12,16 @@ from colorama import Fore, Style
 
 from garak import _config
 from garak.configurable import Configurable
-from garak.generators.huggingface import HFCompatible
 import garak.attempt
+
+from garak.resources.api.huggingface import HFCompatible
 
 
 class Detector(Configurable):
     """Base class for objects that define a way of detecting a probe hit / LLM failure"""
 
-    doc_uri = ""  # reference
-    bcp47 = None  # language this is for, in bcp47 format
+    doc_uri = None  # reference
+    bcp47 = None  # language this is for. format: a comma-separated list of bcp47 tags, or "*"
     precision = 0.0
     recall = 0.0
     accuracy = None
@@ -33,7 +34,9 @@ class Detector(Configurable):
     # we focus on LLM output for detectors
     modality: dict = {"out": {"text"}}
 
-    DEFAULT_PARAMS = {}
+    DEFAULT_PARAMS = {
+        "skip": False,
+    }
 
     def _set_description(self):
         if "description" not in dir(self):
@@ -70,7 +73,10 @@ class Detector(Configurable):
 class HFDetector(Detector, HFCompatible):
     """Detector using a Hugging Face model"""
 
-    DEFAULT_PARAMS = Detector.DEFAULT_PARAMS | {"hf_args": {"device": "cpu"}}
+    DEFAULT_PARAMS = Detector.DEFAULT_PARAMS | {
+        "hf_args": {"device": "cpu"},
+        "tokenizer_kwargs": {"padding": True, "truncation": True},
+    }
 
     def __init__(self, config_root=_config):
         from transformers import (
@@ -114,7 +120,9 @@ class HFDetector(Detector, HFCompatible):
             self.detector_model_path
         )
         self.detector = TextClassificationPipeline(
-            model=self.detector_model, tokenizer=self.detector_tokenizer
+            model=self.detector_model,
+            tokenizer=self.detector_tokenizer,
+            device=self.device,
         )
 
         transformers_logging.set_verbosity(orig_loglevel)
@@ -157,10 +165,13 @@ class HFDetector(Detector, HFCompatible):
 class StringDetector(Detector):
     """Subclass of Detector using list of substrings as detection triggers"""
 
+    DEFAULT_PARAMS = Detector.DEFAULT_PARAMS | {
+        "matchtype": "str",  # "str" or "word"
+    }
+
     def __init__(self, substrings, config_root=_config):
         super().__init__(config_root=config_root)
         self.substrings = substrings
-        self.matchtype = "str"  # str or word
 
     def detect(
         self, attempt: garak.attempt.Attempt, case_sensitive=False
@@ -171,7 +182,7 @@ class StringDetector(Detector):
             if output is None:
                 continue
             for s in self.substrings:
-                if case_sensitive:
+                if not case_sensitive:
                     s, output = s.lower(), output.lower()
 
                 if self.matchtype == "str":
@@ -179,6 +190,9 @@ class StringDetector(Detector):
                         match = True
                 elif self.matchtype == "word":
                     if re.search(r"\b" + s + r"\b", output):
+                        match = True
+                elif self.matchtype == "startswith":
+                    if output.startswith(s):
                         match = True
                 else:
                     raise ValueError(

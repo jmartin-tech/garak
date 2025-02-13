@@ -7,11 +7,13 @@
 
 # logging should be set up before config is loaded
 
+import platform
 from collections import defaultdict
 from dataclasses import dataclass
 import importlib
 import logging
 import os
+import stat
 import pathlib
 from typing import List
 import yaml
@@ -23,7 +25,7 @@ from xdg_base_dirs import (
 
 DICT_CONFIG_AFTER_LOAD = False
 
-version = -1  # eh why this is here? hm. who references it
+from garak import __version__ as version
 
 system_params = (
     "verbose narrow_output parallel_requests parallel_attempts skip_unknown".split()
@@ -92,7 +94,11 @@ def _crystallise(d):
     return dict(d)
 
 
-nested_dict = lambda: defaultdict(nested_dict)
+def _nested_dict():
+    return defaultdict(nested_dict)
+
+
+nested_dict = _nested_dict
 
 plugins.probes = nested_dict()
 plugins.generators = nested_dict()
@@ -112,13 +118,27 @@ run.seed = None
 # generator, probe, detector, buff = {}, {}, {}, {}
 
 
+def _key_exists(d: dict, key: str) -> bool:
+    # Check for the presence of a key in a nested dict.
+    if not isinstance(d, dict) and not isinstance(d, list):
+        return False
+    if isinstance(d, list):
+        return any([_key_exists(item, key) for item in d])
+    if isinstance(d, dict) and key in d.keys():
+        return True
+    else:
+        return any([_key_exists(val, key) for val in d.values()])
+
+
 def _set_settings(config_obj, settings_obj: dict):
     for k, v in settings_obj.items():
         setattr(config_obj, k, v)
     return config_obj
 
 
-def _combine_into(d: dict, combined: dict) -> None:
+def _combine_into(d: dict, combined: dict) -> dict:
+    if d is None:
+        return combined
     for k, v in d.items():
         if isinstance(v, dict):
             _combine_into(v, combined.setdefault(k, nested_dict()))
@@ -135,17 +155,85 @@ def _load_yaml_config(settings_filenames) -> dict:
         with open(settings_filename, encoding="utf-8") as settings_file:
             settings = yaml.safe_load(settings_file)
             if settings is not None:
+                if _key_exists(settings, "api_key"):
+                    if platform.system() == "Windows":
+                        msg = (f"A possibly secret value (`api_key`) was detected in {settings_filename}. "
+                               f"We recommend removing potentially sensitive values from config files or "
+                               f"ensuring the file is readable only by you.")
+                        logging.warning(msg)
+                        print(f"⚠️  {msg}")
+                    else:
+                        logging.info(f"API key found in {settings_filename}. Checking readability...")
+                        res = os.stat(settings_filename)
+                        if res.st_mode & stat.S_IROTH or res.st_mode & stat.S_IRGRP:
+                            msg = (f"A possibly secret value (`api_key`) was detected in {settings_filename}, "
+                                   f"which is readable by users other than yourself. "
+                                   f"Consider changing permissions on this file to only be readable by you.")
+                            logging.warning(msg)
+                            print(f"⚠️  {msg}")
                 config = _combine_into(settings, config)
     return config
 
 
 def _store_config(settings_files) -> None:
-    global system, run, plugins, reporting
+    global system, run, plugins, reporting, version
     settings = _load_yaml_config(settings_files)
     system = _set_settings(system, settings["system"])
     run = _set_settings(run, settings["run"])
+    run.user_agent = run.user_agent.replace("{version}", version)
     plugins = _set_settings(plugins, settings["plugins"])
     reporting = _set_settings(reporting, settings["reporting"])
+
+
+# not my favourite solution in this module, but if
+# _config.set_http_lib_agents() to be predicated on a param instead of
+# a _config.run value (i.e. user_agent) - which it needs to be if it can be
+# used when the values are popped back to originals - then a separate way
+# of passing the UA string to _garak_user_agent() needs to exist, outside of
+# _config.run.user_agent
+REQUESTS_AGENT = ""
+
+
+def _garak_user_agent(dummy=None):
+    return str(REQUESTS_AGENT)
+
+
+def set_all_http_lib_agents(agent_string):
+    set_http_lib_agents(
+        {"requests": agent_string, "httpx": agent_string, "aiohttp": agent_string}
+    )
+
+
+def set_http_lib_agents(agent_strings: dict):
+
+    global REQUESTS_AGENT
+
+    if "requests" in agent_strings:
+        from requests import utils
+
+        REQUESTS_AGENT = agent_strings["requests"]
+        utils.default_user_agent = _garak_user_agent
+    if "httpx" in agent_strings:
+        import httpx
+
+        httpx._client.USER_AGENT = agent_strings["httpx"]
+    if "aiohttp" in agent_strings:
+        import aiohttp
+
+        aiohttp.client_reqrep.SERVER_SOFTWARE = agent_strings["aiohttp"]
+
+
+def get_http_lib_agents():
+    from requests import utils
+    import httpx
+    import aiohttp
+
+    agent_strings = {}
+    agent_strings["requests"] = utils.default_user_agent
+    agent_strings["httpx"] = httpx._client.USER_AGENT
+    agent_strings["aiohttp"] = aiohttp.client_reqrep.SERVER_SOFTWARE
+
+    return agent_strings
 
 
 def load_base_config() -> None:
@@ -189,6 +277,7 @@ def load_config(
 
     logging.debug("Loading configs from: %s", ",".join(settings_files))
     _store_config(settings_files=settings_files)
+
     if DICT_CONFIG_AFTER_LOAD:
         _lock_config_as_dict()
     loaded = True

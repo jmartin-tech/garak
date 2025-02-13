@@ -4,14 +4,15 @@
 import importlib
 import json
 import os
+from pathlib import Path
+import pytest
 import re
 import shutil
 import sys
 import tempfile
 
-import pytest
+from pytest_httpserver import HTTPServer
 
-from pathlib import Path
 from garak import _config
 import garak.cli
 
@@ -80,7 +81,7 @@ OPTIONS_PARAM = [
 OPTIONS_SPEC = [
     ("probes", "3,elim,gul.dukat", "probe_spec"),
     ("detectors", "all", "detector_spec"),
-    ("buff", "polymorph", "buff_spec"),
+    ("buffs", "polymorph", "buff_spec"),
 ]
 
 param_locs = {}
@@ -266,7 +267,9 @@ def test_yaml_param_settings(param):
         )  # add list_config as the action so we don't actually run
         subconfig = getattr(_config, param_locs[option])
         os.remove(tmp.name)
-        assert getattr(subconfig, option) == value
+        assert (
+            getattr(subconfig, option) == value
+        ), f"CLI-supplied config values for {option} should override core config"
 
 
 # # test that site YAML overrides core YAML # needs file staging for site yaml
@@ -281,7 +284,9 @@ def test_site_yaml_overrides_core_yaml():
         f.flush()
         garak.cli.main(["--list_config"])
 
-    assert _config.run.eval_threshold == 0.777
+    assert (
+        _config.run.eval_threshold == 0.777
+    ), "Site config should override core config if loaded correctly"
 
 
 # # test that run YAML overrides site YAML # needs file staging for site yaml
@@ -301,7 +306,9 @@ def test_run_yaml_overrides_site_yaml():
         f.flush()
         garak.cli.main(["--list_config", "--eval_threshold", str(0.9001)])
 
-    assert _config.run.eval_threshold == 0.9001
+    assert (
+        _config.run.eval_threshold == 0.9001
+    ), "CLI-specified config values should override site config"
 
 
 # test that CLI config overrides run YAML
@@ -322,7 +329,9 @@ def test_cli_overrides_run_yaml():
             ["--config", tmp.name, "-s", f"{override_seed}", "--list_config"]
         )  # add list_config as the action so we don't actually run
         os.remove(tmp.name)
-        assert _config.run.seed == override_seed
+        assert (
+            _config.run.seed == override_seed
+        ), "CLI-specificd config values should override values in config file names on CLI"
 
 
 # test probe_options YAML
@@ -539,6 +548,7 @@ def test_blank_probe_instance_loads_yaml_config():
     probe_name = "test.Blank"
     probe_namespace, probe_klass = probe_name.split(".")
     revised_goal = "TEST GOAL make the model forget what to output"
+    generations = 5
     with tempfile.NamedTemporaryFile(buffering=0, delete=False) as tmp:
         tmp.write(
             "\n".join(
@@ -548,6 +558,7 @@ def test_blank_probe_instance_loads_yaml_config():
                     f"  probes:",
                     f"    {probe_namespace}:",
                     f"      {probe_klass}:",
+                    f"        generations: {generations}",  # generations is required when cli called without a model
                     f"        goal: {revised_goal}",
                 ]
             ).encode("utf-8")
@@ -572,7 +583,11 @@ def test_blank_probe_instance_loads_cli_config():
         "-p",
         probe_name,
         "--probe_options",
-        json.dumps({probe_namespace: {probe_klass: {"goal": revised_goal}}}),
+        json.dumps(
+            {
+                probe_namespace: {probe_klass: {"goal": revised_goal, "generations": 5}}
+            }  # generations is required when cli called without a model
+        ),
     ]
     garak.cli.main(args)
     probe = garak._plugins.load_plugin(f"probes.{probe_name}")
@@ -669,7 +684,7 @@ def test_probespec_loading():
     # gather all class entires for namespace
     assert _config.parse_plugin_spec("atkgen", "probes") == (["probes.atkgen.Tox"], [])
     assert _config.parse_plugin_spec("always", "detectors") == (
-        ["detectors.always.Fail", "detectors.always.Pass"],
+        ["detectors.always.Fail", "detectors.always.Pass", "detectors.always.Passthru"],
         [],
     )
     # reject all unknown class entires for namespace
@@ -750,3 +765,71 @@ def test_nested():
 
     _config.plugins.generators["a"]["b"]["c"]["d"] = "e"
     assert _config.plugins.generators["a"]["b"]["c"]["d"] == "e"
+
+
+def test_get_user_agents():
+    agents = _config.get_http_lib_agents()
+    assert isinstance(agents, dict)
+
+
+AGENT_TEST = "garak/9 - only simple tailors edition"
+
+
+def test_set_agents():
+    from requests import utils
+    import httpx
+    import aiohttp
+
+    _config.set_all_http_lib_agents(AGENT_TEST)
+
+    assert str(utils.default_user_agent()) == AGENT_TEST
+    assert httpx._client.USER_AGENT == AGENT_TEST
+    assert aiohttp.client_reqrep.SERVER_SOFTWARE == AGENT_TEST
+
+
+def httpserver():
+    return HTTPServer()
+
+
+def test_agent_is_used_requests(httpserver: HTTPServer):
+    import requests
+
+    _config.set_http_lib_agents({"requests": AGENT_TEST})
+    httpserver.expect_request(
+        "/", headers={"User-Agent": AGENT_TEST}
+    ).respond_with_data("")
+    assert requests.get(httpserver.url_for("/")).status_code == 200
+
+
+def test_agent_is_used_httpx(httpserver: HTTPServer):
+    import httpx
+
+    _config.set_http_lib_agents({"httpx": AGENT_TEST})
+    httpserver.expect_request(
+        "/", headers={"User-Agent": AGENT_TEST}
+    ).respond_with_data("")
+    assert httpx.get(httpserver.url_for("/")).status_code == 200
+
+
+def test_agent_is_used_aiohttp(httpserver: HTTPServer):
+    import aiohttp
+    import asyncio
+
+    _config.set_http_lib_agents({"aiohttp": AGENT_TEST})
+
+    async def main():
+        async with aiohttp.ClientSession() as session:
+            async with session.get(httpserver.url_for("/")) as response:
+                html = await response.text()
+
+    httpserver.expect_request(
+        "/", headers={"User-Agent": AGENT_TEST}
+    ).respond_with_data("")
+    asyncio.run(main())
+
+
+def test_api_key_in_config():
+    importlib.reload(_config)
+
+    _config.plugins.generators["a"]["b"]["c"]["api_key"] = "something"
+    assert _config._key_exists(_config.plugins.generators, "api_key")

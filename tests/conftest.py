@@ -1,6 +1,10 @@
 import pytest
 import os
-from garak import _config
+from garak import _config, _plugins
+
+# force a local cache file to exist when this top level import is loaded
+if not os.path.isfile(_plugins.PluginCache._user_plugin_cache_filename):
+    _plugins.PluginCache.instance()
 
 
 @pytest.fixture(autouse=True)
@@ -25,4 +29,9 @@ def config_report_cleanup(request):
             if os.path.exists(file):
                 os.remove(file)
 
+    def clear_plugin_instances():
+        with _plugins.PluginProvider._mutex:
+            _plugins.PluginProvider._instance_cache = {}
+
     request.addfinalizer(remove_log_files)
+    request.addfinalizer(clear_plugin_instances)

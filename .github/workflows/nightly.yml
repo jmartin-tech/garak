@@ -1,0 +1,24 @@
+name: Nightly Testing
+
+on:
+  schedule:
+    - cron: "0 0 * * *"
+  workflow_dispatch:
+
+jobs:
+  linux:
+    name: Nightly Linux
+    if: github.repository_owner == 'NVIDIA'
+    uses: ./.github/workflows/test_linux.yml
+  windows:
+    name: Nightly Windows
+    if: github.repository_owner == 'NVIDIA'
+    uses: ./.github/workflows/test_windows.yml
+  macos:
+    name: Nightly MacOS
+    if: github.repository_owner == 'NVIDIA'
+    uses: ./.github/workflows/test_macos.yml
+  package_test:
+    name: Nightly Packaging
+    if: github.repository_owner == 'NVIDIA'
+    uses: ./.github/workflows/remote_package_install.yml

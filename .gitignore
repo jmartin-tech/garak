@@ -164,6 +164,8 @@ garak.*.jsonl
 garak.log
 hitlog.*.jsonl
 .vscode
+.history/
 garak_runs/
 runs/
 logs/
+.DS_Store
