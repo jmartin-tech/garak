@@ -183,15 +183,18 @@ class PluginCache:
             if module_filename.startswith("__"):
                 continue
             module_name = module_filename.replace(".py", "")
-            mod = importlib.import_module(f"garak.{category}.{module_name}")
-            module_entries = set(self._extract_modules_klasses(mod))
+            try:
+                mod = importlib.import_module(f"garak.{category}.{module_name}")
+                module_entries = set(self._extract_modules_klasses(mod))
 
-            for module_entry in module_entries:
-                obj = getattr(mod, module_entry)
-                for interface in base_plugin_classnames:
-                    klass = getattr(base_mod, interface)
-                    if issubclass(obj, klass):
-                        module_plugin_names.add(obj)
+                for module_entry in module_entries:
+                    obj = getattr(mod, module_entry)
+                    for interface in base_plugin_classnames:
+                        klass = getattr(base_mod, interface)
+                        if issubclass(obj, klass):
+                            module_plugin_names.add(obj)
+            except ModuleNotFoundError as e:
+                pass
 
         return module_plugin_names
 
