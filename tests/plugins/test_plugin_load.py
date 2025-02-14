@@ -23,7 +23,7 @@ GENERATORS = [
 
 
 @pytest.fixture
-def plugin_configuration(classname):
+def plugin_configuration(classname, sample_jsonl):
     category, namespace, klass = classname.split(".")
     plugin_conf = getattr(_config.plugins, category)
     plugin_conf[namespace][klass]["api_key"] = "fake"
@@ -31,6 +31,8 @@ def plugin_configuration(classname):
         plugin_conf[namespace][klass]["generations"] = random.randint(2, 12)
     if category == "detectors":
         plugin_conf[namespace][klass]["detector_model_config"] = {"api_key": "fake"}
+    if category == "harnesses" and klass == "DetectorOnly":
+        plugin_conf[namespace][klass]["report_path"] = sample_jsonl
     return (classname, _config)
 
 

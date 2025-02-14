@@ -2,9 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import importlib
-import json
 import pytest
-import pathlib
 import random
 
 from garak import command
@@ -17,6 +15,7 @@ def set_config_env(sample_jsonl, request):
     _config.plugins.harnesses["detectoronly"]["DetectorOnly"] = {
         "report_path": sample_jsonl
     }
+    _config.system.show_z = False
 
     def restore_config_env():
         importlib.reload(_config)
@@ -29,14 +28,17 @@ def test_detector_only_run_auto_detectors(monkeypatch):
 
     threshold = random.random()
 
-    def mock_method(self, attempts, detectors, evaluator):
-        assert attempts is not None
+    def mock_method(self, detectors, attempts, evaluator):
         assert detectors is not None
         assert len(detectors) == 1
+        assert attempts is not None
+        assert len(attempts) == 8
         assert evaluator is not None
         assert evaluator.threshold == threshold
 
     detectors = []
     evaluator = ThresholdEvaluator(threshold)
-    monkeypatch.setattr(garak.harnesses.detectoronly.DetectorOnly, "run", mock_method)
+    monkeypatch.setattr(
+        garak.harnesses.detectoronly.DetectorOnly, "run_detectors", mock_method
+    )
     command.detector_only_run(detectors, evaluator)

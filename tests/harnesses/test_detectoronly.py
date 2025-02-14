@@ -3,6 +3,7 @@
 
 import importlib
 import pytest
+import tempfile
 
 from garak.detectors.base import Detector
 from garak.harnesses.detectoronly import DetectorOnly
@@ -14,6 +15,9 @@ def set_config_env(sample_jsonl, request):
     _config.plugins.harnesses["detectoronly"]["DetectorOnly"] = {
         "report_path": sample_jsonl
     }
+    temp_report_file = tempfile.NamedTemporaryFile(mode="w+")
+    _config.transient.reportfile = temp_report_file
+    _config.transient.report_filename = temp_report_file.name
 
     def restore_config_env():
         importlib.reload(_config)
@@ -21,29 +25,33 @@ def set_config_env(sample_jsonl, request):
     request.addfinalizer(restore_config_env)
 
 
-def test_no_detectors():
-    attempts = []
+def test_no_specified_detectors(monkeypatch):
+    from garak.evaluators.base import ZeroToleranceEvaluator
+
+    def mock_method(detectors, attempts, evaluator):
+        assert detectors is not None
+        assert attempts is not None
+
     detector_names = []
     evaluator = None
+
     h = DetectorOnly()
-    with pytest.raises(ValueError) as exc_info:
-        h.run(attempts, detector_names, evaluator)
-    assert "No detectors" in str(exc_info.value)
+    monkeypatch.setattr(h, "run_detectors", mock_method)
+    h.run(detector_names, evaluator)
 
 
 def test_load_detectors(monkeypatch):
-    test_attempts = []
     test_detector_names = ["always.Fail"]
     test_evaluator = None
 
-    def mock_method(self, detectors, attempts, evaluator):
+    def mock_method(detectors, attempts, evaluator):
         assert detectors is not None
         assert len(detectors) == len(test_detector_names)
         for detector in detectors:
             assert isinstance(detector, Detector)
-        assert attempts == test_attempts
+        assert attempts is not None
         assert evaluator == test_evaluator
 
-    monkeypatch.setattr(DetectorOnly, "run_detectors", mock_method)
     h = DetectorOnly()
-    h.run(test_attempts, test_detector_names, test_evaluator)
+    monkeypatch.setattr(h, "run_detectors", mock_method)
+    h.run(test_detector_names, test_evaluator)
