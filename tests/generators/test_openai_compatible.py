@@ -132,7 +132,7 @@ def test_validate_call_model_token_restrictions(openai_compat_mocks):
             generator._call_model(test_large_context)
         assert "cannot be created" in str(
             exc_info.value
-        ), "a prompt large then max_tokens must raise exception"
+        ), "a prompt larger than max_tokens must raise exception"
 
         generator.context_len = large_context_len * 2
         generator.max_tokens = generator.context_len - (large_context_len / 2)
@@ -140,4 +140,4 @@ def test_validate_call_model_token_restrictions(openai_compat_mocks):
         resp_body = json.loads(respx_mock.routes[0].calls[1].request.content)
         assert (
             resp_body["max_tokens"] < generator.context_len
-        ), "request max_tokens must me less than model context length"
+        ), "request max_tokens must be less than model context length"
