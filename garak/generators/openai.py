@@ -242,7 +242,9 @@ class OpenAICompatible(Generator):
                 encoding = tiktoken.encoding_for_model(self.name)
                 prompt_tokens = len(encoding.encode(prompt))
             except KeyError as e:
-                prompt_tokens = len(prompt.split())  # extra naive fallback
+                prompt_tokens = int(
+                    len(prompt.split()) * 4 / 3
+                )  # extra naive fallback 1 token ~= 3/4 of a word
             generation_max_tokens -= prompt_tokens
             create_args["max_tokens"] = generation_max_tokens
             if generation_max_tokens < 1:  # allow at least a binary result token
