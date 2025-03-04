@@ -37,6 +37,7 @@ class RestGenerator(Generator):
         "request_timeout": 20,
         "proxies": None,
         "verify_ssl": True,
+        "stream": False,  # short term hack for custom output processing
     }
 
     ENV_VAR = "REST_API_KEY"
@@ -61,6 +62,7 @@ class RestGenerator(Generator):
         "skip_codes",
         "skip_seq_start",
         "skip_seq_end",
+        "stream",
         "temperature",
         "top_k",
         "proxies",
@@ -186,6 +188,44 @@ class RestGenerator(Generator):
                 output = output.replace("$KEY", self.api_key)
         return output.replace("$INPUT", self.escape_function(text))
 
+    def _extract_json_path(self, response_object):
+        if self.response_json_field[0] != "$":
+            if isinstance(response_object, list):
+                response = [item[self.response_json_field] for item in response_object]
+            else:
+                response = [response_object[self.response_json_field]]
+        else:
+            field_path_expr = jsonpath_ng.parse(self.response_json_field)
+            responses = field_path_expr.find(response_object)
+            if len(responses) == 1:
+                response_value = responses[0].value
+                if isinstance(response_value, str):
+                    response = [response_value]
+                elif isinstance(response_value, list):
+                    response = response_value
+            elif len(responses) > 1:
+                response = [r.value for r in responses]
+            else:
+                logging.error(
+                    "RestGenerator JSONPath in response_json_field yielded nothing. Response content: %s"
+                    % repr(resp.content)
+                )
+                return [None]
+        return response
+
+    def _process_stream_response_json(self, resp):
+        message_merged_content = ""
+        json_line = None
+        for chunk in resp.iter_lines():
+            if chunk:
+                json_line = json.loads(chunk.decode("utf-8")[6:])
+                content = self._extract_json_path(json_line)
+                if content:
+                    message_merged_content += "".join(content)
+        if json_line is not None:
+            json_line["choices"][0]["message"]["content"] = message_merged_content
+            return json_line
+
     # we'll overload IOError as the rate limit exception
     @backoff.on_exception(backoff.fibo, RateLimitHit, max_value=70)
     def _call_model(
@@ -258,7 +298,10 @@ class RestGenerator(Generator):
         if not self.response_json:
             return [str(resp.text)]
 
-        response_object = json.loads(resp.content)
+        if self.stream:
+            response_object = self._process_stream_response_json(resp)
+        else:
+            response_object = json.loads(resp.content)
 
         response = [None]
 
@@ -272,29 +315,7 @@ class RestGenerator(Generator):
         assert (
             len(self.response_json_field) > 0
         ), "response_json_field needs to be complete if response_json is true; ValueError should have been raised in constructor"
-        if self.response_json_field[0] != "$":
-            if isinstance(response_object, list):
-                response = [item[self.response_json_field] for item in response_object]
-            else:
-                response = [response_object[self.response_json_field]]
-        else:
-            field_path_expr = jsonpath_ng.parse(self.response_json_field)
-            responses = field_path_expr.find(response_object)
-            if len(responses) == 1:
-                response_value = responses[0].value
-                if isinstance(response_value, str):
-                    response = [response_value]
-                elif isinstance(response_value, list):
-                    response = response_value
-            elif len(responses) > 1:
-                response = [r.value for r in responses]
-            else:
-                logging.error(
-                    "RestGenerator JSONPath in response_json_field yielded nothing. Response content: %s"
-                    % repr(resp.content)
-                )
-                return [None]
-
+        response = self._extract_json_path(response_object)
         return response
 
 
