@@ -255,14 +255,15 @@ class OpenAICompatible(Generator):
                 max_completion_tokens = self.context_len
                 create_args["max_completion_tokens"] = max_completion_tokens
 
-            if self.name in output_max:
-                if max_completion_tokens > output_max[self.name]:
-
-                    logging.warning(
-                        f"Requested max_completion_tokens {max_completion_tokens} exceeds max output {output_max[self.name]}, reducing requested maximum"
-                    )
-                    max_completion_tokens = output_max[self.name]
-                    create_args["max_completion_tokens"] = max_completion_tokens
+            if (
+                self.name in output_max
+                and max_completion_tokens > output_max[self.name]
+            ):
+                logging.warning(
+                    f"Requested max_completion_tokens {max_completion_tokens} exceeds max output {output_max[self.name]}, reducing requested maximum"
+                )
+                max_completion_tokens = output_max[self.name]
+                create_args["max_completion_tokens"] = max_completion_tokens
 
             prompt_tokens = 0  # this should apply to messages object
             try:
