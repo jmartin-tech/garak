@@ -114,12 +114,24 @@ context_lengths = {
     "gpt-4o": 128000,
     "gpt-4o-2024-05-13": 128000,
     "gpt-4o-2024-08-06": 128000,
-    "gpt-4o-mini": 16384,
+    "gpt-4o-mini": 128000,
     "gpt-4o-mini-2024-07-18": 16384,
-    "o1-mini": 65536,
+    "o1": 200000,
+    "o1-mini": 128000,
     "o1-mini-2024-09-12": 65536,
     "o1-preview": 32768,
     "o1-preview-2024-09-12": 32768,
+    "o3-mini": 200000,
+}
+
+output_max = {
+    "gpt-3.5-turbo": 4096,
+    "gpt-4": 8192,
+    "gpt-4o": 16384,
+    "o3-mini": 100000,
+    "o1": 100000,
+    "o1-mini": 65536,
+    "gpt-4o-mini": 16384,
 }
 
 
@@ -230,6 +242,7 @@ class OpenAICompatible(Generator):
         # basic token boundary validation to ensure requests are not rejected for exceeding target context length
         max_completion_tokens = create_args.get("max_completion_tokens", None)
         if max_completion_tokens is not None:
+
             # count tokens in prompt and ensure max_tokens requested is <= context_len allowed
             if (
                 hasattr(self, "context_len")
@@ -240,12 +253,21 @@ class OpenAICompatible(Generator):
                     f"Requested garak max_tokens {max_completion_tokens} exceeds context length {self.context_len}, reducing requested maximum"
                 )
                 max_completion_tokens = self.context_len
+                create_args["max_completion_tokens"] = max_completion_tokens
+
+            if self.name in output_max:
+                if max_completion_tokens > output_max[self.name]:
+
+                    logging.warning(
+                        f"Requested max_completion_tokens {max_completion_tokens} exceeds max output {output_max[self.name]}, reducing requested maximum"
+                    )
+                    max_completion_tokens = output_max[self.name]
+                    create_args["max_completion_tokens"] = max_completion_tokens
 
             prompt_tokens = 0  # this should apply to messages object
             try:
                 encoding = tiktoken.encoding_for_model(self.name)
                 prompt_tokens = len(encoding.encode(prompt))
-                print("prompt tokens:", prompt_tokens)
             except KeyError as e:
                 prompt_tokens = int(
                     len(prompt.split()) * 4 / 3
