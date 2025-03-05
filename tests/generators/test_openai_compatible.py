@@ -121,7 +121,7 @@ def test_validate_call_model_token_restrictions(openai_compat_mocks):
         generator._call_model("test values")
         resp_body = json.loads(respx_mock.routes[0].calls[0].request.content)
         assert (
-            resp_body["max_tokens"] < generator.max_tokens
+            resp_body["max_completion_tokens"] <= generator.max_tokens
         ), "request max_tokens must account for prompt tokens"
 
         test_large_context = ""
