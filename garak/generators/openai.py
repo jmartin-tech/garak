@@ -153,7 +153,7 @@ class OpenAICompatible(Generator):
         "presence_penalty": 0.0,
         "seed": None,
         "stop": ["#", ";"],
-        "suppressed_params": {"max_tokens"},  # deprecated
+        "suppressed_params": set(),
         "retry_json": True,
     }
 
@@ -183,6 +183,75 @@ class OpenAICompatible(Generator):
 
     def _validate_config(self):
         pass
+
+    def _validate_token_args(self, create_args: dict, prompt: str) -> dict:
+        """Ensure maximum token limit compatibility with OpenAI create request"""
+        token_limit_key = "max_tokens"
+        fixed_cost = 0
+        if (
+            self.generator == self.client.chat.completions
+            and self.max_tokens is not None
+        ):
+            token_limit_key = "max_completion_tokens"
+            if not hasattr(self, "max_completion_tokens"):
+                create_args["max_completion_tokens"] = self.max_tokens
+
+            create_args.pop(
+                "max_tokens", None
+            )  # remove deprecated value, utilize `max_completion_tokens`
+            # every reply is primed with <|start|>assistant<|message|> (3 toks) plus 1 for name change
+            # see https://github.com/openai/openai-cookbook/blob/main/examples/How_to_count_tokens_with_tiktoken.ipynb
+            # section 6 "Counting tokens for chat completions API calls"
+            fixed_cost = 7
+
+        # basic token boundary validation to ensure requests are not rejected for exceeding target context length
+        token_limit = create_args.pop(token_limit_key, None)
+        if token_limit is not None:
+            # Suppress max_tokens if greater than context_len
+            if (
+                hasattr(self, "context_len")
+                and self.context_len is not None
+                and token_limit > self.context_len
+            ):
+                logging.warning(
+                    f"Requested garak maximum tokens {token_limit} exceeds context length {self.context_len}, no limit will be applied to the request"
+                )
+                token_limit = None
+
+            if self.name in output_max and token_limit > output_max[self.name]:
+                logging.warning(
+                    f"Requested maximum tokens {token_limit} exceeds max output {output_max[self.name]}, no limit will be applied to the request"
+                )
+                token_limit = None
+
+            if self.context_len is not None and token_limit is not None:
+                # count tokens in prompt and ensure token_limit requested is <= context_len or output_max allowed
+                prompt_tokens = 0  # this should apply to messages object
+                try:
+                    encoding = tiktoken.encoding_for_model(self.name)
+                    prompt_tokens = len(encoding.encode(prompt))
+                except KeyError as e:
+                    prompt_tokens = int(
+                        len(prompt.split()) * 4 / 3
+                    )  # extra naive fallback 1 token ~= 3/4 of a word
+
+                if (prompt_tokens + fixed_cost + token_limit > self.context_len) and (
+                    prompt_tokens + fixed_cost < self.context_len
+                ):
+                    token_limit = self.context_len - prompt_tokens - fixed_cost
+                elif token_limit > prompt_tokens + fixed_cost:
+                    token_limit = token_limit - prompt_tokens - fixed_cost
+                else:
+                    raise garak.exception.GarakException(
+                        "A response of %s toks plus prompt %s toks cannot be generated; API capped at context length %s toks"
+                        % (
+                            self.max_tokens,
+                            prompt_tokens + fixed_cost,
+                            self.context_len,
+                        )
+                    )
+            create_args[token_limit_key] = token_limit
+        return create_args
 
     def __init__(self, name="", config_root=_config):
         self.name = name
@@ -229,69 +298,15 @@ class OpenAICompatible(Generator):
         create_args = {}
         if "n" not in self.suppressed_params:
             create_args["n"] = generations_this_call
-        for arg in inspect.signature(self.generator.create).parameters:
+        create_params = inspect.signature(self.generator.create).parameters
+        for arg in create_params:
             if arg == "model":
                 create_args[arg] = self.name
                 continue
             if hasattr(self, arg) and arg not in self.suppressed_params:
                 create_args[arg] = getattr(self, arg)
 
-        if self.max_tokens is not None and not hasattr(self, "max_completion_tokens"):
-            create_args["max_completion_tokens"] = self.max_tokens
-
-        # basic token boundary validation to ensure requests are not rejected for exceeding target context length
-        max_completion_tokens = create_args.get("max_completion_tokens", None)
-        if max_completion_tokens is not None:
-
-            # count tokens in prompt and ensure max_tokens requested is <= context_len allowed
-            if (
-                hasattr(self, "context_len")
-                and self.context_len is not None
-                and max_completion_tokens > self.context_len
-            ):
-                logging.warning(
-                    f"Requested garak max_tokens {max_completion_tokens} exceeds context length {self.context_len}, reducing requested maximum"
-                )
-                max_completion_tokens = self.context_len
-                create_args["max_completion_tokens"] = max_completion_tokens
-
-            if (
-                self.name in output_max
-                and max_completion_tokens > output_max[self.name]
-            ):
-                logging.warning(
-                    f"Requested max_completion_tokens {max_completion_tokens} exceeds max output {output_max[self.name]}, reducing requested maximum"
-                )
-                max_completion_tokens = output_max[self.name]
-                create_args["max_completion_tokens"] = max_completion_tokens
-
-            prompt_tokens = 0  # this should apply to messages object
-            try:
-                encoding = tiktoken.encoding_for_model(self.name)
-                prompt_tokens = len(encoding.encode(prompt))
-            except KeyError as e:
-                prompt_tokens = int(
-                    len(prompt.split()) * 4 / 3
-                )  # extra naive fallback 1 token ~= 3/4 of a word
-
-            fixed_cost = 0
-            if self.generator == self.client.chat.completions:
-                # every reply is primed with <|start|>assistant<|message|> (3 toks) plus 1 for name change
-                # see https://github.com/openai/openai-cookbook/blob/main/examples/How_to_count_tokens_with_tiktoken.ipynb
-                # section 6 "Counting tokens for chat completions API calls"
-                fixed_cost += 7
-
-            if self.context_len is not None and (
-                prompt_tokens + fixed_cost + max_completion_tokens > self.context_len
-            ):
-                raise garak.exception.GarakException(
-                    "A response of %s toks plus prompt %s toks cannot be generated; API capped at context length %s toks"
-                    % (
-                        self.max_tokens,
-                        prompt_tokens + fixed_cost,
-                        self.context_len,
-                    )  # max_completion_tokens will already be adjusted down
-                )
+        create_args = self._validate_token_args(create_args, prompt)
 
         if self.generator == self.client.completions:
             if not isinstance(prompt, str):
