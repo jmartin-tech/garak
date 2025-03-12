@@ -10,6 +10,7 @@ import copy
 import json
 import logging
 from collections.abc import Iterable
+import random
 from typing import Iterable, Union
 
 from colorama import Fore, Style
@@ -17,7 +18,6 @@ import tqdm
 
 from garak import _config
 from garak.configurable import Configurable
-from garak.exception import PluginConfigurationError
 import garak.attempt
 import garak.resources.theme
 
@@ -51,9 +51,10 @@ class Probe(Configurable):
     # we focus on LLM input for probe
     modality: dict = {"in": {"text"}}
 
-    DEFAULT_PARAMS = {
-        "generations": 1,
-    }
+    DEFAULT_PARAMS = {}
+
+    _run_params = {"generations", "soft_probe_prompt_cap", "seed"}
+    _system_params = {"parallel_attempts"}
 
     def __init__(self, config_root=_config):
         """Sets up a probe.
@@ -199,8 +200,8 @@ class Probe(Configurable):
         attempts_completed: Iterable[garak.attempt.Attempt] = []
 
         if (
-            _config.system.parallel_attempts
-            and _config.system.parallel_attempts > 1
+            self.parallel_attempts
+            and self.parallel_attempts > 1
             and self.parallelisable_attempts
             and len(attempts) > 1
             and self.generator.parallel_capable
@@ -210,7 +211,7 @@ class Probe(Configurable):
             attempt_bar = tqdm.tqdm(total=len(attempts), leave=False)
             attempt_bar.set_description(self.probename.replace("garak.", ""))
 
-            with Pool(_config.system.parallel_attempts) as attempt_pool:
+            with Pool(self.parallel_attempts) as attempt_pool:
                 for result in attempt_pool.imap_unordered(
                     self._execute_attempt, attempts
                 ):
@@ -274,6 +275,16 @@ class Probe(Configurable):
         )
 
         return attempts_completed
+
+    def _prune_data(self, cap, prune_triggers=False):
+        num_ids_to_delete = max(0, len(self.prompts) - cap)
+        ids_to_rm = random.sample(range(len(self.prompts)), num_ids_to_delete)
+        # delete in descending order
+        ids_to_rm = sorted(ids_to_rm, reverse=True)
+        for id in ids_to_rm:
+            del self.prompts[id]
+            if prune_triggers:
+                del self.triggers[id]
 
 
 class TreeSearchProbe(Probe):

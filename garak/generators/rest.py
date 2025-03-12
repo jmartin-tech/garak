@@ -59,6 +59,8 @@ class RestGenerator(Generator):
         "request_timeout",
         "ratelimit_codes",
         "skip_codes",
+        "skip_seq_start",
+        "skip_seq_end",
         "temperature",
         "top_k",
         "proxies",
@@ -68,7 +70,6 @@ class RestGenerator(Generator):
     def __init__(self, uri=None, config_root=_config):
         self.uri = uri
         self.name = uri
-        self.seed = _config.run.seed
         self.supports_multiple_generations = False  # not implemented yet
         self.escape_function = self._json_escape
         self.retry_5xx = True
@@ -212,7 +213,16 @@ class RestGenerator(Generator):
             "proxies": self.proxies,
             "verify": self.verify_ssl,
         }
-        resp = self.http_function(self.uri, **req_kArgs)
+        try:
+            resp = self.http_function(self.uri, **req_kArgs)
+        except UnicodeEncodeError as uee:
+            # only RFC2616 (latin-1) is guaranteed
+            # don't print a repr, this might leak api keys
+            logging.error(
+                "Only latin-1 encoding supported by HTTP RFC 2616, check headers and values for unusual chars",
+                exc_info=uee,
+            )
+            raise BadGeneratorException from uee
 
         if resp.status_code in self.skip_codes:
             logging.debug(

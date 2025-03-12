@@ -4,6 +4,7 @@ All `garak` generators must inherit from this.
 """
 
 import logging
+import re
 from typing import List, Union
 
 from colorama import Fore, Style
@@ -23,7 +24,12 @@ class Generator(Configurable):
         "temperature": None,
         "top_k": None,
         "context_len": None,
+        "skip_seq_start": None,
+        "skip_seq_end": None,
     }
+
+    _run_params = {"deprefix", "seed"}
+    _system_params = {"parallel_requests"}
 
     active = True
     generator_family_name = None
@@ -85,6 +91,35 @@ class Generator(Configurable):
     def clear_history(self):
         pass
 
+    def _post_generate_hook(self, outputs: List[str | None]) -> List[str | None]:
+        return outputs
+
+    def _prune_skip_sequences(self, outputs: List[str | None]) -> List[str | None]:
+        rx_complete = (
+            re.escape(self.skip_seq_start) + ".*?" + re.escape(self.skip_seq_end)
+        )
+        rx_missing_final = re.escape(self.skip_seq_start) + ".*?$"
+
+        complete_seqs_removed = [
+            (
+                re.sub(rx_complete, "", o, flags=re.DOTALL | re.MULTILINE)
+                if o is not None
+                else None
+            )
+            for o in outputs
+        ]
+
+        partial_seqs_removed = [
+            (
+                re.sub(rx_missing_final, "", o, flags=re.DOTALL | re.MULTILINE)
+                if o is not None
+                else None
+            )
+            for o in complete_seqs_removed
+        ]
+
+        return partial_seqs_removed
+
     def generate(
         self, prompt: str, generations_this_call: int = 1
     ) -> List[Union[str, None]]:
@@ -116,10 +151,10 @@ class Generator(Configurable):
             outputs = []
 
             if (
-                hasattr(_config.system, "parallel_requests")
-                and _config.system.parallel_requests
-                and isinstance(_config.system.parallel_requests, int)
-                and _config.system.parallel_requests > 1
+                hasattr(self, "parallel_requests")
+                and self.parallel_requests
+                and isinstance(self.parallel_requests, int)
+                and self.parallel_requests > 1
             ):
                 from multiprocessing import Pool
 
@@ -151,5 +186,11 @@ class Generator(Configurable):
                     )  # generate once as `generation_iterator` consumes `generations_this_call`
                     self._verify_model_result(output_one)
                     outputs.append(output_one[0])
+
+        outputs = self._post_generate_hook(outputs)
+
+        if hasattr(self, "skip_seq_start") and hasattr(self, "skip_seq_end"):
+            if self.skip_seq_start is not None and self.skip_seq_end is not None:
+                outputs = self._prune_skip_sequences(outputs)
 
         return outputs

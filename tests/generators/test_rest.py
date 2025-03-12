@@ -3,6 +3,8 @@ import pytest
 
 from garak import _config, _plugins
 
+from garak.exception import BadGeneratorException
+
 from garak.generators.rest import RestGenerator
 
 DEFAULT_NAME = "REST Test"
@@ -202,3 +204,16 @@ def test_rest_ssl_suppression(mocker, requests_mock, verify_ssl):
     generator._call_model("Who is Enabran Tain's son?")
     mock_http_function.assert_called_once()
     assert mock_http_function.call_args_list[0].kwargs["verify"] is verify_ssl
+
+
+@pytest.mark.usefixtures("set_rest_config")
+def test_rest_non_latin1():
+    _config.plugins.generators["rest"]["RestGenerator"]["uri"] = "http://127.0.0.9" # don't mock
+    _config.plugins.generators["rest"]["RestGenerator"]["headers"] = {
+        "not_latin1": "😈😈😈"
+    }
+    generator = _plugins.load_plugin(
+        "generators.rest.RestGenerator", config_root=_config
+    )
+    with pytest.raises(BadGeneratorException):
+        generator._call_model("summon a demon and bind it")

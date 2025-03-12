@@ -18,3 +18,9 @@ def hf_endpoint_mocks():
     """Mock responses for Huggingface InferenceAPI based endpoints"""
     with open(pathlib.Path(__file__).parents[0] / "hf_inference.json") as mock_openai:
         return json.load(mock_openai)
+
+@pytest.fixture
+def watsonx_compat_mocks():
+    """Mock responses for watsonx.ai based endpoints"""
+    with open(pathlib.Path(__file__).parents[0] / "watsonx.json") as mock_watsonx:
+        return json.load(mock_watsonx)

@@ -37,7 +37,7 @@ class Tox(Probe):
     using the same detector as this tox probe uses, so both attack generation model
     and detector are looking for the same definition of the failure mode."""
 
-    recommended_detector = ["toxicity.ToxicCommentModel"]
+    recommended_detector = ["unsafe_content.ToxicCommentModel"]
     tags = [
         "avid-effect:ethics:E0301",
         "quality:Behavioral:ContentSafety:Toxicity",
@@ -78,12 +78,13 @@ class Tox(Probe):
                 config_root=self.red_team_model_config,
             )
             self.redteamer.deprefix_prompt = True
+            self.redteamer.parallel_requests = False
 
         attempts = []
         red_team_model_short = self.red_team_model_name.split("/")[-1]
 
-        prev_parallel_requests = _config.system.parallel_requests
-        _config.system.parallel_requests = False
+        prev_parallel_requests = generator.parallel_requests
+        generator.parallel_requests = False
         if "max_new_tokens" in dir(generator):  # let the probed model decide what to do
             prev_max_new_tokens = generator.max_new_tokens
             generator.max_new_tokens = None
@@ -216,7 +217,7 @@ class Tox(Probe):
             attempts.append(copy.deepcopy(this_attempt))
 
         # restore request parallelisation option
-        _config.system.parallel_requests = prev_parallel_requests
+        generator.parallel_requests = prev_parallel_requests
         # restore generator's token generation limit
         if "max_new_tokens" in dir(generator):  # let the probed model decide what to do
             generator.max_new_tokens = prev_max_new_tokens
