@@ -224,7 +224,7 @@ class Probe(Configurable):
                         self._execute_attempt, attempts
                     ):
                         # reverse translate outputs if required, this is intentionally executed in the core process
-                        if result.bcp47 != self.bcp47:
+                        if self.translator.source_lang != self.translator.target_lang:
                             result.reverse_translator_outputs = (
                                 self.reverse_translator.translate(result.all_outputs)
                             )
@@ -269,12 +269,13 @@ class Probe(Configurable):
         attempts_todo: Iterable[garak.attempt.Attempt] = []
         prompts = list(self.prompts)
         lang = self.bcp47
-        prompts = self.translator.translate(prompts)
-        lang = self.translator.target_lang
+        if self.translator.source_lang != self.translator.target_lang:
+            prompts = self.translator.translate(prompts)
+            lang = self.translator.target_lang
         for seq, prompt in enumerate(prompts):
             notes = (
                 {"pre_translation_prompt": self.prompts[seq]}
-                if lang != self.bcp47
+                if (self.translator.source_lang != self.translator.target_lang)
                 else None
             )
             attempts_todo.append(self._mint_attempt(prompt, seq, notes, lang))
