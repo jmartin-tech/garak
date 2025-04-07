@@ -35,7 +35,7 @@ def test_Tag_attempt_descrs_translation(mocker):
             {
                 "translators": {
                     "local": {
-                        "language": "en,jap",
+                        "language": "jap,en",
                     }
                 }
             }

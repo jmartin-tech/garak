@@ -59,14 +59,14 @@ Skip probes.tap.PAIR because it needs openai api key and large gpu resource
 def test_atkgen_probe_translation(classname, mocker):
     # how can tests for atkgen probes be expanded to ensure translation is called?
     import garak.langservice
-    import garak.translators.base
     from garak.translators.local import NullTranslator
 
     null_translator = NullTranslator(
         {
             "translators": {
                 "local": {
-                    "language": "en,en",
+                    "language": "en,fr",
+                    # Note: differing source and target language pair here forces translator calls
                 }
             }
         }
@@ -114,7 +114,6 @@ def test_probe_prompt_translation(classname, mocker):
     # should have a unique validation that translation is called in the correct runtime stage
 
     import garak.langservice
-    import garak.translators.base
     from garak.translators.local import NullTranslator
 
     null_translator = NullTranslator(

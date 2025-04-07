@@ -45,6 +45,16 @@ def load_translators():
     if len(translators) > 0:
         return True
 
+    exp_set = hasattr(_config.system, "enable_experimental")
+    if not exp_set or (exp_set and not _config.system.enable_experimental):
+        # consider translation to be experimental at this time.
+        logging.debug(f'Language services loaded for "en" support only.')
+        translators["en,en"] = _load_translator(
+            translation_service={"language": "en,en", "model_type": "local"}
+        )
+        native_translator = translators["en,en"]
+        return
+
     run_target_lang = _config.run.target_lang
 
     for entry in _config.run.translators:
