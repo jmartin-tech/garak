@@ -5,7 +5,7 @@
 """Translator that translates a prompt."""
 
 
-from typing import List
+from typing import List, Callable
 
 from garak.exception import BadGeneratorException
 from garak.translators.base import Translator
@@ -25,6 +25,7 @@ class NullTranslator(Translator):
         self,
         prompts: List[str],
         reverse_translate_judge: bool = False,
+        notify_callback: Callable | None = None,
     ) -> List[str]:
         return prompts
 

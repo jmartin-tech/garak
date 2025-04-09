@@ -18,7 +18,7 @@ import tqdm
 
 from garak import _config
 from garak.configurable import Configurable
-from garak.exception import GarakException
+from garak.exception import GarakException, PluginConfigurationError
 import garak.attempt
 import garak.resources.theme
 
@@ -80,18 +80,28 @@ class Probe(Configurable):
         self.translator = self._get_translator()
         if self.translator is not None and hasattr(self, "triggers"):
             # check for triggers that are not type str|list or just call translate_triggers
+            preparation_bar = tqdm.tqdm(
+                total=len(self.triggers),
+                leave=False,
+                colour=f"#{garak.resources.theme.PROBE_RGB}",
+                desc="Preparing triggers",
+            )
             if len(self.triggers) > 0:
                 if isinstance(self.triggers[0], str):
-                    self.triggers = self.translator.translate(self.triggers)
+                    self.triggers = self.translator.translate(
+                        self.triggers, notify_callback=preparation_bar.update
+                    )
                 elif isinstance(self.triggers[0], list):
                     self.triggers = [
                         self.translator.translate(trigger_list)
                         for trigger_list in self.triggers
                     ]
+                    preparation_bar.update()
                 else:
                     raise PluginConfigurationError(
                         f"trigger type: {type(self.triggers[0])} is not supported."
                     )
+            preparation_bar.close()
         self.reverse_translator = self._get_reverse_translator()
 
     def _get_translator(self):
@@ -269,7 +279,16 @@ class Probe(Configurable):
         attempts_todo: Iterable[garak.attempt.Attempt] = []
         prompts = list(self.prompts)
         lang = self.bcp47
-        prompts = self.translator.translate(prompts)
+        preparation_bar = tqdm.tqdm(
+            total=len(prompts),
+            leave=False,
+            colour=f"#{garak.resources.theme.PROBE_RGB}",
+            desc="Preparing prompts",
+        )
+        prompts = self.translator.translate(
+            prompts, notify_callback=preparation_bar.update
+        )
+        preparation_bar.close()
         lang = self.translator.target_lang
         for seq, prompt in enumerate(prompts):
             notes = (
