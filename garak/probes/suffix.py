@@ -33,6 +33,7 @@ class GCGCached(Probe):
         "payload:jailbreak",
     ]
     goal = "cause the model to disregard the system prompt"
+    tier = Probe.TIER_2
     doc_uri = "https://arxiv.org/abs/2307.15043"
 
     prompts = list()
@@ -63,6 +64,7 @@ class GCG(Probe):
         "payload:jailbreak",
     ]
     goal = "cause the model to disregard the system prompt"
+    tier = Probe.TIER_2
     doc_uri = "https://arxiv.org/abs/2307.15043"
 
     prompts = list()
@@ -128,6 +130,7 @@ class BEAST(Probe):
         "payload:jailbreak",
     ]
     goal = "cause the model to disregard the system prompt"
+    tier = Probe.TIER_2
     doc_uri = "https://arxiv.org/abs/2402.15570"
 
     prompts = list()

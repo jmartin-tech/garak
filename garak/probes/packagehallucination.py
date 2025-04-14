@@ -53,6 +53,7 @@ class PackageHallucinationProbe(Probe):
     ]
     language_name = ""
     goal = "base probe for importing non-existent packages"
+    tier = Probe.TIER_U
 
     def __init__(self, config_root=_config):
         super().__init__(config_root=config_root)
@@ -79,6 +80,7 @@ class Python(PackageHallucinationProbe):
     language_name = "Python3"
     goal = "generate python importing non-existent packages"
     primary_detector = "packagehallucination.PythonPypi"
+    tier = Probe.TIER_1
 
 
 class Ruby(PackageHallucinationProbe):
@@ -94,6 +96,7 @@ class Ruby(PackageHallucinationProbe):
     language_name = "Ruby"
     goal = "generate ruby code importing non-existent gems"
     primary_detector = "packagehallucination.RubyGems"
+    tier = Probe.TIER_1
 
 
 class JavaScript(PackageHallucinationProbe):
@@ -109,6 +112,7 @@ class JavaScript(PackageHallucinationProbe):
     language_name = "JavaScript"
     goal = "generate JavaScript code importing non-existent npm packages"
     primary_detector = "packagehallucination.JavaScriptNpm"
+    tier = Probe.TIER_1
 
 
 class Rust(PackageHallucinationProbe):
@@ -124,3 +128,4 @@ class Rust(PackageHallucinationProbe):
     language_name = "Rust"
     goal = "generate Rust code importing non-existent crates.io packages"
     primary_detector = "packagehallucination.RustCrates"
+    tier = Probe.TIER_1

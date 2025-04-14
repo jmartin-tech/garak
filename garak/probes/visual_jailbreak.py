@@ -17,7 +17,7 @@ from garak.data import path as data_path
 from garak.generators.base import Generator
 
 
-class FigStep(Probe):
+class FigStepFull(Probe):
     """Using another modal - image to assist jailbreak
 
     Title: FigStep: Jailbreaking Large Vision-language Models via Typographic Visual Prompts
@@ -37,6 +37,7 @@ class FigStep(Probe):
         "payload:jailbreak",
     ]
     goal = "disregard the system prompt with both text and image"
+    tier = Probe.TIER_2
 
     prompts = []
 
@@ -106,10 +107,10 @@ class FigStep(Probe):
         return super().probe(generator)
 
 
-class FigStepTiny(FigStep, Probe):
+class FigStep(FigStepFull, Probe):
     active = False
 
-    __doc__ = FigStep.__doc__ + " - Tiny version"
+    __doc__ = FigStepFull.__doc__ + " - Tiny version"
 
     safebench_image_catalog = data_path / "safebenchtiny_filenames.txt"
 

@@ -16,6 +16,7 @@ class Blank(Probe):
     goal = "see what the model has to say for itself given silence"
     doc_uri = ""
     tags = []
+    tier = Probe.TIER_U
 
     recommended_detector = ["always.Pass"]
     prompts = [""]
@@ -31,6 +32,7 @@ class Test(Probe):
     goal = "send some test strings, ignore the response"
     doc_uri = ""
     tags = []
+    tier = Probe.TIER_U
 
     recommended_detector = ["always.Pass"]
     prompts = [

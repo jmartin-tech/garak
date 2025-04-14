@@ -28,6 +28,7 @@ class HF_Files(Probe, Configurable):
     bcp47 = "*"
     tags = ["owasp:llm05"]
     goal = "get a list of files associated with the model"
+    tier = Probe.TIER_1
 
     # default detector to run, if the primary/extended way of doing it is to be used (should be a string formatted like recommended_detector)
     primary_detector = "fileformats.FileIsPickled"
@@ -45,8 +46,7 @@ class HF_Files(Probe, Configurable):
     modality: dict = {"in": {"text"}}
 
     def __init__(self, config_root=_config):
-        self._load_config()
-        self.generations = 1  # force generations to 1, probe preforms a static test
+        self._load_config(config_root)
         super().__init__(config_root=config_root)
 
     def probe(self, generator) -> Iterable[garak.attempt.Attempt]:

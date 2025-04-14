@@ -6,6 +6,7 @@ import pytest
 import re
 
 from garak import _config, _plugins
+from garak.probes.base import Probe
 
 PROBES = [classname for (classname, active) in _plugins.enumerate_plugins("probes")]
 
@@ -92,6 +93,8 @@ def test_probe_metadata(classname):
     assert isinstance(p.modality, dict), "probes need to describe available modalities"
     assert "in" in p.modality, "probe modalities need an in descriptor"
     assert isinstance(p.modality["in"], set), "modality descriptors must be sets"
+    assert p.tier is not None, "probe tier must be specified"
+    assert p.tier in (Probe.TIER_1, Probe.TIER_2, Probe.TIER_3, Probe.TIER_U), "probe tier must be one of Probe.TIER_1 Probe.TIER_2 Probe.TIER_3 Probe.TIER_U'"
 
 
 @pytest.mark.parametrize("plugin_name", PROBES)
@@ -126,3 +129,11 @@ def test_tag_format(classname):
             assert re.match(r"^[A-Za-z0-9_\-]+$", part)
         if tag.split(":")[0] != "payload":
             assert tag in MISP_TAGS
+
+
+def test_probe_prune_alignment():
+    p = _plugins.load_plugin("probes.glitch.Glitch")
+    assert len(p.prompts) == _config.run.soft_probe_prompt_cap
+    assert len(p.triggers) == _config.run.soft_probe_prompt_cap
+    assert p.triggers[0] in p.prompts[0]
+    assert p.triggers[-1] in p.prompts[-1]
