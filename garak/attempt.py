@@ -121,18 +121,22 @@ class Attempt:
     def from_dict(cls, dicti):
         """Initializes an attempt object from dictionary"""
         attempt_obj = cls()
-        attempt_obj.uuid = dicti['uuid']
-        attempt_obj.seq = dicti['seq']
-        attempt_obj.status = dicti['status']
-        attempt_obj.probe_classname = dicti['probe_classname']
-        attempt_obj.probe_params = dicti['probe_params']
-        attempt_obj.targets = dicti['targets']
-        attempt_obj.prompt = dicti['prompt']
-        attempt_obj.outputs = dicti['outputs']
-        attempt_obj.detector_results = dicti['detector_results']
-        attempt_obj.notes = dicti['notes']
-        attempt_obj.goal = dicti['goal']
-        attempt_obj.messages = dicti['messages']
+        attempt_obj.uuid = dicti["uuid"]
+        attempt_obj.seq = dicti["seq"]
+        attempt_obj.status = dicti["status"]
+        attempt_obj.probe_classname = dicti["probe_classname"]
+        attempt_obj.probe_params = dicti["probe_params"]
+        attempt_obj.targets = dicti["targets"]
+        attempt_obj.prompt = dicti["prompt"]
+        attempt_obj.outputs = dicti["outputs"]
+        attempt_obj.detector_results = dicti["detector_results"]
+        attempt_obj.notes = dicti["notes"]
+        attempt_obj.goal = dicti["goal"]
+        attempt_obj.messages = dicti["messages"]
+        attempt_obj.bcp47 = dicti.get("bcp47", None)
+        attempt_obj.reverse_translator_outputs = dicti.get(
+            "reverse_translator_outputs", []
+        )
         return attempt_obj
 
     @property
