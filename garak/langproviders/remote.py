@@ -159,4 +159,89 @@ class DeeplTranslator(LangProvider):
             return text
 
 
+class GoogleTranslator(LangProvider):
+    """Remote translation using Google Cloud translation API
+
+    https://cloud.google.com/translate/docs/reference/api-overview
+    """
+
+    ENV_VAR = "GOOGLE_APPLICATION_CREDENTIALS"
+    DEFAULT_PARAMS = {"project_id": None}
+
+    # fmt: off
+    # Reference: https://translation.googleapis.com/language/translate/v2/languages
+    lang_support = [ 'en' ]
+    # fmt: on
+    # Applied when a service only supports regions specific codes
+    lang_overrides = {
+        "placeholder": "en",
+    }
+
+    def _validate_env_var(self):
+        """Override standard API key selection to enable provision of json credential file"""
+        import os
+        from garak.exception import APIKeyMissingError
+
+        if not hasattr(self, "api_key") or self.api_key is None:
+            self.api_key = os.getenv(self.key_env_var, default=None)
+            if self.api_key is None:
+                if hasattr(
+                    self, "generator_family_name"
+                ):  # special case may refactor later
+                    family_name = self.generator_family_name
+                else:
+                    family_name = self.__module__.split(".")[-1].title()
+                raise APIKeyMissingError(
+                    f'🛑 Put the {family_name} file path in the {self.key_env_var} environment variable (this was empty)\n \
+                    e.g.: export {self.key_env_var}="XXXXXXX"'
+                )
+
+    def _load_langprovider(self):
+        from google.cloud import translate_v2 as translate
+        import ftfy
+
+        auth_args = [self.api_key]
+        if self.project_id is not None:
+            auth_args.append(self.project_id)
+        self.client = translate.Client.from_service_account_json(*auth_args)
+        self.ftfy = ftfy
+
+        if not hasattr(self, "_tested"):
+            languages = self.client.get_languages()
+            self.lang_support = [l["language"] for l in languages]
+            if not (
+                self.source_lang in self.lang_support
+                and self.target_lang in self.lang_support
+            ):
+                raise BadGeneratorException(
+                    f"Language pair {self.language} is not supported for {self.__class__.__name__} services."
+                )
+            self._source_lang = self.source_lang
+            self._target_lang = self.lang_overrides.get(
+                self.target_lang, self.target_lang
+            )
+
+        if not hasattr(self, "_tested"):
+            self.client.translate(
+                VALIDATION_STRING,
+                source_language=self._source_lang,
+                target_lang=self._target_lang,
+                format_="text",
+            )  # exception handling is intentionally not implemented to raise on invalid config for remote services.
+            self._tested = True
+
+    def _translate(self, text: str) -> str:
+        try:
+            translation = self.client.translate(
+                text,
+                source_language=self._source_lang,
+                target_lang=self._target_lang,
+                format_="text",
+            )
+            return self.ftfy.fix_text(translation["translatedText"])
+        except Exception as e:
+            logging.error(f"Translation error: {str(e)}")
+            return text
+
+
 DEFAULT_CLASS = "RivaTranslator"
