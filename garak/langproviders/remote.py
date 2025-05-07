@@ -9,6 +9,8 @@ import logging
 
 from garak.exception import BadGeneratorException
 from garak.langproviders.base import LangProvider
+import time
+import random
 
 VALIDATION_STRING = "A"  # just send a single ASCII character for a sanity check
 
@@ -207,15 +209,15 @@ class GoogleTranslator(LangProvider):
         self.ftfy = ftfy
 
         if not hasattr(self, "_tested"):
-            languages = self.client.get_languages()
-            self.lang_support = [l["language"] for l in languages]
-            if not (
-                self.source_lang in self.lang_support
-                and self.target_lang in self.lang_support
-            ):
-                raise BadGeneratorException(
-                    f"Language pair {self.language} is not supported for {self.__class__.__name__} services."
-                )
+            # languages = self.client.get_languages()
+            # self.lang_support = [l["language"] for l in languages]
+            # if not (
+            #     self.source_lang in self.lang_support
+            #     and self.target_lang in self.lang_support
+            # ):
+            #     raise BadGeneratorException(
+            #         f"Language pair {self.language} is not supported for {self.__class__.__name__} services."
+            #     ) - to be checked
             self._source_lang = self.source_lang
             self._target_lang = self.lang_overrides.get(
                 self.target_lang, self.target_lang
@@ -225,23 +227,29 @@ class GoogleTranslator(LangProvider):
             self.client.translate(
                 VALIDATION_STRING,
                 source_language=self._source_lang,
-                target_lang=self._target_lang,
+                target_language=self._target_lang,
                 format_="text",
             )  # exception handling is intentionally not implemented to raise on invalid config for remote services.
             self._tested = True
 
     def _translate(self, text: str) -> str:
-        try:
-            translation = self.client.translate(
-                text,
-                source_language=self._source_lang,
-                target_lang=self._target_lang,
-                format_="text",
-            )
-            return self.ftfy.fix_text(translation["translatedText"])
-        except Exception as e:
-            logging.error(f"Translation error: {str(e)}")
-            return text
+        retry = 5
+        while retry > 0:
+            try:
+                translation = self.client.translate(
+                    text,
+                    source_language=self._source_lang,
+                    target_language=self._target_lang,
+                    format_="text",
+                )
+                retry = 0
+                op = self.ftfy.fix_text(translation["translatedText"])
+                return op
+            except Exception as e:
+                logging.error(f"Translation error: {str(e)}")
+                retry -= 1
+                time.sleep(random.randint(0, 2))
+        return text
 
 
 DEFAULT_CLASS = "RivaTranslator"
