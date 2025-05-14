@@ -29,12 +29,14 @@ class Generator(Configurable):
         "skip_seq_end": None,
     }
 
-    _run_params = {"deprefix", "seed"}
+    _run_params = {"deprefix", "seed", "rate_limit"}
     _system_params = {"parallel_requests", "max_workers"}
 
     active = True
     generator_family_name = None
     parallel_capable = True
+
+    _shm_name = "rate_limit_queue"
 
     # support mainstream any-to-any large models
     # legal element for str list `modality['in']`: 'text', 'image', 'audio', 'video', '3d'
@@ -59,10 +61,47 @@ class Generator(Configurable):
         if not self.generator_family_name:
             self.generator_family_name = "<empty>"
 
+        # setup general rate limiter shared memory
+        if self.rate_limit is not None:
+            from multiprocessing import shared_memory
+            import time
+            import numpy as np
+            import weakref
+
+            rate_limit_scaler = []
+            for _ in range(0, self.rate_limit):
+                rate_limit_scaler.append(time.time() - 60)
+            rate_limit_values = np.array(rate_limit_scaler)
+
+            shm_ratelimits = shared_memory.SharedMemory(
+                create=True,
+                size=rate_limit_values.nbytes,
+            )
+            self._shm_name = shm_ratelimits.name
+            self.nd_args = {
+                "shape": rate_limit_values.shape,
+                "dtype": rate_limit_values.dtype,
+            }
+            root_ratelimits = np.ndarray(
+                **(self.nd_args | {"buffer": shm_ratelimits.buf})
+            )
+            root_ratelimits[:] = rate_limit_values[:]
+            self._finalizer = weakref.finalize(self, self._cleanup_shm, self._shm_name)
+
         print(
             f"🦜 loading {Style.BRIGHT}{Fore.LIGHTMAGENTA_EX}generator{Style.RESET_ALL}: {self.generator_family_name}: {self.name}"
         )
         logging.info("generator init: %s", self)
+
+    def _cleanup_shm(self, shared_mem_name):
+        from multiprocessing import shared_memory
+
+        if hasattr(self, "_shm_rate_limits"):
+            self._shm_rate_limits.close()
+        else:
+            shm = shared_memory.SharedMemory(shared_mem_name)
+            shm.close()
+            shm.unlink()
 
     def _call_model(
         self, prompt: str, generations_this_call: int = 1
@@ -77,6 +116,32 @@ class Generator(Configurable):
         raise NotImplementedError
 
     def _pre_generate_hook(self):
+        # implement rate limiting here per generator
+        if self.rate_limit is not None:
+            import time
+            import random
+
+            if not hasattr(self, "_rate_limits"):
+                from multiprocessing import shared_memory
+                import numpy as np
+
+                self._shm_rate_limits = shared_memory.SharedMemory(self._shm_name)
+                self._rate_limits = np.ndarray(
+                    **(self.nd_args | {"buffer": self._shm_rate_limits.buf})
+                )
+
+            # count number of requests older that current time, backoff until count is lower than limit
+            count = self.rate_limit
+            while True:
+                cutoff = time.time() - 60
+                count = 0
+                for limit in self._rate_limits:
+                    if limit > cutoff:
+                        count += 1
+                if count < self.rate_limit:
+                    break
+                else:
+                    time.sleep(random.randint(3, 60))
         pass
 
     @staticmethod
@@ -93,6 +158,12 @@ class Generator(Configurable):
         pass
 
     def _post_generate_hook(self, outputs: List[str | None]) -> List[str | None]:
+        if self.rate_limit is not None:
+            import time
+
+            # find oldest entry and set to current time
+            oldest = self._rate_limits.argmin()
+            self._rate_limits[oldest] = time.time()
         return outputs
 
     def _prune_skip_sequences(self, outputs: List[str | None]) -> List[str | None]:
@@ -101,7 +172,7 @@ class Generator(Configurable):
         )
         rx_missing_final = re.escape(self.skip_seq_start) + ".*?$"
         rx_missing_start = ".*?" + re.escape(self.skip_seq_end)
-        
+
         if self.skip_seq_start == "":
             complete_seqs_removed = [
                 (

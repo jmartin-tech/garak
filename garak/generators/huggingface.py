@@ -387,6 +387,7 @@ class InferenceAPI(Generator):
 
     def _pre_generate_hook(self):
         self.wait_for_model = False
+        super()._pre_generate_hook()
 
 
 class InferenceEndpoint(InferenceAPI):
