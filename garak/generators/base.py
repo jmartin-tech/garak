@@ -67,8 +67,9 @@ class Generator(Configurable):
             import weakref
 
             rate_limit_scaler = []
+            init_time = time.time() - 60
             for _ in range(0, self.rate_limit):
-                rate_limit_scaler.append(time.time() - 60)
+                rate_limit_scaler.append(init_time)
             rate_limit_values = np.array(rate_limit_scaler)
 
             shm_ratelimits = shared_memory.SharedMemory(
@@ -131,6 +132,7 @@ class Generator(Configurable):
 
             # count number of requests older that current time, backoff until count is lower than limit
             count = self.rate_limit
+            hitlimit = False
             while True:
                 cutoff = time.time() - 60
                 count = 0
@@ -138,9 +140,13 @@ class Generator(Configurable):
                     if limit > cutoff:
                         count += 1
                 if count < self.rate_limit:
+                    oldest = self._rate_limits.argmin()
+                    self._rate_limits[oldest] = time.time()
+                    if hitlimit:
+                        logging.debug("continuing after limit delay")
                     break
                 else:
-                    delay = random.randint(int(limit - cutoff) + 1, 60)
+                    delay = random.randint(1, int(self._rate_limits.min() - cutoff))
                     logging.debug(
                         "rate limit encountered waiting for %s seconds", delay
                     )
@@ -161,12 +167,6 @@ class Generator(Configurable):
         pass
 
     def _post_generate_hook(self, outputs: List[str | None]) -> List[str | None]:
-        if self.rate_limit is not None:
-            import time
-
-            # find oldest entry and set to current time
-            oldest = self._rate_limits.argmin()
-            self._rate_limits[oldest] = time.time()
         return outputs
 
     def _prune_skip_sequences(self, outputs: List[str | None]) -> List[str | None]:
