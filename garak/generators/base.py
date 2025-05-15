@@ -36,8 +36,6 @@ class Generator(Configurable):
     generator_family_name = None
     parallel_capable = True
 
-    _shm_name = "rate_limit_queue"
-
     # support mainstream any-to-any large models
     # legal element for str list `modality['in']`: 'text', 'image', 'audio', 'video', '3d'
     # refer to Table 1 in https://arxiv.org/abs/2401.13601
@@ -125,6 +123,7 @@ class Generator(Configurable):
                 from multiprocessing import shared_memory
                 import numpy as np
 
+                # hold onto the shared memory region as required for post hook
                 self._shm_rate_limits = shared_memory.SharedMemory(self._shm_name)
                 self._rate_limits = np.ndarray(
                     **(self.nd_args | {"buffer": self._shm_rate_limits.buf})
@@ -141,7 +140,11 @@ class Generator(Configurable):
                 if count < self.rate_limit:
                     break
                 else:
-                    time.sleep(random.randint(3, 60))
+                    delay = random.randint(int(limit - cutoff) + 1, 60)
+                    logging.debug(
+                        "rate limit encountered waiting for %s seconds", delay
+                    )
+                    time.sleep(delay)
         pass
 
     @staticmethod
