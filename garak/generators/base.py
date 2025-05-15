@@ -146,7 +146,9 @@ class Generator(Configurable):
                         logging.debug("continuing after limit delay")
                     break
                 else:
-                    delay = random.randint(1, int(self._rate_limits.min() - cutoff))
+                    delay = random.uniform(
+                        0, max(int(self._rate_limits.min() - cutoff), 1)
+                    )
                     logging.debug(
                         "rate limit encountered waiting for %s seconds", delay
                     )
