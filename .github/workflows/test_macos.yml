@@ -48,6 +48,14 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
+      - name: Install dependencies
+        run: |
+          brew install libmagic
+          cd garak
+          python -m pip install --upgrade pip
+          pip install --no-cache-dir -r requirements.txt
+          python -m pip cache purge
+
       - name: Restore test cache artifacts
         id: cache-artifacts-restore
         uses: actions/cache/restore@v4
@@ -56,14 +64,6 @@ jobs:
             .cache/garak/data
             .cache/huggingface
           key: garak-test-resources-shared
-
-      - name: Install dependencies
-        run: |
-          brew install libmagic
-          cd garak
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          python -m pip cache purge
 
       - name: Test with pytest
         run: |
@@ -74,6 +74,7 @@ jobs:
         run: |
           rm -rf .cache/huggingface/hub/*facebook*
           rm -rf .cache/huggingface/hub/*Helsinki*
+          rm -rf .cache/huggingface/hub/*roberta*
 
       - name: Save test cache
         if: inputs.store-cache

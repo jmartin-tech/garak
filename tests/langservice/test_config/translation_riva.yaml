@@ -1,6 +1,6 @@
 run:
   target_lang: ja
-  langprovider: # was previously 'translator' - typo?
+  langproviders:
     - language: en,ja
       model_type: remote
     - language: ja,en

@@ -3,6 +3,7 @@
 """Generate reports from garak report JSONL"""
 
 from collections import defaultdict
+import html
 import importlib
 import json
 import markdown
@@ -17,6 +18,7 @@ import sqlite3
 
 from garak import _config
 from garak.data import path as data_path
+import garak.analyze
 import garak.analyze.calibration
 
 
@@ -46,17 +48,17 @@ if os.path.isfile(misp_resource_file):
             misp_descriptions[key] = (title, descr)
 
 
-def map_score(score):
-    """assign a defcon class to a %age score 0.0-100.0"""
-    if score == 100.0:
-        return 5
-    if score < 5.0:
+def map_score(score: float) -> int:
+    """assign a defcon class (i.e. 1-5, 1=worst) to a %age score 0.0-100.0"""
+    if score < garak.analyze.ABSOLUTE_DEFCON_BOUNDS.TERRIBLE * 100.0:
         return 1
-    if score < 40.0:
+    if score < garak.analyze.ABSOLUTE_DEFCON_BOUNDS.BELOW_AVG * 100.0:
         return 2
-    if score < 80.0:
+    if score < garak.analyze.ABSOLUTE_DEFCON_BOUNDS.ABOVE_AVG * 100.0:
         return 3
-    return 4
+    if score < garak.analyze.ABSOLUTE_DEFCON_BOUNDS.EXCELLENT * 100.0:
+        return 4
+    return 5
 
 
 def plugin_docstring_to_description(docstring):
@@ -188,7 +190,7 @@ def compile_digest(
                     len([p for p in probe_scores if p > 40]) / len(probe_scores)
                 )
             case _:
-                group_score = min(probe_scores) # minimum as default
+                group_score = min(probe_scores)  # minimum as default
                 group_aggregation_function += " (unrecognised, used 'minimum')"
 
         group_doc = f"Probes tagged {probe_group}"
@@ -211,10 +213,11 @@ def compile_digest(
 
         digest_content += group_template.render(
             {
-                "module": probe_group_name,
-                "module_score": f"{group_score:.1f}%",
+                "group": probe_group_name,
+                "show_top_group_score": _config.reporting.show_top_group_score,
+                "group_score": f"{group_score:.1f}%",
                 "severity": map_score(group_score),
-                "module_doc": group_doc,
+                "doc": group_doc,
                 "group_link": group_link,
                 "group_aggregation_function": group_aggregation_function,
             }
@@ -222,9 +225,9 @@ def compile_digest(
 
         if group_score < 100.0 or _config.reporting.show_100_pass_modules:
             res = cursor.execute(
-                f"select probe_module, probe_class, avg(score)*100 as s from results where probe_group='{probe_group}' group by probe_class order by s asc, probe_class asc;"
+                f"select probe_module, probe_class, min(score)*100 as s from results where probe_group='{probe_group}' group by probe_class order by s asc, probe_class asc;"
             )
-            for probe_module, probe_class, score in res.fetchall():
+            for probe_module, probe_class, absolute_score in res.fetchall():
                 pm = importlib.import_module(f"garak.probes.{probe_module}")
                 probe_description = plugin_docstring_to_description(
                     getattr(pm, probe_class).__doc__
@@ -232,13 +235,13 @@ def compile_digest(
                 digest_content += probe_template.render(
                     {
                         "plugin_name": f"{probe_module}.{probe_class}",
-                        "plugin_score": f"{score:.1f}%",
-                        "severity": map_score(score),
-                        "plugin_descr": probe_description,
+                        "plugin_score": f"{absolute_score:.1f}%",
+                        "severity": map_score(absolute_score),
+                        "plugin_descr": html.escape(probe_description),
                     }
                 )
                 # print(f"\tplugin: {probe_module}.{probe_class} - {score:.1f}%")
-                if score < 100.0 or _config.reporting.show_100_pass_modules:
+                if absolute_score < 100.0 or _config.reporting.show_100_pass_modules:
                     res = cursor.execute(
                         f"select detector, score*100 from results where probe_group='{probe_group}' and probe_class='{probe_class}' order by score asc, detector asc;"
                     )
@@ -257,29 +260,42 @@ def compile_digest(
                             probe_class,
                             detector_module,
                             detector_class,
-                            score / 100,
+                            absolute_score / 100,
                         )
 
                         if zscore is None:
-                            zscore_defcon, zscore_comment = None, None
-                            zscore = "n/a"
+                            relative_defcon, relative_comment = None, None
+                            relative_score = "n/a"
 
                         else:
-                            zscore_defcon, zscore_comment = (
+                            relative_defcon, relative_comment = (
                                 calibration.defcon_and_comment(zscore)
                             )
-                            zscore = f"{zscore:+.1f}"
+                            relative_score = f"{zscore:+.1f}"
                             calibration_used = True
+
+                        absolute_defcon = map_score(absolute_score)
+                        if absolute_score == 100.0:
+                            relative_defcon, absolute_defcon = 5, 5
+                        overall_severity = (
+                            min(absolute_defcon, relative_defcon)
+                            if isinstance(relative_defcon, int)
+                            else absolute_defcon
+                        )
 
                         digest_content += detector_template.render(
                             {
                                 "detector_name": detector,
-                                "detector_score": f"{score:.1f}%",
-                                "severity": map_score(score),
-                                "detector_description": detector_description,
-                                "zscore": zscore,
-                                "zscore_defcon": zscore_defcon,
-                                "zscore_comment": zscore_comment,
+                                "detector_descr": html.escape(detector_description),
+                                "absolute_score": f"{absolute_score:.1f}%",
+                                "absolute_defcon": absolute_defcon,
+                                "absolute_comment": garak.analyze.ABSOLUTE_COMMENT[
+                                    absolute_defcon
+                                ],
+                                "zscore": relative_score,
+                                "zscore_defcon": relative_defcon,
+                                "zscore_comment": relative_comment,
+                                "overall_severity": overall_severity,
                             }
                         )
                         # print(f"\t\tdetector: {detector} - {score:.1f}%")

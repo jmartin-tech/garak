@@ -45,7 +45,23 @@ class ReplicateGenerator(Generator):
         if self.api_key is not None:
             # ensure the token is in the expected runtime env var
             os.environ[self.ENV_VAR] = self.api_key
-        self.replicate = importlib.import_module("replicate")
+        self.client = importlib.import_module("replicate")
+
+    # avoid attempt to pickle the client attribute
+    def __getstate__(self) -> object:
+        self._clear_client()
+        return dict(self.__dict__)
+
+    # restore the client attribute
+    def __setstate__(self, d) -> object:
+        self.__dict__.update(d)
+        self._load_client()
+
+    def _load_client(self):
+        self.client = importlib.import_module("replicate")
+
+    def _clear_client(self):
+        self.client = None
 
     @backoff.on_exception(
         backoff.fibo, replicate.exceptions.ReplicateError, max_value=70
@@ -53,7 +69,9 @@ class ReplicateGenerator(Generator):
     def _call_model(
         self, prompt: str, generations_this_call: int = 1
     ) -> List[Union[str, None]]:
-        response_iterator = self.replicate.run(
+        if self.client is None:
+            self.client = importlib.import_module("replicate")
+        response_iterator = self.client.run(
             self.name,
             input={
                 "prompt": prompt,
@@ -79,7 +97,9 @@ class InferenceEndpoint(ReplicateGenerator):
     def _call_model(
         self, prompt, generations_this_call: int = 1
     ) -> List[Union[str, None]]:
-        deployment = self.replicate.deployments.get(self.name)
+        if self.client is None:
+            self.client = importlib.import_module("replicate")
+        deployment = self.client.deployments.get(self.name)
         prediction = deployment.predictions.create(
             input={
                 "prompt": prompt,

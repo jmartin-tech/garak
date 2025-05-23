@@ -72,8 +72,8 @@ def test_calc_z_score():
 
 @pytest.mark.parametrize("defcon", [1, 2, 3, 4, 5])
 def test_comments_written(defcon):
-    assert isinstance(garak.analyze.calibration.ZSCORE_COMMENTS[defcon], str)
-    assert garak.analyze.calibration.ZSCORE_COMMENTS[defcon] != ""
+    assert isinstance(garak.analyze.calibration.RELATIVE_COMMENT[defcon], str)
+    assert garak.analyze.calibration.RELATIVE_COMMENT[defcon] != ""
 
 
 @pytest.mark.parametrize(
@@ -85,4 +85,4 @@ def test_defcon_comment(z):
     assert isinstance(defcon, int)
     assert isinstance(comment, str)
     assert 1 <= defcon <= 5
-    assert comment == garak.analyze.calibration.ZSCORE_COMMENTS[defcon]
+    assert comment == garak.analyze.calibration.RELATIVE_COMMENT[defcon]

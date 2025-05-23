@@ -1,7 +1,7 @@
-garak.probes.continuation
+garak.probes.ansiescape
 =========================
 
-.. automodule:: garak.probes.continuation
+.. automodule:: garak.probes.ansiescape
    :members:
    :undoc-members:
    :show-inheritance:   

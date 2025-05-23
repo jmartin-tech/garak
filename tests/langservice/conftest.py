@@ -4,6 +4,34 @@
 import pytest
 
 
+@pytest.fixture(scope="package", autouse=True)
+def cleanup_model_cache(request):
+    """Remove cached huggingface models after language tests"""
+
+    import os
+
+    def clear_hf_cached():
+        from huggingface_hub import scan_cache_dir
+        import shutil
+
+        models = [
+            "facebook/m2m100_418M".lower(),
+            "Helsinki-NLP/opus-mt-en-jap".lower(),
+            "Helsinki-NLP/opus-mt-jap-en".lower(),
+            "Helsinki-NLP/opus-mt-en-ja".lower(),
+            "Helsinki-NLP/opus-mt-ja-en".lower(),
+            "Helsinki-NLP/opus-mt-fr-en".lower(),
+            "Helsinki-NLP/opus-mt-en-fr".lower(),
+        ]
+        for repo in scan_cache_dir().repos:
+            if repo.repo_id.lower() in models:
+                if repo.repo_path.exists():
+                    shutil.rmtree(repo.repo_path)
+
+    if os.getenv("CI", None) is not None:  # github sets this to True
+        request.addfinalizer(clear_hf_cached)
+
+
 @pytest.fixture(autouse=True)
 def clear_langprovider_state(request):
     """Reset langprovider for each test"""

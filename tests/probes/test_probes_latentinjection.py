@@ -4,6 +4,7 @@
 import pytest
 
 from garak import _plugins
+import garak.payloads
 import garak.probes.base
 import garak.probes.latentinjection
 
@@ -56,3 +57,12 @@ def test_latentinjection_structure(classname):
         assert len(pair) == 2, "separation pairs should have a start and end"
         assert isinstance(pair[0], str)
         assert isinstance(pair[1], str)
+
+
+def test_whois_payload_injection_marker():
+    marker = "{INJECTION_MARKER}"
+    payload_name = "whois_injection_contexts"
+    for id, payload in enumerate(garak.payloads.load(payload_name).payloads):
+        assert (
+            marker in payload
+        ), f"Each whois payload must contain {marker} but this was not found in {payload_name} payload {id}"
