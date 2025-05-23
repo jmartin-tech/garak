@@ -170,15 +170,6 @@ class GoogleTranslator(LangProvider):
     ENV_VAR = "GOOGLE_APPLICATION_CREDENTIALS"
     DEFAULT_PARAMS = {"project_id": None}
 
-    # fmt: off
-    # Reference: https://translation.googleapis.com/language/translate/v2/languages
-    lang_support = [ 'en' ]
-    # fmt: on
-    # Applied when a service only supports regions specific codes
-    lang_overrides = {
-        "placeholder": "en",
-    }
-
     def _validate_env_var(self):
         """Override standard API key selection to enable provision of json credential file"""
         import os
@@ -209,15 +200,6 @@ class GoogleTranslator(LangProvider):
         self.ftfy = ftfy
 
         if not hasattr(self, "_tested"):
-            # languages = self.client.get_languages()
-            # self.lang_support = [l["language"] for l in languages]
-            # if not (
-            #     self.source_lang in self.lang_support
-            #     and self.target_lang in self.lang_support
-            # ):
-            #     raise BadGeneratorException(
-            #         f"Language pair {self.language} is not supported for {self.__class__.__name__} services."
-            #     ) - to be checked
             self._source_lang = self.source_lang
             self._target_lang = self.lang_overrides.get(
                 self.target_lang, self.target_lang
