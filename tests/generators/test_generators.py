@@ -134,14 +134,14 @@ def test_generator_signature(classname):
     g = getattr(m, klass)
     generate_signature = inspect.signature(g.generate)
     assert (
-        generate_signature.parameters.get("prompt").annotation == Turn
+        generate_signature.parameters.get("prompt").annotation == Conversation
     ), "generate should take a Turn and return list of Turns or Nones"
     assert (
         generate_signature.return_annotation == List[Union[None, Turn]]
     ), "generate should take a Turn and return list of Turns or Nones"
     _call_model_signature = inspect.signature(g._call_model)
     assert (
-        _call_model_signature.parameters.get("prompt").annotation == Turn
+        _call_model_signature.parameters.get("prompt").annotation == Conversation
     ), "_call_model should take a Turn and return list of Turns or Nones"
     assert (
         _call_model_signature.return_annotation == List[Union[None, Turn]]
@@ -154,7 +154,7 @@ def test_skip_seq():
     test_string_with_thinking_complex = '<think></think>TEST TEST <think>not thius tho</think>1234<think>!"(^-&$(!$%*))</think>'
     test_string_with_newlines = "<think>\n\n</think>" + target_string
     g = _plugins.load_plugin("generators.test.Repeat")
-    r = g.generate(Turn(test_string_with_thinking))
+    r = g.generate(Conversation(messages=[Turn(test_string_with_thinking)]))
     g.skip_seq_start = None
     g.skip_seq_end = None
     assert r[0] == Turn(
@@ -162,27 +162,27 @@ def test_skip_seq():
     ), "test.Repeat should give same output as input when no think tokens specified"
     g.skip_seq_start = "<think>"
     g.skip_seq_end = "</think>"
-    r = g.generate(Turn(test_string_with_thinking))
+    r = g.generate(Conversation(messages=[Turn(test_string_with_thinking)]))
     assert r[0] == Turn(
         target_string
     ), "content between single skip sequence should be removed"
-    r = g.generate(Turn(test_string_with_thinking_complex))
+    r = g.generate(Conversation(messages=[Turn(test_string_with_thinking_complex)]))
     assert r[0] == Turn(
         target_string
     ), "content between multiple skip sequences should be removed"
-    r = g.generate(Turn(test_string_with_newlines))
+    r = g.generate(Conversation(messages=[Turn(test_string_with_newlines)]))
     assert r[0] == Turn(target_string), "skip seqs full of newlines should be removed"
 
     test_no_answer = "<think>not sure the output to provide</think>"
-    r = g.generate(Turn(test_no_answer))
+    r = g.generate(Conversation(messages=[Turn(test_no_answer)]))
     assert r[0] == Turn(""), "Output of all skip strings should be empty"
 
     test_truncated_think = f"<think>thinking a bit</think>{target_string}<think>this process required a lot of details that is processed by"
-    r = g.generate(Turn(test_truncated_think))
+    r = g.generate(Conversation(messages=[Turn(test_truncated_think)]))
     assert r[0] == Turn(target_string), "truncated skip strings should be omitted"
 
     test_truncated_think_no_answer = "<think>thinking a bit</think><think>this process required a lot of details that is processed by"
-    r = g.generate(Turn(test_truncated_think_no_answer))
+    r = g.generate(Conversation(messages=[Turn(test_truncated_think_no_answer)]))
     assert r[0] == Turn(""), "truncated skip strings should be omitted"
 
     test_has_only_end_think = "some thinking</think>" + target_string

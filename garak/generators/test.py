@@ -25,7 +25,7 @@ class Blank(Generator):
 
 
 class Repeat(Generator):
-    """This generator returns the input that was posed to it."""
+    """This generator returns the last turn from input that was posed to it."""
 
     supports_multiple_generations = True
     generator_family_name = "Test"
@@ -34,7 +34,7 @@ class Repeat(Generator):
     def _call_model(
         self, prompt: Conversation, generations_this_call: int = 1
     ) -> List[Turn | None]:
-        return [prompt] * generations_this_call
+        return [prompt.messages[-1]] * generations_this_call
 
 
 class Single(Generator):

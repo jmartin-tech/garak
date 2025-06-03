@@ -135,7 +135,7 @@ class Generator(Configurable):
         """
 
         if typecheck:
-            assert isinstance(prompt, Turn), "generate() must take a Turn object"
+            assert isinstance(prompt, Conversation), "generate() must take a Conversation object"
 
         self._pre_generate_hook()
 
