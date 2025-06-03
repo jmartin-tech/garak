@@ -478,7 +478,9 @@ class Attempt:
             for conversation in self.messages:
                 # work out last_output_turn that was assistant
                 assistant_turns = [
-                    idx for idx, val in enumerate(conversation) if val.role == "assistant"
+                    idx
+                    for idx, val in enumerate(conversation)
+                    if val.role == "assistant"
                 ]
                 if not assistant_turns:
                     continue
