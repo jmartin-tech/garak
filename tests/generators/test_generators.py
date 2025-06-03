@@ -10,7 +10,7 @@ from typing import List, Union
 from garak import _plugins
 from garak import _config
 
-from garak.attempt import Turn
+from garak.attempt import Turn, Conversation
 from garak.generators.base import Generator
 
 

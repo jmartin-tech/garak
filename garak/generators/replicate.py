@@ -17,7 +17,7 @@ import backoff
 import replicate.exceptions
 
 from garak import _config
-from garak.attempt import Turn
+from garak.attempt import Turn, Conversation
 from garak.generators.base import Generator
 
 
@@ -68,7 +68,7 @@ class ReplicateGenerator(Generator):
         backoff.fibo, replicate.exceptions.ReplicateError, max_value=70
     )
     def _call_model(
-        self, prompt: Turn, generations_this_call: int = 1
+        self, prompt: Conversation, generations_this_call: int = 1
     ) -> List[Union[Turn, None]]:
         if self.client is None:
             self.client = importlib.import_module("replicate")
@@ -96,7 +96,7 @@ class InferenceEndpoint(ReplicateGenerator):
         backoff.fibo, replicate.exceptions.ReplicateError, max_value=70
     )
     def _call_model(
-        self, prompt: Turn, generations_this_call: int = 1
+        self, prompt: Conversation, generations_this_call: int = 1
     ) -> List[Union[Turn, None]]:
         if self.client is None:
             self.client = importlib.import_module("replicate")

@@ -1,8 +1,7 @@
 # SPDX-FileCopyrightText: Portions Copyright (c) 2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""LangChain generator support
-"""
+"""LangChain generator support"""
 
 
 import logging
@@ -12,7 +11,7 @@ from typing import List, Union
 import langchain.llms
 
 from garak import _config
-from garak.attempt import Turn
+from garak.attempt import Turn, Conversation
 from garak.generators.base import Generator
 
 
@@ -64,7 +63,7 @@ class LangChainLLMGenerator(Generator):
         self.generator = llm
 
     def _call_model(
-        self, prompt: Turn, generations_this_call: int = 1
+        self, prompt: Conversation, generations_this_call: int = 1
     ) -> List[Union[Turn, None]]:
         """
         Continuation generation method for LangChain LLM integrations.

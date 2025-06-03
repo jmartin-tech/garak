@@ -8,7 +8,7 @@ import pytest
 import openai
 
 import garak.exception
-from garak.attempt import Turn
+from garak.attempt import Turn, Conversation
 from garak.generators.openai import OpenAIGenerator
 
 

@@ -7,7 +7,7 @@ from typing import List
 
 import lorem
 
-from garak.attempt import Turn
+from garak.attempt import Turn, Conversation
 from garak.generators.base import Generator
 
 
@@ -19,7 +19,7 @@ class Blank(Generator):
     name = "Blank"
 
     def _call_model(
-        self, prompt: Turn, generations_this_call: int = 1
+        self, prompt: Conversation, generations_this_call: int = 1
     ) -> List[Turn | None]:
         return [Turn("")] * generations_this_call
 
@@ -32,7 +32,7 @@ class Repeat(Generator):
     name = "Repeat"
 
     def _call_model(
-        self, prompt: Turn, generations_this_call: int = 1
+        self, prompt: Conversation, generations_this_call: int = 1
     ) -> List[Turn | None]:
         return [prompt] * generations_this_call
 
@@ -46,7 +46,7 @@ class Single(Generator):
     test_generation_string = "ELIM"
 
     def _call_model(
-        self, prompt: Turn, generations_this_call: int = 1
+        self, prompt: Conversation, generations_this_call: int = 1
     ) -> List[Turn | None]:
         if generations_this_call == 1:
             return [Turn(self.test_generation_string)]
@@ -64,7 +64,7 @@ class Lipsum(Generator):
     name = "Lorem Ipsum"
 
     def _call_model(
-        self, prompt: Turn, generations_this_call: int = 1
+        self, prompt: Conversation, generations_this_call: int = 1
     ) -> List[Turn | None]:
         return [Turn(lorem.sentence()) for i in range(generations_this_call)]
 
@@ -78,7 +78,7 @@ class BlankVision(Generator):
     modality = {"in": {"text", "image"}, "out": {"text"}}
 
     def _call_model(
-        self, prompt: Turn, generations_this_call: int = 1
+        self, prompt: Conversation, generations_this_call: int = 1
     ) -> List[Turn | None]:
         return [Turn("")] * generations_this_call
 

@@ -2,7 +2,7 @@ import pytest
 import ollama
 import httpx
 
-from garak.attempt import Turn
+from garak.attempt import Turn, Conversation
 from garak.generators.ollama import OllamaGeneratorChat, OllamaGenerator
 
 PINGED_OLLAMA_SERVER = (

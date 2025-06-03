@@ -12,7 +12,7 @@ import backoff
 import requests
 
 from garak import _config
-from garak.attempt import Turn
+from garak.attempt import Turn, Conversation
 from garak.exception import ModelNameMissingError, BadGeneratorException
 from garak.generators.base import Generator
 
@@ -90,7 +90,7 @@ class NvcfChat(Generator):
         max_value=70,
     )
     def _call_model(
-        self, prompt: Turn, generations_this_call: int = 1
+        self, prompt: Conversation, generations_this_call: int = 1
     ) -> List[Union[Turn, None]]:
 
         session = requests.Session()

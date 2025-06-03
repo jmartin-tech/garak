@@ -1,7 +1,7 @@
 import os
 import pytest
 
-from garak.attempt import Turn
+from garak.attempt import Turn, Conversation
 from garak.generators.langchain_serve import LangChainServeLLMGenerator
 
 

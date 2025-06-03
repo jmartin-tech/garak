@@ -12,7 +12,7 @@ import requests
 import tqdm
 
 from garak import _config
-from garak.attempt import Turn
+from garak.attempt import Turn, Conversation
 import garak.probes
 from garak.data import path as data_path
 from garak.generators.base import Generator
@@ -113,7 +113,7 @@ class FigStepFull(garak.probes.Probe):
             raise ValueError(
                 f"Incorrect generator input modality {generator.modality['in']}, expect {self.modality['in']} for this probe."
             )
-
+        # needs further testing
         return super().probe(generator)
 
 

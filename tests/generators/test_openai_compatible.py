@@ -10,7 +10,7 @@ import inspect
 
 from collections.abc import Iterable
 
-from garak.attempt import Turn
+from garak.attempt import Turn, Conversation
 from garak.generators.openai import OpenAICompatible
 
 
@@ -105,4 +105,6 @@ def test_openai_multiprocessing(openai_compat_mocks, classname):
             for result in attempt_pool.imap_unordered(generate_in_subprocess, prompts):
                 assert result is not None
                 assert isinstance(result, list), "generator should return list"
-                assert isinstance(result[0], Turn), "generator should return list of Turns or Nones"
+                assert isinstance(
+                    result[0], Turn
+                ), "generator should return list of Turns or Nones"

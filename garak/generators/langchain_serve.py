@@ -6,7 +6,7 @@ from typing import List, Union
 from urllib.parse import urlparse
 
 from garak import _config
-from garak.attempt import Turn
+from garak.attempt import Turn, Conversation
 from garak.generators.base import Generator
 
 
@@ -62,7 +62,7 @@ class LangChainServeLLMGenerator(Generator):
             return False
 
     def _call_model(
-        self, prompt: Turn, generations_this_call: int = -1
+        self, prompt: Conversation, generations_this_call: int = -1
     ) -> List[Union[Turn, None]]:
         """Makes an HTTP POST request to the LangChain Serve API endpoint to invoke the LLM with a given prompt."""
         headers = {"Content-Type": "application/json", "Accept": "application/json"}

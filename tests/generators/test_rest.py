@@ -2,7 +2,7 @@ import json
 import pytest
 
 from garak import _config, _plugins
-from garak.attempt import Turn
+from garak.attempt import Turn, Conversation
 from garak.exception import BadGeneratorException
 from garak.generators.rest import RestGenerator
 

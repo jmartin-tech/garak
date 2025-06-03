@@ -5,7 +5,7 @@ from typing import List, Union
 
 import openai
 
-from garak.attempt import Turn
+from garak.attempt import Turn, Conversation
 from garak.generators.openai import OpenAICompatible
 
 

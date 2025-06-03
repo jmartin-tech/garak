@@ -1,5 +1,5 @@
 from garak import _config
-from garak.attempt import Turn
+from garak.attempt import Turn, Conversation
 from garak.generators.base import Generator
 from typing import List, Union
 import os
@@ -126,7 +126,7 @@ class WatsonXGenerator(Generator):
         return super()._validate_env_var()
 
     def _call_model(
-        self, prompt: Turn, generations_this_call: int = 1
+        self, prompt: Conversation, generations_this_call: int = 1
     ) -> List[Union[Turn, None]]:
         if not self.bearer_token:
             self._set_bearer_token()

@@ -2,7 +2,7 @@ import os
 import pytest
 import httpx
 from unittest.mock import patch
-from garak.attempt import Turn
+from garak.attempt import Turn, Conversation
 from garak.generators.mistral import MistralGenerator
 
 DEFAULT_DEPLOYMENT_NAME = "mistral-small-latest"

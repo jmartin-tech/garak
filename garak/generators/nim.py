@@ -10,7 +10,7 @@ from typing import List, Union
 import openai
 
 from garak import _config
-from garak.attempt import Turn
+from garak.attempt import Turn, Conversation
 from garak.exception import GarakException
 from garak.generators.openai import OpenAICompatible
 
@@ -68,7 +68,7 @@ class NVOpenAIChat(OpenAICompatible):
         return prompt
 
     def _call_model(
-        self, prompt: Turn, generations_this_call: int = 1
+        self, prompt: Conversation, generations_this_call: int = 1
     ) -> List[Union[Turn, None]]:
         assert (
             generations_this_call == 1

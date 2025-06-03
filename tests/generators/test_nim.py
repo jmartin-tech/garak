@@ -5,7 +5,7 @@ import os
 import pytest
 
 import garak._plugins
-from garak.attempt import Turn
+from garak.attempt import Turn, Conversation
 import garak.cli
 from garak.generators.nim import NVOpenAIChat
 

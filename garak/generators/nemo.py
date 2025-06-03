@@ -14,7 +14,7 @@ import backoff
 import nemollm
 
 from garak import _config
-from garak.attempt import Turn
+from garak.attempt import Turn, Conversation
 from garak.exception import APIKeyMissingError
 from garak.generators.base import Generator
 
@@ -80,7 +80,7 @@ class NeMoGenerator(Generator):
         max_value=70,
     )
     def _call_model(
-        self, prompt: Turn, generations_this_call: int = 1
+        self, prompt: Conversation, generations_this_call: int = 1
     ) -> List[Union[Turn, None]]:
         # avoid:
         #    doesn't match schema #/components/schemas/CompletionRequestBody: Error at "/prompt": minimum string length is 1

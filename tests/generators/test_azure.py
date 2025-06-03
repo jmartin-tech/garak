@@ -2,7 +2,7 @@ import os
 import pytest
 import httpx
 
-from garak.attempt import Turn
+from garak.attempt import Turn, Conversation
 from garak.generators.azure import AzureOpenAIGenerator
 
 DEFAULT_DEPLOYMENT_NAME = "gpt-4o-deployment-test"

@@ -418,6 +418,7 @@ class Attempt:
     ) -> None:
         self.uuid = uuid.uuid4()
         if prompt is not None:
+            # this should not assume `str` a Turn or Conversation could be supplied
             self.prompt = Turn(text=prompt, role="user")
             self.messages = [Conversation([self.prompt])]
         else:

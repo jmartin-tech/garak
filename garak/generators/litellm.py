@@ -39,7 +39,7 @@ litellm_logger.setLevel(logging.CRITICAL)
 import litellm
 
 from garak import _config
-from garak.attempt import Turn
+from garak.attempt import Turn, Conversation
 from garak.exception import BadGeneratorException
 from garak.generators.base import Generator
 
@@ -47,7 +47,7 @@ from garak.generators.base import Generator
 litellm.drop_params = True
 # Suppress log messages from LiteLLM
 litellm.verbose_logger.disabled = True
-#litellm.set_verbose = True
+# litellm.set_verbose = True
 
 # Based on the param support matrix below:
 # https://docs.litellm.ai/docs/completion/input
@@ -122,7 +122,7 @@ class LiteLLMGenerator(Generator):
 
     @backoff.on_exception(backoff.fibo, litellm.exceptions.APIError, max_value=70)
     def _call_model(
-        self, prompt: Turn, generations_this_call: int = 1
+        self, prompt: Conversation, generations_this_call: int = 1
     ) -> List[Union[Turn, None]]:
         if isinstance(prompt, Turn):
             litellm_prompt = [{"role": "user", "content": prompt.text}]

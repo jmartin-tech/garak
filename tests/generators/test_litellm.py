@@ -2,7 +2,7 @@ import pytest
 
 from os import getenv
 
-from garak.attempt import Turn
+from garak.attempt import Turn, Conversation
 from garak.exception import BadGeneratorException
 from garak.generators.litellm import LiteLLMGenerator
 

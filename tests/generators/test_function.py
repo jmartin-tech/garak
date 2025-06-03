@@ -1,7 +1,7 @@
 import re
 
 from garak import cli
-from garak.attempt import Turn
+from garak.attempt import Turn, Conversation
 
 
 def passed_function(prompt: Turn, **kwargs):

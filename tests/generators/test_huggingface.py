@@ -2,7 +2,7 @@ import pytest
 import requests
 import transformers
 
-from garak.attempt import Turn
+from garak.attempt import Turn, Conversation
 from garak._config import GarakSubConfig
 import garak.generators.huggingface
 

@@ -1,9 +1,9 @@
 """function-based generator
 
-Call a given function to use as a generator; specify this as either the 
+Call a given function to use as a generator; specify this as either the
 model name on the command line, or as the parameter to the constructor.
 
-This generator is designed to be used programmatically, rather than 
+This generator is designed to be used programmatically, rather than
 invoked from the CLI. An example usage might be:
 
 ```
@@ -33,7 +33,7 @@ import importlib
 from typing import List, Union
 
 from garak import _config
-from garak.attempt import Turn
+from garak.attempt import Turn, Conversation
 from garak.generators.base import Generator
 
 
@@ -88,8 +88,9 @@ class Single(Generator):
         super().__init__(self.name, config_root=config_root)
 
     def _call_model(
-        self, prompt: Turn, generations_this_call: int = 1
+        self, prompt: Conversation, generations_this_call: int = 1
     ) -> List[Union[Turn, None]]:
+        # this needs to be reworked as prompt is no longer a str
         return self.generator(prompt, **self.kwargs)
 
 
@@ -99,8 +100,9 @@ class Multiple(Single):
     supports_multiple_generations = True
 
     def _call_model(
-        self, prompt: Turn, generations_this_call: int = 1
+        self, prompt: Conversation, generations_this_call: int = 1
     ) -> List[Union[Turn, None]]:
+        # this needs to be reworked as prompt is no longer a str
         return self.generator(prompt, **self.kwargs)
 
 

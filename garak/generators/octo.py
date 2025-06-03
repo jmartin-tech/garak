@@ -10,7 +10,7 @@ import backoff
 import octoai.errors
 
 from garak import _config
-from garak.attempt import Turn
+from garak.attempt import Turn, Conversation
 from garak.generators.base import Generator
 
 
@@ -47,7 +47,7 @@ class OctoGenerator(Generator):
 
     @backoff.on_exception(backoff.fibo, octoai.errors.OctoAIServerError, max_value=70)
     def _call_model(
-        self, prompt: Turn, generations_this_call: int = 1
+        self, prompt: Conversation, generations_this_call: int = 1
     ) -> List[Union[Turn, None]]:
         outputs = self.client.chat.completions.create(
             messages=[
@@ -85,7 +85,7 @@ class InferenceEndpoint(OctoGenerator):
 
     @backoff.on_exception(backoff.fibo, octoai.errors.OctoAIServerError, max_value=70)
     def _call_model(
-        self, prompt: Turn, generations_this_call: int = 1
+        self, prompt: Conversation, generations_this_call: int = 1
     ) -> List[Union[Turn, None]]:
         outputs = self.client.infer(
             endpoint_url=self.name,

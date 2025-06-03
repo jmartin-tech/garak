@@ -18,7 +18,7 @@ import subprocess
 from typing import List, Union
 
 from garak import _config
-from garak.attempt import Turn
+from garak.attempt import Turn, Conversation
 from garak.generators.base import Generator
 
 GGUF_MAGIC = bytes([0x47, 0x47, 0x55, 0x46])
@@ -106,7 +106,7 @@ class GgmlGenerator(Generator):
         pass  # suppress default behavior for api_key
 
     def _call_model(
-        self, prompt: Turn, generations_this_call: int = 1
+        self, prompt: Conversation, generations_this_call: int = 1
     ) -> List[Union[Turn, None]]:
         if generations_this_call != 1:
             logging.warning(

@@ -5,7 +5,7 @@ import pytest
 import random
 
 import garak._plugins
-from garak.attempt import Turn
+from garak.attempt import Turn, Conversation
 import garak.generators.base
 from garak.generators.test import Blank, Repeat, Single
 

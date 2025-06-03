@@ -14,7 +14,7 @@ import cohere
 import tqdm
 
 from garak import _config
-from garak.attempt import Turn
+from garak.attempt import Turn, Conversation
 from garak.generators.base import Generator
 
 
@@ -63,7 +63,7 @@ class CohereGenerator(Generator):
         filtering exceptions based on message instead of type, in backoff, isn't immediately obvious
         - on the other hand blank prompt / RTP shouldn't hang forever
         """
-        if prompt == "":
+        if prompt_text == "":
             return [Turn("")] * request_size
         else:
             response = self.generator.generate(
@@ -82,7 +82,7 @@ class CohereGenerator(Generator):
             return [Turn(g.text) for g in response]
 
     def _call_model(
-        self, prompt: Turn, generations_this_call: int = 1
+        self, prompt: Conversation, generations_this_call: int = 1
     ) -> List[Union[Turn, None]]:
         """Cohere's _call_model does sub-batching before calling,
         and so manages chunking internally"""

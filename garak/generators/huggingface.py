@@ -24,7 +24,7 @@ import torch
 from PIL import Image
 
 from garak import _config
-from garak.attempt import Turn
+from garak.attempt import Turn, Conversation
 from garak.exception import ModelNameMissingError, GarakException
 from garak.generators.base import Generator
 from garak.resources.api.huggingface import HFCompatible
@@ -111,7 +111,7 @@ class Pipeline(Generator, HFCompatible):
         return [{"role": "user", "content": chat_prompt_string}]
 
     def _call_model(
-        self, prompt: Turn, generations_this_call: int = 1
+        self, prompt: Conversation, generations_this_call: int = 1
     ) -> List[Union[Turn, None]]:
         self._load_client()
         with warnings.catch_warnings():
@@ -243,7 +243,7 @@ class InferenceAPI(Generator):
         max_value=125,
     )
     def _call_model(
-        self, prompt: Turn, generations_this_call: int = 1
+        self, prompt: Conversation, generations_this_call: int = 1
     ) -> List[Turn | None]:
         import json
         import requests
@@ -353,7 +353,7 @@ class InferenceEndpoint(InferenceAPI):
         max_value=125,
     )
     def _call_model(
-        self, prompt: Turn, generations_this_call: int = 1
+        self, prompt: Conversation, generations_this_call: int = 1
     ) -> List[Turn | None]:
         import requests
 
@@ -445,7 +445,7 @@ class Model(Pipeline, HFCompatible):
         self.generation_config = None
 
     def _call_model(
-        self, prompt: Turn, generations_this_call: int = 1
+        self, prompt: Conversation, generations_this_call: int = 1
     ) -> List[Turn | None]:
         self._load_client()
         self.generation_config.max_new_tokens = self.max_tokens
@@ -561,7 +561,7 @@ class LLaVA(Generator, HFCompatible):
         self.model.to(self.device)
 
     def generate(
-        self, prompt: Turn, generations_this_call: int = 1
+        self, prompt: Conversation, generations_this_call: int = 1
     ) -> List[Union[Turn, None]]:
 
         text_prompt = prompt.text

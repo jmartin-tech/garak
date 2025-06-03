@@ -20,7 +20,7 @@ import openai
 import backoff
 
 from garak import _config
-from garak.attempt import Turn
+from garak.attempt import Turn, Conversation
 import garak.exception
 from garak.generators.base import Generator
 

@@ -11,7 +11,7 @@ from colorama import Fore, Style
 import tqdm
 
 from garak import _config
-from garak.attempt import Turn
+from garak.attempt import Turn, Conversation
 from garak.configurable import Configurable
 from garak.exception import GarakException
 import garak.resources.theme
@@ -66,7 +66,7 @@ class Generator(Configurable):
         logging.info("generator init: %s", self)
 
     def _call_model(
-        self, prompt: Turn, generations_this_call: int = 1
+        self, prompt: Conversation, generations_this_call: int = 1
     ) -> List[Union[Turn, None]]:
         """Takes a prompt and returns an API output
 
@@ -124,7 +124,7 @@ class Generator(Configurable):
         return outputs
 
     def generate(
-        self, prompt: Turn, generations_this_call: int = 1, typecheck=True
+        self, prompt: Conversation, generations_this_call: int = 1, typecheck=True
     ) -> List[Union[Turn, None]]:
         """Manages the process of getting generations out from a prompt
 
