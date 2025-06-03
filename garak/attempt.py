@@ -1,8 +1,17 @@
 """Defines the Attempt class, which encapsulates a prompt with metadata and results"""
 
+import json
+import logging
+from copy import deepcopy
+from pathlib import Path
 from types import GeneratorType
-from typing import List, Union
+from typing import Any, List, Union
 import uuid
+from contextlib import contextmanager
+import jinja2
+from jinja2.ext import Extension
+from jinja2.sandbox import ImmutableSandboxedEnvironment
+from functools import lru_cache
 
 (
     ATTEMPT_NEW,
@@ -13,71 +22,330 @@ import uuid
 roles = {"system", "user", "assistant"}
 
 
-class Turn(dict):
+class Turn:
     """Object to represent a single turn posed to or received from a generator
-
     Turns can be prompts, replies, system prompts. While many prompts are text,
     they may also be (or include) images, audio, files, or even a composition of
     these. The Turn object encapsulates this flexibility.
-
     `Turn` doesn't yet support multiple attachments of the same type.
 
-    Multi-turn queries should be composed of multiple Turn objects.
-
-    Turns must always have a `text` part, which is set to `None` by default.
-
-    Expected part names:
-    * `text` -- The prompt. `text` is always present, though may be None
-    * `image_filename` -- Filename of an image to be attached
-    * `image_data` - `bytes` of an image
-
+    :param text: Text of the prompt/response
+    :type text: str
+    :param role: Role of the participant who issued the utterance Expected: ["system", "user", "assistant"]
+    :type role: str
+    :param data_path: Path to attachment
+    :type data_path: Union[str, Path]
+    :param data: Data to attach
+    :type data: Any
+    :param notes: Free form dictionary of notes for the turn
+    :type notes: dict
     """
 
     @property
     def text(self) -> Union[None, str]:
-        if "text" in self.parts:
-            return self.parts["text"]
-        else:
-            return None
+        return self._text
 
     @text.setter
     def text(self, value: Union[None, str]) -> None:
-        self.parts["text"] = value
+        self._text = value
 
-    def __init__(self, text: Union[None, str] = None) -> None:
-        self.parts = {}
-        self.text = text
-
-    def add_part(self, name, data) -> None:
-        self.parts[name] = data
-
-    def add_part_from_filename(self, name, filename: str) -> None:
-        with open(filename, "rb") as f:
-            self.parts[name] = f.read()
-
-    def load_image(self) -> None:
-        self.add_part_from_filename("image_data", self.parts["image_filename"])
-
-    def __str__(self):
-        if len(self.parts) == 1:
-            return self.text
+    @property
+    def data(self):
+        if self._data is not None:
+            return self._data
+        elif self._data is None and self.data_path is not None:
+            self._load_data(self.data_path)
+            return self._data
         else:
-            return "<Turn " + repr(self.parts) + ">"
+            raise ValueError(
+                "Attempting to access `data` property of Turn but no data object or data_path was provided"
+            )
 
-    def __eq__(self, other):
-        if not isinstance(other, Turn):
-            return False  # or raise TypeError
-        if self.text != other.text:
-            return False
-        if self.parts != other.parts:
-            return False
-        return True
+    @data.setter
+    def data(self, value: Any) -> None:
+        if isinstance(value, str) or isinstance(value, Path):
+            if self.data_path is not None and str(value) != str(self.data_path):
+                logging.warning(
+                    f"`Loading `data` property for Turn from {str(value)}, even though expected `data_path` for Turn is currently {str(self.data_path)}"
+                )
+            self._load_data(value)
+        else:
+            if self._data is not None:
+                logging.warning(
+                    f"Loading data for Turn even though `data` is already set."
+                )
+
+            self._data = value
+
+    def __init__(
+        self,
+        text: Union[None, str] = None,
+        role: Union[None, str] = None,
+        data_path: Union[None, str] = None,
+        data: Any = None,
+        notes: dict = dict(),
+    ):
+        self._text = text
+        self.role = role
+        self.data_path = Path(data_path)
+        if not self.data_path.is_file():
+            raise ValueError(f"Provided `data_path` {data_path} is not a file.")
+        self._data = data
+        self.notes = notes
+
+    def _load_data(self, data_path: Union[str, Path]):
+        with open(data_path, "rb") as f:
+            self._data = f.read()
 
     def to_dict(self) -> dict:
-        return self.parts
+        parts = {"text": self._text}
+        if self.role is not None:
+            parts["role"] = self.role
+        if self.data_path is not None:
+            parts["data_path"] = str(self.data_path)
+        if self._data is not None:
+            parts["data"] = self._data
+        if self.notes is not None:
+            parts["notes"] = self.notes
+        return parts
 
-    def from_dict(self, turn_dict: dict):
-        self.parts = turn_dict
+    @classmethod
+    def from_dict(cls, message: dict):
+        if not isinstance(message, dict):
+            raise TypeError(
+                f"Cannot create a `Turn`. Expected a dict but got {type(message)}"
+            )
+        # "content" is the key used by HF conversations, so let's support that formatting too.
+        if "text" or "content" not in message.keys():
+            raise AttributeError(
+                "Cannot create a `Turn` from a dictionary without a `text` or `content` key."
+            )
+        elif "text" in message.keys():
+            if isinstance(message["text"], str):
+                text = message["text"]
+            else:
+                raise TypeError(
+                    f"Turn `text` expects a str but got {type(message['text'])}"
+                )
+        else:
+            if isinstance(message["content"], str):
+                text = message["content"]
+            else:
+                raise TypeError(
+                    f"Turn `text` expects a str but got {type(message['content'])}"
+                )
+        if "role" in message.keys():
+            if isinstance(message["role"], str):
+                role = message["role"]
+            else:
+                raise TypeError(
+                    f"Turn `role` expects a str but got {type(message['role'])}"
+                )
+        else:
+            role = None
+        if "data" in message.keys():
+            # No type checking here but maybe there should be.
+            data = message["data"]
+        else:
+            data = None
+        if "data_path" in message.keys():
+            if isinstance(message["data_path"], str) or isinstance(
+                message["data_path"], Path
+            ):
+                data_path = message["data_path"]
+            else:
+                raise TypeError(
+                    f"Turn `data_path` expects a str or Path but got {type(message['data_path'])}"
+                )
+        else:
+            data_path = None
+        if "notes" in message.keys():
+            if isinstance(message["notes"], dict):
+                notes = message["notes"]
+            else:
+                raise TypeError(
+                    f"Turn `notes` expects a dictionary but got {type(message['notes'])}"
+                )
+        else:
+            notes = dict()
+        return cls(text=text, role=role, data_path=data_path, data=data, notes=notes)
+
+    def __str__(self):
+        if self.data_path is None and self._data is None and self.role is None:
+            return self._text
+        else:
+            parts = self.to_dict()
+            return f"<Turn {repr(parts)}>"
+
+    def __eq__(self, other) -> bool:
+        if not isinstance(other, Turn):
+            return False
+        match other:
+            case _ if self.text != other.text:
+                return False
+            case _ if self.to_dict() != other.to_dict():
+                return False
+            case _:
+                return True
+
+
+class Conversation:
+    """Class to maintain a sequence of Turn objects and, if relevant, apply conversation templates.
+    :param messages: A list of dictionaries or Turns
+    :type messages: list
+    :param template: Jinja template for formatting conversations
+    :type template: str
+    :param notes: Free form dictionary of notes for the conversation
+    :type notes: dict
+    """
+
+    def __init__(
+        self,
+        messages: list[Union[dict, Turn]] = None,
+        template: str = None,
+        notes: dict = {},
+    ):
+        if messages is None:
+            self.messages = list()
+        else:
+            for message in messages:
+                if isinstance(message, dict):
+                    self.messages.append(Turn.from_dict(message))
+                elif isinstance(message, Turn):
+                    self.messages.append(message)
+                else:
+                    raise TypeError(
+                        f"Conversations can only be constructed from Turn or dict objects but got {type(message)}"
+                    )
+        if len(messages) > 0:
+            for message in messages:
+                if message.role == "user":
+                    self.initial_user_prompt = message.text
+                    break
+        self.template = template
+        self.notes = notes
+
+    def append(self, message: Union[Turn, dict]) -> None:
+        if isinstance(message, Turn):
+            self.messages.append(message)
+
+        elif isinstance(message, dict):
+            self.messages.append(Turn.from_dict(message))
+
+        else:
+            raise TypeError("`Conversation` objects can only contain `Turn`s")
+
+    def apply_template(self) -> list[str]:
+        if len(self.messages) < 1:
+            logging.warning("Cannot apply a template to an empty Conversation")
+            return ""
+        if self.template is None:
+            logging.warning(
+                "Attempted to apply a chat template to Conversation but none is specified."
+            )
+            return [turn.text for turn in self.messages]
+        compiled_template = self._compile_template()
+        rendered_chats = list()
+        for turn in self.messages:
+            rendered_chat = compiled_template.render(messages=turn.text)
+            rendered_chats.append(rendered_chat)
+        return rendered_chats
+
+    def clear_history(self):
+        self.messages = list()
+
+    def latest_message(self):
+        if len(self.messages) > 0:
+            return self.messages[-1]
+        else:
+            raise ValueError("Attempted to return latest message from Conversation but message history is empty.")
+
+    def __len__(self):
+        return len(self.messages)
+
+    def __getitem__(self, key):
+        return self.messages[key]
+
+    def __iter__(self):
+        yield from self.messages
+
+    @lru_cache
+    def _compile_template(self):
+        # Largely borrowed and gently modified from HuggingFace's implementation of the same
+        # https://github.com/huggingface/transformers/blob/main/src/transformers/utils/chat_template_utils.py#L365
+        class AssistantTracker(Extension):
+            # This extension is used to track the indices of assistant-generated tokens in the rendered chat
+            tags = {"generation"}
+
+            def __init__(self, environment: ImmutableSandboxedEnvironment):
+                # The class is only initiated by jinja.
+                super().__init__(environment)
+                environment.extend(activate_tracker=self.activate_tracker)
+                self._rendered_blocks = None
+                self._generation_indices = None
+
+            def parse(self, parser: jinja2.parser.Parser) -> jinja2.nodes.CallBlock:
+                lineno = next(parser.stream).lineno
+                body = parser.parse_statements(["name:endgeneration"], drop_needle=True)
+                return jinja2.nodes.CallBlock(
+                    self.call_method("_generation_support"), [], [], body
+                ).set_lineno(lineno)
+
+            @jinja2.pass_eval_context
+            def _generation_support(
+                self, context: jinja2.nodes.EvalContext, caller: jinja2.runtime.Macro
+            ) -> str:
+                rv = caller()
+                if self.is_active():
+                    # Only track generation indices if the tracker is active
+                    start_index = len("".join(self._rendered_blocks))
+                    end_index = start_index + len(rv)
+                    self._generation_indices.append((start_index, end_index))
+                return rv
+
+            def is_active(self) -> bool:
+                return self._rendered_blocks or self._generation_indices
+
+            @contextmanager
+            def activate_tracker(
+                self, rendered_blocks: List[int], generation_indices: List[int]
+            ):
+                try:
+                    if self.is_active():
+                        raise ValueError(
+                            "AssistantTracker should not be reused before closed"
+                        )
+                    self._rendered_blocks = rendered_blocks
+                    self._generation_indices = generation_indices
+
+                    yield
+                finally:
+                    self._rendered_blocks = None
+                    self._generation_indices = None
+
+        def jinja_exception(msg):
+            raise jinja2.exceptions.TemplateError(msg)
+
+        def to_json(
+            text, ensure_ascii=False, indent=None, separators=None, sort_keys=False
+        ):
+            return json.dumps(
+                text,
+                ensure_ascii=ensure_ascii,
+                indent=indent,
+                separators=separators,
+                sort_keys=sort_keys,
+            )
+
+        jinja_env = ImmutableSandboxedEnvironment(
+            trim_blocks=True,
+            lstrip_blocks=True,
+            extensions=[AssistantTracker, jinja2.ext.loopcontrols],
+        )
+        jinja_env.filters["tojson"] = to_json
+        jinja_env.globals["raise_exception"] = jinja_exception
+
+        return jinja_env.from_string(self.template)
 
 
 class Attempt:
@@ -147,7 +415,12 @@ class Attempt:
         reverse_translation_outputs=None,
     ) -> None:
         self.uuid = uuid.uuid4()
-        self.messages = []
+        if prompt is not None:
+            self.prompt = Turn(text=prompt, role="user")
+            self.messages = [Conversation([self.prompt])]
+        else:
+            self.prompt = prompt
+            self.messages = list()
 
         self.status = status
         self.probe_classname = probe_classname
@@ -157,8 +430,6 @@ class Attempt:
         self.detector_results = {} if detector_results is None else detector_results
         self.goal = goal
         self.seq = seq
-        if prompt is not None:
-            self.prompt = prompt
         self.lang = lang
         self.reverse_translation_outputs = (
             {} if reverse_translation_outputs is None else reverse_translation_outputs
@@ -179,16 +450,7 @@ class Attempt:
             "detector_results": {k: list(v) for k, v in self.detector_results.items()},
             "notes": self.notes,
             "goal": self.goal,
-            "messages": [
-                [
-                    {
-                        "role": msg["role"],
-                        "content": msg["content"].to_dict(),
-                    }
-                    for msg in thread
-                ]
-                for thread in self.messages
-            ],
+            "messages": [message.to_dict() for message in self.messages],
             "lang": self.lang,
             "reverse_translation_outputs": list(self.reverse_translation_outputs),
         }
@@ -197,47 +459,40 @@ class Attempt:
     def prompt(self) -> Turn:
         if len(self.messages) == 0:  # nothing set
             return None
-        if isinstance(self.messages[0], dict):  # only initial prompt set
-            return self.messages[0]["content"]
-        if isinstance(self.messages, list):  # there's initial prompt plus some history
-            return self.messages[0][0]["content"]
         else:
-            raise ValueError(
-                "Message history of attempt uuid %s in unexpected state, sorry: "
-                % str(self.uuid)
-                + repr(self.messages)
-            )
+            try:
+                return self.messages[0].initial_user_prompt
+            except:
+                raise ValueError(
+                    "Message history of attempt uuid %s in unexpected state, sorry: "
+                    % str(self.uuid)
+                    + repr(self.messages)
+                )
 
     @property
-    def outputs(self) -> List[Turn | None]:
-        if len(self.messages) and isinstance(self.messages[0], list):
+    def outputs(self):
+        if len(self.messages) and isinstance(self.messages[0], Turn):
             # work out last_output_turn that was assistant
             assistant_turns = [
-                idx
-                for idx, val in enumerate(self.messages[0])
-                if val["role"] == "assistant"
+                idx for idx, val in enumerate(self.messages) if val.role == "assistant"
             ]
-            if assistant_turns == []:
+            if not assistant_turns:
                 return []
             last_output_turn = max(assistant_turns)
             # return these (via list compr)
-            return [m[last_output_turn]["content"] for m in self.messages]
+            return [self.messages[last_output_turn].text]
         else:
             return []
 
     @property
-    def latest_prompts(self) -> Turn | List[Turn | None]:
-        if len(self.messages[0]) > 1:
+    def latest_prompts(self):
+        if len(self.messages) > 1:
             # work out last_output_turn that was user
             last_output_turn = max(
-                [
-                    idx
-                    for idx, val in enumerate(self.messages[0])
-                    if val["role"] == "user"
-                ]
+                [idx for idx, val in enumerate(self.messages) if val["role"] == "user"]
             )
             # return these (via list compr)
-            return [m[last_output_turn]["content"] for m in self.messages]
+            return [self.messages[last_output_turn].text]
         else:
             return (
                 self.prompt
@@ -246,11 +501,10 @@ class Attempt:
     @property
     def all_outputs(self):
         all_outputs = []
-        if len(self.messages) and not isinstance(self.messages[0], dict):
-            for thread in self.messages:
-                for turn in thread:
-                    if turn["role"] == "assistant":
-                        all_outputs.append(turn["content"])
+        if len(self.messages) > 0:
+            for turn in self.messages:
+                if turn.role == "assistant":
+                    all_outputs.append(turn.text)
         return all_outputs
 
     @prompt.setter
@@ -258,9 +512,9 @@ class Attempt:
         if value is None:
             raise TypeError("'None' prompts are not valid")
         if isinstance(value, str):
-            value = Turn(text=value)
+            value = Turn(text=value, role="user")
         if not isinstance(value, Turn):
-            raise TypeError("prompt must be a Turn() or string")
+            raise TypeError("prompt must be a Turn or str object")
         self._add_first_turn("user", value)
 
     @outputs.setter
@@ -304,42 +558,38 @@ class Attempt:
 
     def _expand_prompt_to_histories(self, breadth: int):
         """expand a prompt-only message history to many threads"""
-        if len(self.messages) == 0:
+        if len(self.messages[0]) == 0:
             raise TypeError(
                 "A prompt needs to be set before it can be expanded to conversation threads"
             )
-        elif isinstance(self.messages[0], list):
+        elif not isinstance(self.messages[0].latest_message(), Turn):
             raise TypeError(
-                "attempt.messages contains lists, expected a single dict of one turn"
+                "attempt.messages contains Conversations, expected a single Turn object"
             )
 
-        base_message = dict(self.messages[0])
-        self.messages = [[base_message] for i in range(breadth)]
+        self.messages = [deepcopy(self.messages[0]) for _ in range(breadth)]
 
     def _add_first_turn(self, role: str, content: Union[Turn, str]) -> None:
         """add the first turn (after a prompt) to a message history"""
 
-        if isinstance(content, str):
-            content = Turn(content)
+        if isinstance(content, str) and isinstance(role, str):
+            content = Turn(text=content, role=role)
 
-        if len(self.messages):
-            if isinstance(self.messages[0], list):
-                raise TypeError(
-                    "Cannot set prompt of attempt uuid %s with content already in message history: "
-                    % str(self.uuid)
-                    + repr(self.messages)
+        if len(self.messages) and len(self.messages[0]):
+            if isinstance(self.messages[0].latest_message(), Turn):
+                logging.warning(
+                    f"Cannot set prompt of attempt uuid {self.uuid} with content already in message history: {repr(self.messages)}"
                 )
-
-            elif isinstance(self.messages[0], dict):  # we only have the prompt
-                if self.messages[0]["role"] == "user":
-                    self.messages[0] = {"role": role, "content": content}
-                else:
+                if (
+                    self.messages[0].latest_message().role != "user"
+                    or self.messages[0].latest_message().role != "system"
+                ):
                     raise ValueError(
-                        "Unexpected state in attempt messages - first message not from user"
+                        "Unexpected state in attempt messages -- first message is not `user` or `system`."
                     )
 
         else:
-            self.messages.append({"role": role, "content": content})
+            self.messages[0].append({"role": role, "content": content})
             return
 
     def _add_turn(self, role: str, contents: List[Union[Turn, str]]) -> None:
@@ -355,9 +605,7 @@ class Attempt:
                 "Message history misalignment in attempt uuid %s: tried to add %d items to %d message histories"
                 % (str(self.uuid), len(contents), len(self.messages))
             )
-        if role == "user" and (
-            len(self.messages) == 0 or isinstance(self.messages[0], dict)
-        ):
+        if role == "user" and len(self.messages[0]) == 0:
             raise ValueError(
                 "Can only add a list of user prompts after at least one system generation, so that generations count is known"
             )
