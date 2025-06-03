@@ -233,7 +233,7 @@ class Probe(Configurable):
                         if result.lang != self.lang:
                             results_text = [turn.text for turn in result.all_outputs]
                             result.reverse_translation_outputs = [
-                                garak.attempt.Turn(translated_text)
+                                garak.attempt.Message(translated_text)
                                 for translated_text in self.reverse_langprovider.get_text(
                                     results_text
                                 )
@@ -263,7 +263,7 @@ class Probe(Configurable):
                 if result.lang != self.lang:
                     results_text = [turn.text for turn in result.all_outputs]
                     result.reverse_translation_outputs = [
-                        garak.attempt.Turn(translated_text)
+                        garak.attempt.Message(translated_text)
                         for translated_text in self.reverse_langprovider.get_text(
                             results_text
                         )
@@ -288,7 +288,7 @@ class Probe(Configurable):
             localized_prompts = self.langprovider.get_text(prompts)
             prompts = []
             for prompt in localized_prompts:
-                prompts.append(garak.attempt.Turn(prompt))
+                prompts.append(garak.attempt.Message(prompt))
         else:
             for prompt in prompts:
                 if hasattr(prompt, "text"):

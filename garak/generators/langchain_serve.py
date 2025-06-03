@@ -6,7 +6,7 @@ from typing import List, Union
 from urllib.parse import urlparse
 
 from garak import _config
-from garak.attempt import Turn, Conversation
+from garak.attempt import Message, Conversation
 from garak.generators.base import Generator
 
 
@@ -63,7 +63,7 @@ class LangChainServeLLMGenerator(Generator):
 
     def _call_model(
         self, prompt: Conversation, generations_this_call: int = -1
-    ) -> List[Union[Turn, None]]:
+    ) -> List[Union[Message, None]]:
         """Makes an HTTP POST request to the LangChain Serve API endpoint to invoke the LLM with a given prompt."""
         headers = {"Content-Type": "application/json", "Accept": "application/json"}
         payload = {"input": prompt.text, "config": {}, "kwargs": {}}
@@ -91,7 +91,7 @@ class LangChainServeLLMGenerator(Generator):
             if "output" not in response_data:
                 logging.error(f"No output found in response: {response_data}")
                 return [None]
-            return [Turn(response_data.get("output")[0])]
+            return [Message(response_data.get("output")[0])]
         except json.JSONDecodeError as e:
             logging.error(
                 f"Failed to decode JSON from response: {response.text}, error: {e}"

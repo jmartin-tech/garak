@@ -2,7 +2,7 @@ import os
 import pytest
 import httpx
 from unittest.mock import patch
-from garak.attempt import Turn, Conversation
+from garak.attempt import Message, Conversation
 from garak.generators.mistral import MistralGenerator
 
 DEFAULT_DEPLOYMENT_NAME = "mistral-small-latest"
@@ -33,7 +33,7 @@ def test_mistral_generator(respx_mock, mistral_compat_mocks):
     )
     generator = MistralGenerator(name=DEFAULT_DEPLOYMENT_NAME)
     assert generator.name == DEFAULT_DEPLOYMENT_NAME
-    output = generator.generate(Turn("Hello Mistral!"))
+    output = generator.generate(Message("Hello Mistral!"))
     assert len(output) == 1  # expect 1 generation by default
 
 
@@ -44,5 +44,5 @@ def test_mistral_generator(respx_mock, mistral_compat_mocks):
 def test_mistral_chat():
     generator = MistralGenerator(name=DEFAULT_DEPLOYMENT_NAME)
     assert generator.name == DEFAULT_DEPLOYMENT_NAME
-    output = generator.generate(Turn("Hello Mistral!"))
+    output = generator.generate(Message("Hello Mistral!"))
     assert len(output) == 1  # expect 1 generation by default

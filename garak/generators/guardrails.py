@@ -8,7 +8,7 @@ import io
 from typing import List, Union
 
 from garak import _config
-from garak.attempt import Turn, Conversation
+from garak.attempt import Message, Conversation
 from garak.generators.base import Generator
 
 
@@ -40,16 +40,16 @@ class NeMoGuardrails(Generator):
 
     def _call_model(
         self, prompt: Conversation, generations_this_call: int = 1
-    ) -> List[Union[Turn, None]]:
+    ) -> List[Union[Message, None]]:
         with redirect_stderr(io.StringIO()) as f:  # quieten the tqdm
             result = self.rails.generate(prompt)
 
         if isinstance(result, str):
-            return [Turn(result)]
+            return [Message(result)]
         elif isinstance(result, dict):
             content = result.get("content", None)
             if content is not None:
-                content = Turn(content)
+                content = Message(content)
             return [content]
         else:
             return [None]

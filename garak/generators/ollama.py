@@ -6,7 +6,7 @@ import backoff
 import ollama
 
 from garak import _config
-from garak.attempt import Turn, Conversation
+from garak.attempt import Message, Conversation
 from garak.generators.base import Generator
 from httpx import TimeoutException
 
@@ -48,9 +48,9 @@ class OllamaGenerator(Generator):
     )  # Ollama sometimes returns empty responses. Only 3 retries to not delay generations expecting empty responses too much
     def _call_model(
         self, prompt: Conversation, generations_this_call: int = 1
-    ) -> List[Union[Turn, None]]:
+    ) -> List[Union[Message, None]]:
         response = self.client.generate(self.name, prompt.text)
-        return [Turn(response.get("response", None))]
+        return [Message(response.get("response", None))]
 
 
 class OllamaGeneratorChat(OllamaGenerator):
@@ -70,7 +70,7 @@ class OllamaGeneratorChat(OllamaGenerator):
     )  # Ollama sometimes returns empty responses. Only 3 retries to not delay generations expecting empty responses too much
     def _call_model(
         self, prompt: Conversation, generations_this_call: int = 1
-    ) -> List[Union[Turn, None]]:
+    ) -> List[Union[Message, None]]:
         response = self.client.chat(
             model=self.name,
             messages=[
@@ -81,7 +81,7 @@ class OllamaGeneratorChat(OllamaGenerator):
             ],
         )
         return [
-            Turn(response.get("message", {}).get("content", None))
+            Message(response.get("message", {}).get("content", None))
         ]  # Return the response or None
 
 

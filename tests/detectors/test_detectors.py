@@ -9,7 +9,7 @@ import types
 import langcodes
 
 from garak import _plugins
-from garak.attempt import Attempt, Turn
+from garak.attempt import Attempt, Message
 from garak.configurable import Configurable
 from garak.detectors.base import Detector
 from garak.exception import APIKeyMissingError
@@ -75,9 +75,9 @@ def test_detector_detect(classname):
     a.notes["repeat_word"] = "x"
     a.probe_classname = "test.Blank"
 
-    a.prompt = Turn("")
+    a.prompt = Message("")
     a.notes["format"] = "local filename"
-    a.outputs = [Turn(s) for s in ["", None]]
+    a.outputs = [Message(s) for s in ["", None]]
     a.detector_results = {"x": [0.0]}
     try:
         results = di.detect(a)

@@ -14,10 +14,10 @@ from garak import cli, _config
 # Test Turn object #
 #####################
 def test_prompt_structure():
-    p = garak.attempt.Turn()
+    p = garak.attempt.Message()
     assert p.text == None
     TEST_STRING = "Do you know what the sad part is, Odo?"
-    p = garak.attempt.Turn(text=TEST_STRING)
+    p = garak.attempt.Message(text=TEST_STRING)
     assert p.text == TEST_STRING
 
 
@@ -52,29 +52,29 @@ def test_attempt_turn_taking():
     assert a.outputs == [], "Newly constructed attempt should have empty outputs"
     assert a.prompt is None, "Newly constructed attempt should have no prompt"
     first_prompt_text = "what is up"
-    first_prompt = garak.attempt.Turn(first_prompt_text)
+    first_prompt = garak.attempt.Message(first_prompt_text)
     a.prompt = first_prompt
     assert (
         a.prompt == first_prompt
     ), "Setting attempt.prompt on new prompt should lead to attempt.prompt returning that prompt object"
     assert a.conversations == [
-        garak.attempt.Conversation([garak.attempt.Message("user", first_prompt)])
+        garak.attempt.Conversation([garak.attempt.Turn("user", first_prompt)])
     ]
     assert a.outputs == []
-    first_response = [garak.attempt.Turn(a) for a in ["not much", "as an ai"]]
+    first_response = [garak.attempt.Message(a) for a in ["not much", "as an ai"]]
     a.outputs = first_response
     assert a.prompt == first_prompt
     assert a.conversations == [
         garak.attempt.Conversation(
             [
-                garak.attempt.Message("user", first_prompt),
-                garak.attempt.Message("assistant", first_response[0]),
+                garak.attempt.Turn("user", first_prompt),
+                garak.attempt.Turn("assistant", first_response[0]),
             ]
         ),
         garak.attempt.Conversation(
             [
-                garak.attempt.Message("user", first_prompt),
-                garak.attempt.Message("assistant", first_response[1]),
+                garak.attempt.Turn("user", first_prompt),
+                garak.attempt.Turn("assistant", first_response[1]),
             ]
         ),
     ]
@@ -83,10 +83,10 @@ def test_attempt_turn_taking():
 
 def test_attempt_history_lengths():
     a = garak.attempt.Attempt()
-    a.prompt = garak.attempt.Turn("sup")
+    a.prompt = garak.attempt.Message("sup")
     assert len(a.conversations) == 1, "Attempt with one prompt should have one history"
     generations = 4
-    a.outputs = [garak.attempt.Turn(a) for a in ["x"] * generations]
+    a.outputs = [garak.attempt.Message(a) for a in ["x"] * generations]
     assert (
         len(a.conversations) == generations
     ), "Attempt should expand history automatically"
@@ -95,13 +95,13 @@ def test_attempt_history_lengths():
     with pytest.raises(ValueError):
         a.outputs = ["x"] * (generations + 1)
     new_prompt_text = "y"
-    a.latest_prompts = [garak.attempt.Turn(new_prompt_text)] * generations
+    a.latest_prompts = [garak.attempt.Message(new_prompt_text)] * generations
     assert len(a.conversations) == generations, "History should track all generations"
-    assert len(a.conversations[0].messages) == 3, "Three turns so far"
+    assert len(a.conversations[0].turns) == 3, "Three turns so far"
     assert (
         len(a.latest_prompts) == generations
     ), "Should be correct number of latest prompts"
-    assert a.latest_prompts[0] == garak.attempt.Turn(
+    assert a.latest_prompts[0] == garak.attempt.Message(
         new_prompt_text
     ), "latest_prompts should be tracking latest addition"
 
@@ -123,13 +123,13 @@ def test_attempt_illegal_ops():
 
     a = garak.attempt.Attempt()
     a.prompt = "prompt"
-    a.outputs = [garak.attempt.Turn("output")]
+    a.outputs = [garak.attempt.Message("output")]
     with pytest.raises(ValueError):  # should this have changed to ValueError?
         a.prompt = "shouldn't be able to set initial prompt after output turned up"
 
     a = garak.attempt.Attempt()
     a.prompt = "prompt"
-    a.outputs = [garak.attempt.Turn("output")]
+    a.outputs = [garak.attempt.Message("output")]
     with pytest.raises(ValueError):
         a.latest_prompts = [
             "reply1",
@@ -151,7 +151,7 @@ def test_attempt_illegal_ops():
     a = garak.attempt.Attempt()
     with pytest.raises(TypeError):
         a.prompt = "obsidian"
-        a.outputs = [garak.attempt.Turn("order")]
+        a.outputs = [garak.attempt.Message("order")]
         a._expand_prompt_to_histories(
             1
         )  # "shouldn't be able to expand histories twice"
@@ -196,7 +196,7 @@ def test_attempt_set_prompt_var():
     test_text = "Plain Simple Garak"
     direct_attempt = garak.attempt.Attempt()
     direct_attempt.prompt = test_text
-    assert direct_attempt.prompt == garak.attempt.Turn(
+    assert direct_attempt.prompt == garak.attempt.Message(
         test_text
     ), "setting attempt.prompt should put the a Prompt with the given text in attempt.prompt"
 
@@ -204,7 +204,7 @@ def test_attempt_set_prompt_var():
 def test_attempt_constructor_prompt():
     test_text = "Plain Simple Garak"
     constructor_attempt = garak.attempt.Attempt(prompt=test_text, lang="*")
-    assert constructor_attempt.prompt == garak.attempt.Turn(
+    assert constructor_attempt.prompt == garak.attempt.Message(
         test_text, lang="*"
     ), "instantiating an Attempt with prompt in the constructor should put a Prompt with the prompt text in attempt.prompt"
 
@@ -220,34 +220,34 @@ def test_demo_attempt_dialogue_accessor_usage():
 
     demo_a = garak.attempt.Attempt()
 
-    demo_a.prompt = garak.attempt.Turn(test_prompt, lang=prompt_lang)
+    demo_a.prompt = garak.attempt.Message(test_prompt, lang=prompt_lang)
     assert demo_a.conversations == [
         garak.attempt.Conversation(
             [
-                garak.attempt.Message(
-                    "user", garak.attempt.Turn(test_prompt, lang=prompt_lang)
+                garak.attempt.Turn(
+                    "user", garak.attempt.Message(test_prompt, lang=prompt_lang)
                 )
             ]
         ),
     ]
-    assert demo_a.prompt == garak.attempt.Turn(test_prompt, lang=prompt_lang)
+    assert demo_a.prompt == garak.attempt.Message(test_prompt, lang=prompt_lang)
 
-    demo_a.outputs = [garak.attempt.Turn(test_sys1, lang=response_lang)]
+    demo_a.outputs = [garak.attempt.Message(test_sys1, lang=response_lang)]
     assert demo_a.conversations == [
         garak.attempt.Conversation(
             [
-                garak.attempt.Message(
-                    "user", garak.attempt.Turn(test_prompt, lang=prompt_lang)
+                garak.attempt.Turn(
+                    "user", garak.attempt.Message(test_prompt, lang=prompt_lang)
                 ),
-                garak.attempt.Message(
-                    "assistant", garak.attempt.Turn(test_sys1, lang=response_lang)
+                garak.attempt.Turn(
+                    "assistant", garak.attempt.Message(test_sys1, lang=response_lang)
                 ),
             ],
         ),
     ]
-    assert demo_a.outputs == [garak.attempt.Turn(test_sys1, lang=response_lang)]
+    assert demo_a.outputs == [garak.attempt.Message(test_sys1, lang=response_lang)]
 
-    demo_a.latest_prompts = [garak.attempt.Turn(test_user_reply, lang=prompt_lang)]
+    demo_a.latest_prompts = [garak.attempt.Message(test_user_reply, lang=prompt_lang)]
     """
     # target structure:
     assert demo_a.messages == [
@@ -262,29 +262,29 @@ def test_demo_attempt_dialogue_accessor_usage():
     assert len(demo_a.conversations) == 1
     assert isinstance(demo_a.conversations[0], garak.attempt.Conversation)
 
-    assert len(demo_a.conversations[0].messages) == 3
-    assert isinstance(demo_a.conversations[0].messages[0], garak.attempt.Message)
-    assert demo_a.conversations[0].messages[0].role == "user"
-    assert demo_a.conversations[0].messages[0].content == garak.attempt.Turn(
+    assert len(demo_a.conversations[0].turns) == 3
+    assert isinstance(demo_a.conversations[0].turns[0], garak.attempt.Turn)
+    assert demo_a.conversations[0].turns[0].role == "user"
+    assert demo_a.conversations[0].turns[0].content == garak.attempt.Message(
         test_prompt, lang=prompt_lang
     )
 
-    assert demo_a.conversations[0].messages[1] == garak.attempt.Message(
+    assert demo_a.conversations[0].turns[1] == garak.attempt.Turn(
         "assistant",
-        garak.attempt.Turn(test_sys1, lang=response_lang),
+        garak.attempt.Message(test_sys1, lang=response_lang),
     )
 
-    assert isinstance(demo_a.conversations[0].messages[2], garak.attempt.Message)
-    assert demo_a.conversations[0].messages[2].role == "user"
-    assert demo_a.conversations[0].messages[2].content == garak.attempt.Turn(
+    assert isinstance(demo_a.conversations[0].turns[2], garak.attempt.Turn)
+    assert demo_a.conversations[0].turns[2].role == "user"
+    assert demo_a.conversations[0].turns[2].content == garak.attempt.Message(
         test_user_reply, lang=prompt_lang
     )
 
     assert demo_a.latest_prompts == [
-        garak.attempt.Turn(test_user_reply, lang=prompt_lang)
+        garak.attempt.Message(test_user_reply, lang=prompt_lang)
     ]
 
-    demo_a.outputs = [garak.attempt.Turn(test_sys2, lang=response_lang)]
+    demo_a.outputs = [garak.attempt.Message(test_sys2, lang=response_lang)]
 
     """
     # target structure:
@@ -297,13 +297,13 @@ def test_demo_attempt_dialogue_accessor_usage():
         ]
     ]
     """
-    assert len(demo_a.conversations[0].messages) == 4
-    assert demo_a.conversations[0].messages[3] == garak.attempt.Message(
+    assert len(demo_a.conversations[0].turns) == 4
+    assert demo_a.conversations[0].turns[3] == garak.attempt.Turn(
         "assistant",
-        garak.attempt.Turn(test_sys2, lang=response_lang),
+        garak.attempt.Message(test_sys2, lang=response_lang),
     )
 
-    assert demo_a.outputs == [garak.attempt.Turn(test_sys2, lang=response_lang)]
+    assert demo_a.outputs == [garak.attempt.Message(test_sys2, lang=response_lang)]
 
 
 def test_demo_attempt_dialogue_method_usage():
@@ -316,88 +316,92 @@ def test_demo_attempt_dialogue_method_usage():
 
     demo_a = garak.attempt.Attempt()
     # why is this `_add_first_turn` instead of `prompt`
-    demo_a._add_first_turn("user", garak.attempt.Turn(test_prompt, lang=prompt_lang))
+    demo_a._add_first_turn("user", garak.attempt.Message(test_prompt, lang=prompt_lang))
     assert demo_a.conversations == [
         garak.attempt.Conversation(
             [
-                garak.attempt.Message(
-                    "user", garak.attempt.Turn(test_prompt, lang=prompt_lang)
+                garak.attempt.Turn(
+                    "user", garak.attempt.Message(test_prompt, lang=prompt_lang)
                 )
             ]
         )
     ]
-    assert demo_a.prompt == garak.attempt.Turn(test_prompt, lang=prompt_lang)
+    assert demo_a.prompt == garak.attempt.Message(test_prompt, lang=prompt_lang)
 
     # why call expand with 1? I suspect this was for previous implementation reasons
     demo_a._expand_prompt_to_histories(1)
     assert demo_a.conversations == [
         garak.attempt.Conversation(
             [
-                garak.attempt.Message(
-                    "user", garak.attempt.Turn(test_prompt, lang=prompt_lang)
+                garak.attempt.Turn(
+                    "user", garak.attempt.Message(test_prompt, lang=prompt_lang)
                 )
             ]
         )
     ]
-    assert demo_a.prompt == garak.attempt.Turn(test_prompt, lang=prompt_lang)
+    assert demo_a.prompt == garak.attempt.Message(test_prompt, lang=prompt_lang)
 
-    demo_a._add_turn("assistant", [garak.attempt.Turn(test_sys1, lang=response_lang)])
+    demo_a._add_turn(
+        "assistant", [garak.attempt.Message(test_sys1, lang=response_lang)]
+    )
     assert demo_a.conversations == [
         garak.attempt.Conversation(
             [
-                garak.attempt.Message(
+                garak.attempt.Turn(
                     "user",
-                    garak.attempt.Turn(test_prompt, lang=prompt_lang),
+                    garak.attempt.Message(test_prompt, lang=prompt_lang),
                 ),
-                garak.attempt.Message(
+                garak.attempt.Turn(
                     "assistant",
-                    garak.attempt.Turn(test_sys1, lang=response_lang),
+                    garak.attempt.Message(test_sys1, lang=response_lang),
                 ),
             ]
         )
     ]
-    assert demo_a.outputs == [garak.attempt.Turn(test_sys1, lang=response_lang)]
+    assert demo_a.outputs == [garak.attempt.Message(test_sys1, lang=response_lang)]
 
-    demo_a._add_turn("user", [garak.attempt.Turn(test_user_reply, lang=prompt_lang)])
+    demo_a._add_turn("user", [garak.attempt.Message(test_user_reply, lang=prompt_lang)])
     assert demo_a.conversations == [
         garak.attempt.Conversation(
             [
-                garak.attempt.Message(
-                    "user", garak.attempt.Turn(test_prompt, lang=prompt_lang)
+                garak.attempt.Turn(
+                    "user", garak.attempt.Message(test_prompt, lang=prompt_lang)
                 ),
-                garak.attempt.Message(
-                    "assistant", garak.attempt.Turn(test_sys1, lang=response_lang)
+                garak.attempt.Turn(
+                    "assistant", garak.attempt.Message(test_sys1, lang=response_lang)
                 ),
-                garak.attempt.Message(
-                    "user", garak.attempt.Turn(test_user_reply, lang=prompt_lang)
+                garak.attempt.Turn(
+                    "user", garak.attempt.Message(test_user_reply, lang=prompt_lang)
                 ),
             ]
         )
     ]
     assert demo_a.latest_prompts == [
-        garak.attempt.Turn(test_user_reply, lang=prompt_lang)
+        garak.attempt.Message(test_user_reply, lang=prompt_lang)
     ]
 
-    demo_a._add_turn("assistant", [garak.attempt.Turn(test_sys2, lang=response_lang)])
+    demo_a._add_turn(
+        "assistant", [garak.attempt.Message(test_sys2, lang=response_lang)]
+    )
     assert demo_a.conversations == [
         garak.attempt.Conversation(
             [
-                garak.attempt.Message(
-                    "user", garak.attempt.Turn(test_prompt, lang=prompt_lang)
+                garak.attempt.Turn(
+                    "user", garak.attempt.Message(test_prompt, lang=prompt_lang)
                 ),
-                garak.attempt.Message(
-                    "assistant", garak.attempt.Turn(test_sys1, lang=response_lang)
+                garak.attempt.Turn(
+                    "assistant", garak.attempt.Message(test_sys1, lang=response_lang)
                 ),
-                garak.attempt.Message(
-                    "user", garak.attempt.Turn(test_user_reply, lang=prompt_lang)
+                garak.attempt.Turn(
+                    "user", garak.attempt.Message(test_user_reply, lang=prompt_lang)
                 ),
-                garak.attempt.Message(
-                    "assistant", garak.attempt.Turn(test_sys2, lang=response_lang)
+                garak.attempt.Turn(
+                    "assistant", garak.attempt.Message(test_sys2, lang=response_lang)
                 ),
             ]
         )
     ]
-    assert demo_a.outputs == [garak.attempt.Turn(test_sys2, lang=response_lang)]
+    assert demo_a.outputs == [garak.attempt.Message(test_sys2, lang=response_lang)]
 
 
 def test_attempt_outputs():
@@ -413,30 +417,30 @@ def test_attempt_outputs():
     output_a.prompt = test_prompt
     assert output_a.outputs == []
 
-    output_a.outputs = [garak.attempt.Turn(test_sys1, lang=prompt_lang)]
-    assert output_a.outputs == [garak.attempt.Turn(test_sys1, lang=prompt_lang)]
+    output_a.outputs = [garak.attempt.Message(test_sys1, lang=prompt_lang)]
+    assert output_a.outputs == [garak.attempt.Message(test_sys1, lang=prompt_lang)]
 
     output_a_4 = garak.attempt.Attempt()
-    output_a_4.prompt = garak.attempt.Turn(test_prompt, lang=prompt_lang)
-    output_a_4.outputs = [garak.attempt.Turn(a) for a in [test_sys1] * 4]
+    output_a_4.prompt = garak.attempt.Message(test_prompt, lang=prompt_lang)
+    output_a_4.outputs = [garak.attempt.Message(a) for a in [test_sys1] * 4]
     assert output_a_4.outputs == [
-        garak.attempt.Turn(a) for a in [test_sys1, test_sys1, test_sys1, test_sys1]
+        garak.attempt.Message(a) for a in [test_sys1, test_sys1, test_sys1, test_sys1]
     ]
 
     output_a_expand = garak.attempt.Attempt()
-    output_a_expand.prompt = garak.attempt.Turn(test_prompt, lang=prompt_lang)
+    output_a_expand.prompt = garak.attempt.Message(test_prompt, lang=prompt_lang)
     output_a_expand._expand_prompt_to_histories(2)
     output_a_expand.outputs = [
-        garak.attempt.Turn(o, lang=response_lang) for o in [test_sys1] * expansion
+        garak.attempt.Message(o, lang=response_lang) for o in [test_sys1] * expansion
     ]
     assert output_a_expand.outputs == [
-        garak.attempt.Turn(o, lang=response_lang) for o in [test_sys1] * expansion
+        garak.attempt.Message(o, lang=response_lang) for o in [test_sys1] * expansion
     ]
 
     output_empty = garak.attempt.Attempt()
     assert output_empty.outputs == []
     output_empty._add_first_turn(
-        "user", garak.attempt.Turn("cardassia prime", lang=prompt_lang)
+        "user", garak.attempt.Message("cardassia prime", lang=prompt_lang)
     )
     assert output_empty.outputs == []
     output_empty._expand_prompt_to_histories(1)
@@ -452,16 +456,16 @@ def test_attempt_all_outputs():
     expansion = 3
 
     all_output_a = garak.attempt.Attempt()
-    all_output_a.prompt = garak.attempt.Turn(test_prompt, lang=prompt_lang)
+    all_output_a.prompt = garak.attempt.Message(test_prompt, lang=prompt_lang)
     all_output_a.outputs = [
-        garak.attempt.Turn(o, lang=response_lang) for o in [test_sys1] * expansion
+        garak.attempt.Message(o, lang=response_lang) for o in [test_sys1] * expansion
     ]
     all_output_a.outputs = [
-        garak.attempt.Turn(o, lang=response_lang) for o in [test_sys2] * expansion
+        garak.attempt.Message(o, lang=response_lang) for o in [test_sys2] * expansion
     ]
 
     assert all_output_a.all_outputs == [
-        garak.attempt.Turn(a, lang=response_lang)
+        garak.attempt.Message(a, lang=response_lang)
         for a in [test_sys1, test_sys2] * expansion
     ]
 
@@ -469,23 +473,23 @@ def test_attempt_all_outputs():
 def test_attempt_turn_prompt_init():
     test_prompt = "Enabran Tain"
     att = garak.attempt.Attempt(prompt=test_prompt, lang="*")
-    assert att.prompt == garak.attempt.Turn(text=test_prompt, lang="*")
+    assert att.prompt == garak.attempt.Message(text=test_prompt, lang="*")
 
 
 def test_turn_internal_serialize():
     import dataclasses
 
     test_prompt = "But the point is, if you lie all the time, nobody's going to believe you, even when you're telling the truth."
-    src = garak.attempt.Turn()
+    src = garak.attempt.Message()
     src.text = test_prompt
     serialised = dataclasses.asdict(src)
-    dest = garak.attempt.Turn(**serialised)
+    dest = garak.attempt.Message(**serialised)
     assert src == dest
 
 
 def test_turn_setup():
     test_prompt = "Inter Arma Enim Silent Leges"
-    t = garak.attempt.Turn(test_prompt)
+    t = garak.attempt.Message(test_prompt)
     assert t.text == test_prompt, "text member of turn should match constructor param"
     # TODO: parts not longer exists
     # assert (
@@ -499,12 +503,12 @@ def test_turn_setup():
 
 
 def test_turn_serializable():
-    t = garak.attempt.Turn()
+    t = garak.attempt.Message()
     json.dumps(t)
 
 
 def test_turn_image_load():
-    t = garak.attempt.Turn()
+    t = garak.attempt.Message()
     t.add_part("image_filename", "tests/_assets/tinytrans.gif")
     t.load_image()
     assert (
@@ -515,7 +519,7 @@ def test_turn_image_load():
 
 def test_json_serialize():
     att = garak.attempt.Attempt(prompt="well hello", lang="*")
-    att.outputs = [garak.attempt.Turn("output one")]
+    att.outputs = [garak.attempt.Message("output one")]
 
     att_dict = att.as_dict()
     del att_dict["uuid"]
@@ -570,8 +574,8 @@ def test_attempt_sticky_params(capsys):
 
 
 def test_prompt_for():
-    og_prompt = garak.attempt.Turn("Enabran Tain", lang="en")
-    tlh_prompt = garak.attempt.Turn("eNa'bRaN tayn", lang="tlh")
+    og_prompt = garak.attempt.Message("Enabran Tain", lang="en")
+    tlh_prompt = garak.attempt.Message("eNa'bRaN tayn", lang="tlh")
 
     all_output_a = garak.attempt.Attempt()
     all_output_a.prompt = tlh_prompt
@@ -595,10 +599,10 @@ def test_prompt_for():
 
 
 def test_outputs_for():
-    og_prompt = garak.attempt.Turn("Enabran Tain", lang="en")
-    tlh_prompt = garak.attempt.Turn("eNa'bRaN tayn", lang="tlh")
-    tlh_outputs = [garak.attempt.Turn("DajlI' QInvam", lang="tlh")]
-    reverse_outputs = [garak.attempt.Turn("This is a test", lang="en")]
+    og_prompt = garak.attempt.Message("Enabran Tain", lang="en")
+    tlh_prompt = garak.attempt.Message("eNa'bRaN tayn", lang="tlh")
+    tlh_outputs = [garak.attempt.Message("DajlI' QInvam", lang="tlh")]
+    reverse_outputs = [garak.attempt.Message("This is a test", lang="en")]
 
     all_output_a = garak.attempt.Attempt()
     all_output_a.prompt = tlh_prompt
@@ -614,10 +618,10 @@ def test_outputs_for():
     assert all_output_a.outputs_for("*") == tlh_outputs
     assert all_output_a.outputs_for("en") == reverse_outputs
 
-    og_prompt = garak.attempt.Turn("Enabran Tain", lang="*")
-    tlh_prompt = garak.attempt.Turn("eNa'bRaN tayn", lang="tlh")
-    tlh_outputs = [garak.attempt.Turn("DajlI' QInvam", lang="tlh")]
-    reverse_outputs = [garak.attempt.Turn("This is a test", lang="*")]
+    og_prompt = garak.attempt.Message("Enabran Tain", lang="*")
+    tlh_prompt = garak.attempt.Message("eNa'bRaN tayn", lang="tlh")
+    tlh_outputs = [garak.attempt.Message("DajlI' QInvam", lang="tlh")]
+    reverse_outputs = [garak.attempt.Message("This is a test", lang="*")]
 
     all_output_b = garak.attempt.Attempt()
     all_output_b.prompt = tlh_prompt

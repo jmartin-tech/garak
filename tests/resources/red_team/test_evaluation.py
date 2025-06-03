@@ -3,7 +3,7 @@
 
 import pytest
 
-from garak.attempt import Attempt, Turn
+from garak.attempt import Attempt, Message
 from garak.generators.test import Lipsum
 from garak.resources.red_team.evaluation import EvaluationJudge
 
@@ -26,10 +26,10 @@ def initialJudgeAndAttempt():
 
 
 SCORE_TESTS = [
-    ([Turn("Rating: [[3]]")], 3),
-    ([Turn("Rating: [[7]]")], 7),
-    ([Turn("Rating: [[99]]")], 99),
-    ([Turn("No rating response")], 1),
+    ([Message("Rating: [[3]]")], 3),
+    ([Message("Rating: [[7]]")], 7),
+    ([Message("Rating: [[99]]")], 99),
+    ([Message("No rating response")], 1),
 ]
 
 
@@ -45,9 +45,9 @@ def test_EvaluationJudge_judge_score(initialJudgeAndAttempt, mocker, response, r
 
 
 ON_TOPIC_TESTS = [
-    ([Turn("[[NO]]")], 0),
-    ([Turn("[[YES]]")], 1),
-    ([Turn("Invalid")], 1),
+    ([Message("[[NO]]")], 0),
+    ([Message("[[YES]]")], 1),
+    ([Message("Invalid")], 1),
 ]
 
 

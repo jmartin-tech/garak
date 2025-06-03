@@ -10,7 +10,7 @@ import inspect
 
 from collections.abc import Iterable
 
-from garak.attempt import Turn, Conversation
+from garak.attempt import Message, Conversation
 from garak.generators.openai import OpenAICompatible
 
 
@@ -80,7 +80,7 @@ def generate_in_subprocess(*args):
             )
         )
 
-        return generator.generate(Turn(prompt))
+        return generator.generate(Message(prompt))
 
 
 @pytest.mark.parametrize("classname", compatible())
@@ -93,9 +93,9 @@ def test_openai_multiprocessing(openai_compat_mocks, classname):
     klass = getattr(mod, klass_name)
     generator = build_test_instance(klass)
     prompts = [
-        (generator, openai_compat_mocks, Turn("first testing string")),
-        (generator, openai_compat_mocks, Turn("second testing string")),
-        (generator, openai_compat_mocks, Turn("third testing string")),
+        (generator, openai_compat_mocks, Message("first testing string")),
+        (generator, openai_compat_mocks, Message("second testing string")),
+        (generator, openai_compat_mocks, Message("third testing string")),
     ]
 
     for _ in range(iterations):
@@ -106,5 +106,5 @@ def test_openai_multiprocessing(openai_compat_mocks, classname):
                 assert result is not None
                 assert isinstance(result, list), "generator should return list"
                 assert isinstance(
-                    result[0], Turn
+                    result[0], Message
                 ), "generator should return list of Turns or Nones"

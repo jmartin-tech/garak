@@ -16,7 +16,7 @@ import jsonpath_ng
 from jsonpath_ng.exceptions import JsonPathParserError
 
 from garak import _config
-from garak.attempt import Turn, Conversation
+from garak.attempt import Message, Conversation
 from garak.exception import APIKeyMissingError, BadGeneratorException, RateLimitHit
 from garak.generators.base import Generator
 
@@ -190,7 +190,7 @@ class RestGenerator(Generator):
     @backoff.on_exception(backoff.fibo, RateLimitHit, max_value=70)
     def _call_model(
         self, prompt: Conversation, generations_this_call: int = 1
-    ) -> List[Union[Turn, None]]:
+    ) -> List[Union[Message, None]]:
         """Individual call to get a rest from the REST API
 
         :param prompt: the input to be placed into the request template and sent to the endpoint
@@ -256,7 +256,7 @@ class RestGenerator(Generator):
             raise ConnectionError(error_msg)
 
         if not self.response_json:
-            return [Turn(str(resp.text))]
+            return [Message(str(resp.text))]
 
         response_object = json.loads(resp.content)
 
@@ -295,7 +295,7 @@ class RestGenerator(Generator):
                 )
                 return [None]
 
-        return [Turn(r) for r in response]
+        return [Message(r) for r in response]
 
 
 DEFAULT_CLASS = "RestGenerator"

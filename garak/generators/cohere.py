@@ -14,7 +14,7 @@ import cohere
 import tqdm
 
 from garak import _config
-from garak.attempt import Turn, Conversation
+from garak.attempt import Message, Conversation
 from garak.generators.base import Generator
 
 
@@ -57,14 +57,14 @@ class CohereGenerator(Generator):
     @backoff.on_exception(backoff.fibo, cohere.error.CohereAPIError, max_value=70)
     def _call_cohere_api(
         self, prompt_text: str, request_size=COHERE_GENERATION_LIMIT
-    ) -> List[Union[Turn, None]]:
+    ) -> List[Union[Message, None]]:
         """as of jun 2 2023, empty prompts raise:
         cohere.error.CohereAPIError: invalid request: prompt must be at least 1 token long
         filtering exceptions based on message instead of type, in backoff, isn't immediately obvious
         - on the other hand blank prompt / RTP shouldn't hang forever
         """
         if prompt_text == "":
-            return [Turn("")] * request_size
+            return [Message("")] * request_size
         else:
             response = self.generator.generate(
                 model=self.name,
@@ -79,11 +79,11 @@ class CohereGenerator(Generator):
                 presence_penalty=self.presence_penalty,
                 end_sequences=self.stop,
             )
-            return [Turn(g.text) for g in response]
+            return [Message(g.text) for g in response]
 
     def _call_model(
         self, prompt: Conversation, generations_this_call: int = 1
-    ) -> List[Union[Turn, None]]:
+    ) -> List[Union[Message, None]]:
         """Cohere's _call_model does sub-batching before calling,
         and so manages chunking internally"""
         quotient, remainder = divmod(generations_this_call, COHERE_GENERATION_LIMIT)

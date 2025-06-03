@@ -10,7 +10,7 @@ from typing import List, Union
 import openai
 
 from garak import _config
-from garak.attempt import Turn, Conversation
+from garak.attempt import Message, Conversation
 from garak.exception import GarakException
 from garak.generators.openai import OpenAICompatible
 
@@ -64,12 +64,12 @@ class NVOpenAIChat(OpenAICompatible):
             )
         self.generator = self.client.chat.completions
 
-    def _prepare_prompt(self, prompt: Turn) -> Turn:
+    def _prepare_prompt(self, prompt: Message) -> Message:
         return prompt
 
     def _call_model(
         self, prompt: Conversation, generations_this_call: int = 1
-    ) -> List[Union[Turn, None]]:
+    ) -> List[Union[Message, None]]:
         assert (
             generations_this_call == 1
         ), "generations_per_call / n > 1 is not supported"
@@ -150,7 +150,7 @@ class Vision(NVOpenAIChat):
 
     modality = {"in": {"text", "image"}, "out": {"text"}}
 
-    def _prepare_prompt(self, turn: Turn) -> Turn:
+    def _prepare_prompt(self, turn: Message) -> Message:
 
         text = turn.text
 

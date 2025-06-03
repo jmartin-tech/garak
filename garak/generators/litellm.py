@@ -39,7 +39,7 @@ litellm_logger.setLevel(logging.CRITICAL)
 import litellm
 
 from garak import _config
-from garak.attempt import Turn, Conversation
+from garak.attempt import Message, Conversation
 from garak.exception import BadGeneratorException
 from garak.generators.base import Generator
 
@@ -123,8 +123,8 @@ class LiteLLMGenerator(Generator):
     @backoff.on_exception(backoff.fibo, litellm.exceptions.APIError, max_value=70)
     def _call_model(
         self, prompt: Conversation, generations_this_call: int = 1
-    ) -> List[Union[Turn, None]]:
-        if isinstance(prompt, Turn):
+    ) -> List[Union[Message, None]]:
+        if isinstance(prompt, Message):
             litellm_prompt = [{"role": "user", "content": prompt.text}]
         elif isinstance(prompt, list):
             litellm_prompt = prompt
@@ -162,9 +162,9 @@ class LiteLLMGenerator(Generator):
             ) from e
 
         if self.supports_multiple_generations:
-            return [Turn(c.message.content) for c in response.choices]
+            return [Message(c.message.content) for c in response.choices]
         else:
-            return [Turn(response.choices[0].message.content)]
+            return [Message(response.choices[0].message.content)]
 
 
 DEFAULT_CLASS = "LiteLLMGenerator"

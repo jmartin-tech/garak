@@ -11,7 +11,7 @@ from colorama import Fore, Style
 import tqdm
 
 from garak import _config
-from garak.attempt import Turn, Conversation
+from garak.attempt import Message, Conversation
 from garak.configurable import Configurable
 from garak.exception import GarakException
 import garak.resources.theme
@@ -67,7 +67,7 @@ class Generator(Configurable):
 
     def _call_model(
         self, prompt: Conversation, generations_this_call: int = 1
-    ) -> List[Union[Turn, None]]:
+    ) -> List[Union[Message, None]]:
         """Takes a prompt and returns an API output
 
         _call_api() is fully responsible for the request, and should either
@@ -81,33 +81,39 @@ class Generator(Configurable):
         pass
 
     @staticmethod
-    def _verify_model_result(result: List[Union[Turn, None]]):
+    def _verify_model_result(result: List[Union[Message, None]]):
         assert isinstance(result, list), "_call_model must return a list"
         assert (
             len(result) == 1
         ), f"_call_model must return a list of one item when invoked as _call_model(prompt, 1), got {result}"
         assert (
-            isinstance(result[0], Turn) or result[0] is None
+            isinstance(result[0], Message) or result[0] is None
         ), "_call_model's item must be a Turn or None"
 
     def clear_history(self):
         pass
 
-    def _post_generate_hook(self, outputs: List[Turn | None]) -> List[Turn | None]:
+    def _post_generate_hook(
+        self, outputs: List[Message | None]
+    ) -> List[Message | None]:
         return outputs
 
-    def _prune_skip_sequences(self, outputs: List[Turn | None]) -> List[Turn | None]:
+    def _prune_skip_sequences(
+        self, outputs: List[Message | None]
+    ) -> List[Message | None]:
         rx_complete = (
             re.escape(self.skip_seq_start) + ".*?" + re.escape(self.skip_seq_end)
         )
         rx_missing_final = re.escape(self.skip_seq_start) + ".*?$"
         rx_missing_start = ".*?" + re.escape(self.skip_seq_end)
-        
+
         if self.skip_seq_start == "":
             for o in outputs:
                 if o is None or o.text is None:
                     continue
-                o.text = re.sub(rx_missing_start, "", o.text, flags=re.DOTALL | re.MULTILINE)
+                o.text = re.sub(
+                    rx_missing_start, "", o.text, flags=re.DOTALL | re.MULTILINE
+                )
         else:
             for o in outputs:
                 if o is None or o.text is None:
@@ -125,7 +131,7 @@ class Generator(Configurable):
 
     def generate(
         self, prompt: Conversation, generations_this_call: int = 1, typecheck=True
-    ) -> List[Union[Turn, None]]:
+    ) -> List[Union[Message, None]]:
         """Manages the process of getting generations out from a prompt
 
         This will involve iterating through prompts, getting the generations
@@ -135,7 +141,9 @@ class Generator(Configurable):
         """
 
         if typecheck:
-            assert isinstance(prompt, Conversation), "generate() must take a Conversation object"
+            assert isinstance(
+                prompt, Conversation
+            ), "generate() must take a Conversation object"
 
         self._pre_generate_hook()
 

@@ -1,11 +1,11 @@
 import re
 
 from garak import cli
-from garak.attempt import Turn, Conversation
+from garak.attempt import Message, Conversation
 
 
-def passed_function(prompt: Turn, **kwargs):
-    return [Turn("")]
+def passed_function(prompt: Message, **kwargs):
+    return [Message("")]
     # return [None] # not valid
 
 

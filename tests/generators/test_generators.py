@@ -10,7 +10,7 @@ from typing import List, Union
 from garak import _plugins
 from garak import _config
 
-from garak.attempt import Turn, Conversation
+from garak.attempt import Message, Conversation
 from garak.generators.base import Generator
 
 
@@ -27,11 +27,11 @@ def test_parallel_requests():
     _config.system.parallel_requests = 2
 
     g = _plugins.load_plugin("generators.test.Lipsum")
-    result = g.generate(prompt=Turn("this is a test"), generations_this_call=3)
+    result = g.generate(prompt=Message("this is a test"), generations_this_call=3)
     assert isinstance(result, list), "Generator generate() should return a list"
     assert len(result) == 3, "Generator should return 3 results as requested"
     assert all(
-        isinstance(item, Turn) for item in result
+        isinstance(item, Message) for item in result
     ), "All items in the generate result should be Turns"
     assert all(
         len(item.text) > 0 for item in result
@@ -137,14 +137,14 @@ def test_generator_signature(classname):
         generate_signature.parameters.get("prompt").annotation == Conversation
     ), "generate should take a Turn and return list of Turns or Nones"
     assert (
-        generate_signature.return_annotation == List[Union[None, Turn]]
+        generate_signature.return_annotation == List[Union[None, Message]]
     ), "generate should take a Turn and return list of Turns or Nones"
     _call_model_signature = inspect.signature(g._call_model)
     assert (
         _call_model_signature.parameters.get("prompt").annotation == Conversation
     ), "_call_model should take a Turn and return list of Turns or Nones"
     assert (
-        _call_model_signature.return_annotation == List[Union[None, Turn]]
+        _call_model_signature.return_annotation == List[Union[None, Message]]
     ), "_call_model should take a Turn and return list of Turns or Nones"
 
 
@@ -154,52 +154,64 @@ def test_skip_seq():
     test_string_with_thinking_complex = '<think></think>TEST TEST <think>not thius tho</think>1234<think>!"(^-&$(!$%*))</think>'
     test_string_with_newlines = "<think>\n\n</think>" + target_string
     g = _plugins.load_plugin("generators.test.Repeat")
-    r = g.generate(Conversation(messages=[Turn(test_string_with_thinking)]))
+    r = g.generate(Conversation(turns=[Message(test_string_with_thinking)]))
     g.skip_seq_start = None
     g.skip_seq_end = None
-    assert r[0] == Turn(
+    assert r[0] == Message(
         test_string_with_thinking
     ), "test.Repeat should give same output as input when no think tokens specified"
     g.skip_seq_start = "<think>"
     g.skip_seq_end = "</think>"
-    r = g.generate(Conversation(messages=[Turn(test_string_with_thinking)]))
-    assert r[0] == Turn(
+    r = g.generate(Conversation(turns=[Message(test_string_with_thinking)]))
+    assert r[0] == Message(
         target_string
     ), "content between single skip sequence should be removed"
-    r = g.generate(Conversation(messages=[Turn(test_string_with_thinking_complex)]))
-    assert r[0] == Turn(
+    r = g.generate(Conversation(turns=[Message(test_string_with_thinking_complex)]))
+    assert r[0] == Message(
         target_string
     ), "content between multiple skip sequences should be removed"
-    r = g.generate(Conversation(messages=[Turn(test_string_with_newlines)]))
-    assert r[0] == Turn(target_string), "skip seqs full of newlines should be removed"
+    r = g.generate(Conversation(turns=[Message(test_string_with_newlines)]))
+    assert r[0] == Message(
+        target_string
+    ), "skip seqs full of newlines should be removed"
 
     test_no_answer = "<think>not sure the output to provide</think>"
-    r = g.generate(Conversation(messages=[Turn(test_no_answer)]))
-    assert r[0] == Turn(""), "Output of all skip strings should be empty"
+    r = g.generate(Conversation(turns=[Message(test_no_answer)]))
+    assert r[0] == Message(""), "Output of all skip strings should be empty"
 
     test_truncated_think = f"<think>thinking a bit</think>{target_string}<think>this process required a lot of details that is processed by"
-    r = g.generate(Conversation(messages=[Turn(test_truncated_think)]))
-    assert r[0] == Turn(target_string), "truncated skip strings should be omitted"
+    r = g.generate(Conversation(turns=[Message(test_truncated_think)]))
+    assert r[0] == Message(target_string), "truncated skip strings should be omitted"
 
     test_truncated_think_no_answer = "<think>thinking a bit</think><think>this process required a lot of details that is processed by"
-    r = g.generate(Conversation(messages=[Turn(test_truncated_think_no_answer)]))
-    assert r[0] == Turn(""), "truncated skip strings should be omitted"
+    r = g.generate(Conversation(turns=[Message(test_truncated_think_no_answer)]))
+    assert r[0] == Message(""), "truncated skip strings should be omitted"
 
     test_has_only_end_think = "some thinking</think>" + target_string
-    r = g.generate(Turn(test_has_only_end_think))
-    assert r[0] == Turn(test_has_only_end_think), "for non empty skip_seq_start, if skip_seq_start is not found and skip_seq_end is found, no stripping should be done"
+    r = g.generate(Message(test_has_only_end_think))
+    assert r[0] == Message(
+        test_has_only_end_think
+    ), "for non empty skip_seq_start, if skip_seq_start is not found and skip_seq_end is found, no stripping should be done"
 
     g.skip_seq_start = ""
     g.skip_seq_end = "</think>"
-    r = g.generate(Turn(test_has_only_end_think))
-    assert r[0] == Turn(target_string), "for empty skip_seq_start, if skip_seq_start is not found and skip_seq_end is found, strip from start of output till skip_seq_end"
-    
-    test_multiple_end_thinks = "some thinking</think><think>some more thinking</think>" + target_string
-    r = g.generate(Turn(test_multiple_end_thinks))
-    assert r[0] == Turn(target_string), "for empty skip_seq_start, if skip_seq_start is not found and multiple skip_seq_end is found, strip from start of output till last skip_seq_end"
+    r = g.generate(Message(test_has_only_end_think))
+    assert r[0] == Message(
+        target_string
+    ), "for empty skip_seq_start, if skip_seq_start is not found and skip_seq_end is found, strip from start of output till skip_seq_end"
 
-    test_multiple_end_thinks_discontinuous = "some thinking</think>" + target_string +"<think>some more thinking</think>"
-    r = g.generate(Turn(test_multiple_end_thinks_discontinuous))
-    assert r[0] == Turn(""), "for empty skip_seq_start, if skip_seq_start is not found and multiple skip_seq_end is found, strip from start of output till last skip_seq_end"
+    test_multiple_end_thinks = (
+        "some thinking</think><think>some more thinking</think>" + target_string
+    )
+    r = g.generate(Message(test_multiple_end_thinks))
+    assert r[0] == Message(
+        target_string
+    ), "for empty skip_seq_start, if skip_seq_start is not found and multiple skip_seq_end is found, strip from start of output till last skip_seq_end"
 
-
+    test_multiple_end_thinks_discontinuous = (
+        "some thinking</think>" + target_string + "<think>some more thinking</think>"
+    )
+    r = g.generate(Message(test_multiple_end_thinks_discontinuous))
+    assert r[0] == Message(
+        ""
+    ), "for empty skip_seq_start, if skip_seq_start is not found and multiple skip_seq_end is found, strip from start of output till last skip_seq_end"

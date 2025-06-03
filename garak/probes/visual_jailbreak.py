@@ -12,7 +12,7 @@ import requests
 import tqdm
 
 from garak import _config
-from garak.attempt import Turn, Conversation
+from garak.attempt import Message, Conversation
 import garak.probes
 from garak.data import path as data_path
 from garak.generators.base import Generator
@@ -88,7 +88,7 @@ class FigStepFull(garak.probes.Probe):
         self._load_SafeBench()
 
         for source in self.source_data:
-            t = Turn(source["text"])
+            t = Message(source["text"])
             t.add_part(
                 "image_filename", str(_config.transient.cache_dir / source["image"])
             )

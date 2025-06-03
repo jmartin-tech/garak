@@ -2,7 +2,7 @@ import os
 import pytest
 import httpx
 
-from garak.attempt import Turn, Conversation
+from garak.attempt import Message, Conversation
 from garak.generators.azure import AzureOpenAIGenerator
 
 DEFAULT_DEPLOYMENT_NAME = "gpt-4o-deployment-test"
@@ -68,7 +68,7 @@ def test_azureopenai_chat(respx_mock, openai_compat_mocks):
     assert generator.max_tokens == 99
     generator.temperature = 0.5
     assert generator.temperature == 0.5
-    output = generator.generate(Turn("Hello OpenAI!"), 1)
+    output = generator.generate(Message("Hello OpenAI!"), 1)
     assert len(output) == 1
     for item in output:
-        assert isinstance(item, Turn)
+        assert isinstance(item, Message)

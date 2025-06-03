@@ -17,7 +17,7 @@ import backoff
 import replicate.exceptions
 
 from garak import _config
-from garak.attempt import Turn, Conversation
+from garak.attempt import Message, Conversation
 from garak.generators.base import Generator
 
 
@@ -69,7 +69,7 @@ class ReplicateGenerator(Generator):
     )
     def _call_model(
         self, prompt: Conversation, generations_this_call: int = 1
-    ) -> List[Union[Turn, None]]:
+    ) -> List[Union[Message, None]]:
         if self.client is None:
             self.client = importlib.import_module("replicate")
         response_iterator = self.client.run(
@@ -83,7 +83,7 @@ class ReplicateGenerator(Generator):
                 "seed": self.seed,
             },
         )
-        return [Turn("".join(response_iterator))]
+        return [Message("".join(response_iterator))]
 
 
 class InferenceEndpoint(ReplicateGenerator):
@@ -97,7 +97,7 @@ class InferenceEndpoint(ReplicateGenerator):
     )
     def _call_model(
         self, prompt: Conversation, generations_this_call: int = 1
-    ) -> List[Union[Turn, None]]:
+    ) -> List[Union[Message, None]]:
         if self.client is None:
             self.client = importlib.import_module("replicate")
         deployment = self.client.deployments.get(self.name)
@@ -117,7 +117,7 @@ class InferenceEndpoint(ReplicateGenerator):
             raise IOError(
                 "Replicate endpoint didn't generate a response. Make sure the endpoint is active."
             ) from exc
-        return [Turn(r) for r in response]
+        return [Message(r) for r in response]
 
 
 DEFAULT_CLASS = "ReplicateGenerator"

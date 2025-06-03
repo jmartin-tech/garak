@@ -24,7 +24,7 @@ import torch
 from PIL import Image
 
 from garak import _config
-from garak.attempt import Turn, Conversation
+from garak.attempt import Message, Conversation
 from garak.exception import ModelNameMissingError, GarakException
 from garak.generators.base import Generator
 from garak.resources.api.huggingface import HFCompatible
@@ -112,7 +112,7 @@ class Pipeline(Generator, HFCompatible):
 
     def _call_model(
         self, prompt: Conversation, generations_this_call: int = 1
-    ) -> List[Union[Turn, None]]:
+    ) -> List[Union[Message, None]]:
         self._load_client()
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", category=UserWarning)
@@ -152,7 +152,7 @@ class Pipeline(Generator, HFCompatible):
                 re.sub("^" + re.escape(prompt.text), "", _o) for _o in text_outputs
             ]
 
-        return [Turn(t) for t in text_outputs]
+        return [Message(t) for t in text_outputs]
 
 
 class OptimumPipeline(Pipeline, HFCompatible):
@@ -244,7 +244,7 @@ class InferenceAPI(Generator):
     )
     def _call_model(
         self, prompt: Conversation, generations_this_call: int = 1
-    ) -> List[Turn | None]:
+    ) -> List[Message | None]:
         import json
         import requests
 
@@ -317,7 +317,7 @@ class InferenceAPI(Generator):
                     f"Unsure how to parse 🤗 API response dict: {response}, please open an issue at https://github.com/NVIDIA/garak/issues including this message"
                 )
         elif isinstance(response, list):
-            return [Turn(g["generated_text"]) for g in response]
+            return [Message(g["generated_text"]) for g in response]
         else:
             raise TypeError(
                 f"Unsure how to parse 🤗 API response type: {response}, please open an issue at https://github.com/NVIDIA/garak/issues including this message"
@@ -354,7 +354,7 @@ class InferenceEndpoint(InferenceAPI):
     )
     def _call_model(
         self, prompt: Conversation, generations_this_call: int = 1
-    ) -> List[Turn | None]:
+    ) -> List[Message | None]:
         import requests
 
         payload = {
@@ -382,7 +382,7 @@ class InferenceEndpoint(InferenceAPI):
             raise IOError(
                 "Hugging Face 🤗 endpoint didn't generate a response. Make sure the endpoint is active."
             ) from exc
-        return [Turn(output)]
+        return [Message(output)]
 
 
 class Model(Pipeline, HFCompatible):
@@ -446,7 +446,7 @@ class Model(Pipeline, HFCompatible):
 
     def _call_model(
         self, prompt: Conversation, generations_this_call: int = 1
-    ) -> List[Turn | None]:
+    ) -> List[Message | None]:
         self._load_client()
         self.generation_config.max_new_tokens = self.max_tokens
         self.generation_config.do_sample = self.hf_args["do_sample"]
@@ -506,7 +506,7 @@ class Model(Pipeline, HFCompatible):
                 re.sub("^" + re.escape(prefix_prompt), "", i) for i in text_output
             ]
 
-        return [Turn(t) for t in text_output]
+        return [Message(t) for t in text_output]
 
 
 class LLaVA(Generator, HFCompatible):
@@ -562,7 +562,7 @@ class LLaVA(Generator, HFCompatible):
 
     def generate(
         self, prompt: Conversation, generations_this_call: int = 1
-    ) -> List[Union[Turn, None]]:
+    ) -> List[Union[Message, None]]:
 
         text_prompt = prompt.text
         try:
@@ -583,7 +583,7 @@ class LLaVA(Generator, HFCompatible):
         )
         output = self.processor.decode(output[0], skip_special_tokens=True)
 
-        return [Turn(output)]
+        return [Message(output)]
 
 
 DEFAULT_CLASS = "Pipeline"

@@ -18,7 +18,7 @@ def test_vjb_load(vjb_plugin_name):
     ), "visual jailbreak prompts should be a list"
     assert len(vjb_plugin.prompts) > 0, "visual jailbreak should have some prompts"
     assert isinstance(
-        vjb_plugin.prompts[0], garak.attempt.Turn
+        vjb_plugin.prompts[0], garak.attempt.Message
     ), "visual jailbreak prompts should be turns"
 
 

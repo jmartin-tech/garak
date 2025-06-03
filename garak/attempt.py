@@ -24,7 +24,7 @@ roles = {"system", "user", "assistant"}
 
 
 @dataclass
-class Turn:
+class Message:
     """Object to represent a single turn posed to or received from a generator
     Turns can be prompts, replies, system prompts. While many prompts are text,
     they may also be (or include) images, audio, files, or even a composition of
@@ -198,9 +198,9 @@ class Turn:
 
 
 @dataclass
-class Message:
+class Turn:
     role: str
-    content: Turn
+    content: Message
 
 
 @dataclass
@@ -214,7 +214,7 @@ class Conversation:
     :type notes: dict
     """
 
-    messages: List[Message] = field(default_factory=list)
+    turns: List[Turn] = field(default_factory=list)
     template: str = None
     notes: dict = field(default_factory=dict)  # is this valid for a dataclass?
 
@@ -438,8 +438,8 @@ class Attempt:
         self.uuid = uuid.uuid4()
         if prompt is not None:
             # this should not assume `str` a Turn or Conversation could be supplied
-            turn = Turn(text=prompt, lang=lang)
-            self.conversations = [Conversation([Message("user", turn)])]
+            msg = Message(text=prompt, lang=lang)
+            self.conversations = [Conversation([Turn("user", msg)])]
         else:
             # is this the right way to model an empty Attempt?
             self.conversations = [Conversation()]
@@ -473,19 +473,20 @@ class Attempt:
             "notes": self.notes,
             "goal": self.goal,
             "conversations": [
-                [message.to_dict() for message in conversation] for conversation in self.conversations
-            ]
+                [turn.to_dict() for turn in conversation]
+                for conversation in self.conversations
+            ],
             "lang": self.lang,
             "reverse_translation_outputs": list(self.reverse_translation_outputs),
         }
 
     @property
     def prompt(self) -> Union[Conversation | None]:
-        if len(self.conversations[0].messages) == 0:  # nothing set
+        if len(self.conversations[0].turns) == 0:  # nothing set
             return None
         else:
             try:
-                return self.conversations[0].messages[0].content
+                return self.conversations[0].turns[0].content
             except:
                 raise ValueError(
                     "Message history of attempt uuid %s in unexpected state, sorry: "
@@ -494,40 +495,38 @@ class Attempt:
                 )
 
     @property
-    def outputs(self) -> List[Turn]:
+    def outputs(self) -> List[Message]:
         generated_outputs = list()
         if len(self.conversations) and isinstance(self.conversations[0], Conversation):
             for conversation in self.conversations:
                 # work out last_output_turn that was assistant
                 assistant_turns = [
                     idx
-                    for idx, val in enumerate(conversation.messages)
+                    for idx, val in enumerate(conversation.turns)
                     if val.role == "assistant"
                 ]
                 if not assistant_turns:
                     continue
                 last_output_turn = max(assistant_turns)
                 # return these (via list compr)
-                generated_outputs.append(
-                    conversation.messages[last_output_turn].content
-                )
+                generated_outputs.append(conversation.turns[last_output_turn].content)
         return generated_outputs
 
     @property
-    def latest_prompts(self) -> Union[Turn | List[Turn]]:
-        if len(self.conversations) > 1 or len(self.conversations[-1].messages) > 1:
+    def latest_prompts(self) -> Union[Message | List[Message]]:
+        if len(self.conversations) > 1 or len(self.conversations[-1].turns) > 1:
             latest = []
             for conversation in self.conversations:
                 # work out last_output_turn that was user
                 last_output_turn = max(
                     [
                         idx
-                        for idx, val in enumerate(self.conversations)
-                        if val.messages[-1].role == "user"
+                        for idx, val in enumerate(conversation.turns)
+                        if val[-1].role == "user"
                     ]
                 )
                 # return these (via list compr)
-                latest.append(self.conversations[last_output_turn].messages[-1].content)
+                latest.append(self.conversations[last_output_turn].turns[-1].content)
             return latest  # should this now return a Turn or a Conversation?
         else:
             return (
@@ -535,33 +534,33 @@ class Attempt:
             )  # returning a Turn instead of a list tips us off that generation count is not yet known
 
     @property
-    def all_outputs(self) -> List[Turn]:
+    def all_outputs(self) -> List[Message]:
         all_outputs = []
         if len(self.conversations) > 0:
             for conversation in self.conversations:
-                for message in conversation.messages:
+                for message in conversation.turns:
                     if message.role == "assistant":
                         all_outputs.append(message.content)
         return all_outputs
 
     @prompt.setter
-    def prompt(self, value: Union[str | Turn | Conversation]):
+    def prompt(self, value: Union[str | Message | Conversation]):
         if value is None:
             raise TypeError("'None' prompts are not valid")
         if isinstance(value, str):
-            value = Turn(text=value)
-        if not isinstance(value, Turn):
+            value = Message(text=value)
+        if not isinstance(value, Message):
             raise TypeError("prompt must be a Turn or str object")
         self._add_first_turn("user", value)
 
     @outputs.setter
-    def outputs(self, value: Union[GeneratorType | List[str | Turn]]):
+    def outputs(self, value: Union[GeneratorType | List[str | Message]]):
         # these need to build or be Turns and add to Conversations
         if not (isinstance(value, list) or isinstance(value, GeneratorType)):
             raise TypeError("Value for attempt.outputs must be a list or generator")
         value = list(value)
         # testing suggests this should only attempt to set if the initial prompt was already injected
-        if len(self.conversations) == 0 or len(self.conversations[0].messages) == 0:
+        if len(self.conversations) == 0 or len(self.conversations[0].turns) == 0:
             raise TypeError("A prompt must be set before outputs are given")
         # do we have only the initial prompt? in which case, let's flesh out messages a bit
         elif (
@@ -576,16 +575,16 @@ class Attempt:
         assert isinstance(value, list)
         self._add_turn("user", value)
 
-    def prompt_for(self, lang) -> Turn:
+    def prompt_for(self, lang) -> Message:
         """prompt for a known language
 
         When "*" or None are passed returns the prompt passed to the model
         """
         if (
             lang is not None
-            and self.conversations[0].messages[0].content.lang != "*"
+            and self.conversations[0].turns[0].content.lang != "*"
             and lang != "*"
-            and self.conversations[0].messages[0].content.lang != lang
+            and self.conversations[0].turns[0].content.lang != lang
         ):
             return self.notes.get(
                 "pre_translation_prompt", self.prompt
@@ -593,16 +592,16 @@ class Attempt:
 
         return self.prompt
 
-    def outputs_for(self, lang) -> List[Turn]:
+    def outputs_for(self, lang) -> List[Message]:
         """outputs for a known language
 
         When "*" or None are passed returns the original model output
         """
         if (
             lang is not None
-            and self.conversations[0].messages[0].content.lang != "*"
+            and self.conversations[0].turns[0].content.lang != "*"
             and lang != "*"
-            and self.conversations[0].messages[0].content.lang != lang
+            and self.conversations[0].turns[0].content.lang != lang
         ):
             return (
                 self.reverse_translator_outputs
@@ -611,34 +610,34 @@ class Attempt:
 
     def _expand_prompt_to_histories(self, breadth):
         """expand a prompt-only message history to many threads"""
-        if len(self.conversations[0].messages) == 0:
+        if len(self.conversations[0].turns) == 0:
             raise TypeError(
                 "A prompt needs to be set before it can be expanded to conversation threads"
             )
-        elif len(self.conversations) > 1 or len(self.conversations[-1].messages) > 1:
+        elif len(self.conversations) > 1 or len(self.conversations[-1].turns) > 1:
             raise TypeError(
                 "attempt.conversations contains Conversations, expected a single Message object"
             )
 
         self.conversations = [deepcopy(self.conversations[0]) for _ in range(breadth)]
 
-    def _add_first_turn(self, role: str, content: Union[str | Turn]) -> None:
+    def _add_first_turn(self, role: str, content: Union[str | Message]) -> None:
         """add the first turn (after a prompt) to a message history"""
 
         # tests show this should be restricted if progress has started
         # this suggests the values should not be modified
 
         if isinstance(content, str) and isinstance(role, str):
-            content = Turn(text=content, role=role)
+            content = Message(text=content, role=role)
 
-        if len(self.conversations) and len(self.conversations[0].messages):
-            if isinstance(self.conversations[0].messages[-1], Message):
+        if len(self.conversations) and len(self.conversations[0].turns):
+            if isinstance(self.conversations[0].turns[-1], Turn):
                 logging.warning(
                     f"Cannot set prompt of attempt uuid {self.uuid} with content already in message history: {repr(self.conversations)}"
                 )
                 if (
-                    self.conversations[0].messages[-1].role != "user"
-                    or self.conversations[0].messages[-1].role != "system"
+                    self.conversations[0].turns[-1].role != "user"
+                    or self.conversations[0].turns[-1].role != "system"
                 ):
                     raise ValueError(
                         "Unexpected state in attempt messages -- first message is not `user` or `system`."
@@ -647,10 +646,10 @@ class Attempt:
         else:
             if len(self.conversations) == 0:
                 self.conversations.append(list())
-            self.conversations[0].messages.append(Message(role, content))
+            self.conversations[0].turns.append(Turn(role, content))
             return
 
-    def _add_turn(self, role: str, contents: List[Union[Turn, str]]) -> None:
+    def _add_turn(self, role: str, contents: List[Union[Message, str]]) -> None:
         """add a 'layer' to a message history.
 
         the contents should be as broad as the established number of
@@ -665,7 +664,7 @@ class Attempt:
                 "Message history misalignment in attempt uuid %s: tried to add %d items to %d message histories"
                 % (str(self.uuid), len(contents), len(self.conversations))
             )
-        if role == "user" and len(self.conversations[0].messages) == 0:
+        if role == "user" and len(self.conversations[0].turns) == 0:
             raise ValueError(
                 "Can only add a list of user prompts after at least one system generation, so that generations count is known"
             )
@@ -674,8 +673,8 @@ class Attempt:
             for idx, entry in enumerate(contents):
                 content = entry
                 if isinstance(entry, str):
-                    content = Turn(entry)
-                self.conversations[idx].messages.append(Message(role, content))
+                    content = Message(entry)
+                self.conversations[idx].turns.append(Turn(role, content))
             return
         raise ValueError(
             "Conversation turn role must be one of '%s', got '%s'"

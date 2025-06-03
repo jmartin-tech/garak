@@ -33,7 +33,7 @@ import importlib
 from typing import List, Union
 
 from garak import _config
-from garak.attempt import Turn, Conversation
+from garak.attempt import Message, Conversation
 from garak.generators.base import Generator
 
 
@@ -89,7 +89,7 @@ class Single(Generator):
 
     def _call_model(
         self, prompt: Conversation, generations_this_call: int = 1
-    ) -> List[Union[Turn, None]]:
+    ) -> List[Union[Message, None]]:
         # this needs to be reworked as prompt is no longer a str
         return self.generator(prompt, **self.kwargs)
 
@@ -101,7 +101,7 @@ class Multiple(Single):
 
     def _call_model(
         self, prompt: Conversation, generations_this_call: int = 1
-    ) -> List[Union[Turn, None]]:
+    ) -> List[Union[Message, None]]:
         # this needs to be reworked as prompt is no longer a str
         return self.generator(prompt, **self.kwargs)
 

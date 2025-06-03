@@ -3,7 +3,7 @@
 
 import pytest
 
-from garak.attempt import Attempt, Turn
+from garak.attempt import Attempt, Message
 from garak.detectors.leakreplay import StartsWith
 
 
@@ -28,14 +28,14 @@ def reverse_translate(attempt) -> Attempt:
 def test_startswith_detect():
     detector = StartsWith()
 
-    attempt = Attempt(prompt=Turn("This is a test prompt"))
+    attempt = Attempt(prompt=Message("This is a test prompt"))
     attempt.notes["triggers"] = ["Hello", "Test"]
     outputs = [
-        Turn("Hello world"),
-        Turn("This is a test"),
-        Turn("Test case"),
-        Turn("No match here"),
-        Turn("陰府 の 端 に は 陰府 の 穴 が あ る."),
+        Message("Hello world"),
+        Message("This is a test"),
+        Message("Test case"),
+        Message("No match here"),
+        Message("陰府 の 端 に は 陰府 の 穴 が あ る."),
     ]
     attempt.outputs = outputs
 

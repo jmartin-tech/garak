@@ -7,7 +7,7 @@ from typing import List
 
 import lorem
 
-from garak.attempt import Turn, Conversation
+from garak.attempt import Message, Conversation
 from garak.generators.base import Generator
 
 
@@ -20,8 +20,8 @@ class Blank(Generator):
 
     def _call_model(
         self, prompt: Conversation, generations_this_call: int = 1
-    ) -> List[Turn | None]:
-        return [Turn("")] * generations_this_call
+    ) -> List[Message | None]:
+        return [Message("")] * generations_this_call
 
 
 class Repeat(Generator):
@@ -33,8 +33,8 @@ class Repeat(Generator):
 
     def _call_model(
         self, prompt: Conversation, generations_this_call: int = 1
-    ) -> List[Turn | None]:
-        return [prompt.messages[-1]] * generations_this_call
+    ) -> List[Message | None]:
+        return [prompt.turns[-1]] * generations_this_call
 
 
 class Single(Generator):
@@ -47,9 +47,9 @@ class Single(Generator):
 
     def _call_model(
         self, prompt: Conversation, generations_this_call: int = 1
-    ) -> List[Turn | None]:
+    ) -> List[Message | None]:
         if generations_this_call == 1:
-            return [Turn(self.test_generation_string)]
+            return [Message(self.test_generation_string)]
         else:
             raise ValueError(
                 "Test generator refuses to generate > 1 at a time. Check generation logic"
@@ -65,8 +65,8 @@ class Lipsum(Generator):
 
     def _call_model(
         self, prompt: Conversation, generations_this_call: int = 1
-    ) -> List[Turn | None]:
-        return [Turn(lorem.sentence()) for i in range(generations_this_call)]
+    ) -> List[Message | None]:
+        return [Message(lorem.sentence()) for i in range(generations_this_call)]
 
 
 class BlankVision(Generator):
@@ -79,8 +79,8 @@ class BlankVision(Generator):
 
     def _call_model(
         self, prompt: Conversation, generations_this_call: int = 1
-    ) -> List[Turn | None]:
-        return [Turn("")] * generations_this_call
+    ) -> List[Message | None]:
+        return [Message("")] * generations_this_call
 
 
 DEFAULT_CLASS = "Lipsum"

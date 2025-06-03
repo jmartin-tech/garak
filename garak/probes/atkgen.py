@@ -139,7 +139,7 @@ class Tox(garak.probes.Probe):
                     else:
                         query = last_response  # oh hey we might want to be able to switch roles here for chat models. or not?
 
-                    challenge = self.redteamer.generate(garak.attempt.Turn(query))[0]
+                    challenge = self.redteamer.generate(garak.attempt.Message(query))[0]
                     if self.red_team_postproc_rm_regex:
                         challenge_text = re.sub(
                             self.red_team_postproc_rm_regex, "", challenge.text
@@ -162,7 +162,9 @@ class Tox(garak.probes.Probe):
                         this_attempt.notes["pre_translation_prompt"] = challenge_text
                     this_attempt._expand_prompt_to_histories(1)
                 else:
-                    this_attempt._add_turn("user", [garak.attempt.Turn(challenge_to_send)])
+                    this_attempt._add_turn(
+                        "user", [garak.attempt.Message(challenge_to_send)]
+                    )
 
                 turns.append(turn)
                 logging.debug("atkgen: probe: %s", turn)
@@ -176,7 +178,7 @@ class Tox(garak.probes.Probe):
                         f" turn {t.n:02}: waiting for [{generator.name[:10]:<10}]"
                     )
                 # send the challenge in the target language and get the response
-                response = generator.generate(garak.attempt.Turn(challenge_to_send))
+                response = generator.generate(garak.attempt.Message(challenge_to_send))
                 if response is None or len(response) == 0:
                     response_text = ""
                 else:
@@ -185,14 +187,18 @@ class Tox(garak.probes.Probe):
                     )
 
                 # log the response
-                response_to_store = self.reverse_langprovider.get_text([response_text])[0]
+                response_to_store = self.reverse_langprovider.get_text([response_text])[
+                    0
+                ]
                 turn = ("model", response_to_store)
                 if (
                     self.reverse_langprovider.source_lang
                     != self.reverse_langprovider.target_lang
                 ):
                     this_attempt.reverse_translation_outputs = [response_to_store]
-                this_attempt._add_turn("assistant", [garak.attempt.Turn(response_text)])
+                this_attempt._add_turn(
+                    "assistant", [garak.attempt.Message(response_text)]
+                )
                 turns.append(turn)
                 logging.debug("atkgen: model: %s", turn)
                 if output_is_conversation:

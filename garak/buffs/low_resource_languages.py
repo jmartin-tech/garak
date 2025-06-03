@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-""" Buff that converts prompts with different encodings. """
+"""Buff that converts prompts with different encodings."""
 
 from collections.abc import Iterable
 from deepl import Translator
@@ -40,7 +40,9 @@ class LRLBuff(Buff):
         attempt.notes["original_prompt"] = prompt_text
         for language in LOW_RESOURCE_LANGUAGES:
             attempt.notes["LRL_buff_dest_lang"] = language
-            response = deepl_translator.translate_text(prompt_text, target_lang=language)
+            response = deepl_translator.translate_text(
+                prompt_text, target_lang=language
+            )
             translated_prompt = response.text
             attempt.prompt = translated_prompt
             yield self._derive_new_attempt(attempt)
@@ -55,6 +57,6 @@ class LRLBuff(Buff):
         for output in outputs:
             response = deepl_translator.translate_text(output.text, target_lang="EN-US")
             translated_output = response.text
-            translated_outputs.append(garak.attempt.Turn(translated_output))
+            translated_outputs.append(garak.attempt.Message(translated_output))
         attempt.outputs = translated_outputs
         return attempt
