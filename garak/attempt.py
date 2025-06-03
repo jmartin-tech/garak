@@ -258,7 +258,9 @@ class Conversation:
         if len(self.messages) > 0:
             return self.messages[-1]
         else:
-            raise ValueError("Attempted to return latest message from Conversation but message history is empty.")
+            raise ValueError(
+                "Attempted to return latest message from Conversation but message history is empty."
+            )
 
     def __len__(self):
         return len(self.messages)
@@ -471,18 +473,19 @@ class Attempt:
 
     @property
     def outputs(self):
+        generated_outputs = list()
         if len(self.messages) and isinstance(self.messages[0], Turn):
-            # work out last_output_turn that was assistant
-            assistant_turns = [
-                idx for idx, val in enumerate(self.messages) if val.role == "assistant"
-            ]
-            if not assistant_turns:
-                return []
-            last_output_turn = max(assistant_turns)
-            # return these (via list compr)
-            return [self.messages[last_output_turn].text]
-        else:
-            return []
+            for conversation in self.messages:
+                # work out last_output_turn that was assistant
+                assistant_turns = [
+                    idx for idx, val in enumerate(conversation) if val.role == "assistant"
+                ]
+                if not assistant_turns:
+                    continue
+                last_output_turn = max(assistant_turns)
+                # return these (via list compr)
+                generated_outputs.append(conversation[last_output_turn].text)
+        return generated_outputs
 
     @property
     def latest_prompts(self):
