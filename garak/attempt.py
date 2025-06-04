@@ -2,7 +2,7 @@
 
 import json
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, asdict
 from copy import deepcopy
 from pathlib import Path
 from types import GeneratorType
@@ -25,189 +25,80 @@ roles = {"system", "user", "assistant"}
 
 @dataclass
 class Message:
-    """Object to represent a single turn posed to or received from a generator
-    Turns can be prompts, replies, system prompts. While many prompts are text,
+    """Object to represent a single message posed to or received from a generator
+
+    Messages can be prompts, replies, system prompts. While many prompts are text,
     they may also be (or include) images, audio, files, or even a composition of
     these. The Turn object encapsulates this flexibility.
-    `Turn` doesn't yet support multiple attachments of the same type.
+    `Message` doesn't yet support multiple attachments of the same type.
 
     :param text: Text of the prompt/response
     :type text: str
-    :param role: Role of the participant who issued the utterance Expected: ["system", "user", "assistant"]
-    :type role: str
     :param data_path: Path to attachment
     :type data_path: Union[str, Path]
     :param data: Data to attach
     :type data: Any
+    :param lang: language code for `text` content
+    :type lang: str (bcp47 language code)
     :param notes: Free form dictionary of notes for the turn
     :type notes: dict
     """
 
     text: str = None
     data_path: str = None
-    data: bytes = None
+    # data: bytes = None  # should this dataclass attribute exist?
     lang: str = None
     notes: dict = field(default_factory=dict)  # is this valid for a dataclass?
 
-    # @property
-    # def text(self) -> Union[None, str]:
-    #     return self._text
+    @property
+    def data(self):
+        if not hasattr(self, "_data"):
+            if self.data_path is not None:
+                self._data = Message._load_data(self.data_path)
+            else:
+                raise ValueError("no binary data found")
+        return self._data
 
-    # @text.setter
-    # def text(self, value: Union[None, str]) -> None:
-    #     self._text = value
+    @data.setter
+    def data(self, value):
+        if self.data_path is not None and hasattr(self, "_data"):
+            raise ValueError("data_path has been set data cannot be modified")
+        self._data = value
 
-    # @property
-    # def data(self):
-    #     if self._data is not None:
-    #         return self._data
-    #     elif self._data is None and self.data_path is not None:
-    #         self._load_data(self.data_path)
-    #         return self._data
-    #     else:
-    #         raise ValueError(
-    #             "Attempting to access `data` property of Turn but no data object or data_path was provided"
-    #         )
-
-    # @data.setter
-    # def data(self, value: Any) -> None:
-    #     if isinstance(value, str) or isinstance(value, Path):
-    #         if self.data_path is not None and str(value) != str(self.data_path):
-    #             logging.warning(
-    #                 f"`Loading `data` property for Turn from {str(value)}, even though expected `data_path` for Turn is currently {str(self.data_path)}"
-    #             )
-    #         self._load_data(value)
-    #     else:
-    #         if self._data is not None:
-    #             logging.warning(
-    #                 f"Loading data for Turn even though `data` is already set."
-    #             )
-
-    #         self._data = value
-
-    # def __init__(
-    #     self,
-    #     text: Union[None, str] = None,
-    #     role: Union[None, str] = None,
-    #     data_path: Union[None, str] = None,
-    #     data: Any = None,
-    #     notes: dict = dict(),
-    # ):
-    #     self._text = text
-    #     self.role = role
-    #     self.data_path = Path(data_path)
-    #     if not self.data_path.is_file():
-    #         raise ValueError(f"Provided `data_path` {data_path} is not a file.")
-    #     self._data = data
-    #     self.notes = notes
-
-    def _load_data(self, data_path: Union[str, Path]):
+    @staticmethod
+    def _load_data(data_path: Union[str, Path]):
         with open(data_path, "rb") as f:
-            self.data = f.read()
-
-    # def to_dict(self) -> dict:
-    #     parts = {"text": self._text}
-    #     if self.role is not None:
-    #         parts["role"] = self.role
-    #     if self.data_path is not None:
-    #         parts["data_path"] = str(self.data_path)
-    #     if self._data is not None:
-    #         parts["data"] = self._data
-    #     if self.notes is not None:
-    #         parts["notes"] = self.notes
-    #     return parts
-
-    # @classmethod
-    # def from_dict(cls, message: dict):
-    #     if not isinstance(message, dict):
-    #         raise TypeError(
-    #             f"Cannot create a `Turn`. Expected a dict but got {type(message)}"
-    #         )
-    #     # "content" is the key used by HF conversations, so let's support that formatting too.
-    #     if "text" or "content" not in message.keys():
-    #         raise AttributeError(
-    #             "Cannot create a `Turn` from a dictionary without a `text` or `content` key."
-    #         )
-    #     elif "text" in message.keys():
-    #         if isinstance(message["text"], str):
-    #             text = message["text"]
-    #         else:
-    #             raise TypeError(
-    #                 f"Turn `text` expects a str but got {type(message['text'])}"
-    #             )
-    #     else:
-    #         if isinstance(message["content"], str):
-    #             text = message["content"]
-    #         else:
-    #             raise TypeError(
-    #                 f"Turn `text` expects a str but got {type(message['content'])}"
-    #             )
-    #     if "role" in message.keys():
-    #         if isinstance(message["role"], str):
-    #             role = message["role"]
-    #         else:
-    #             raise TypeError(
-    #                 f"Turn `role` expects a str but got {type(message['role'])}"
-    #             )
-    #     else:
-    #         role = None
-    #     if "data" in message.keys():
-    #         # No type checking here but maybe there should be.
-    #         data = message["data"]
-    #     else:
-    #         data = None
-    #     if "data_path" in message.keys():
-    #         if isinstance(message["data_path"], str) or isinstance(
-    #             message["data_path"], Path
-    #         ):
-    #             data_path = message["data_path"]
-    #         else:
-    #             raise TypeError(
-    #                 f"Turn `data_path` expects a str or Path but got {type(message['data_path'])}"
-    #             )
-    #     else:
-    #         data_path = None
-    #     if "notes" in message.keys():
-    #         if isinstance(message["notes"], dict):
-    #             notes = message["notes"]
-    #         else:
-    #             raise TypeError(
-    #                 f"Turn `notes` expects a dictionary but got {type(message['notes'])}"
-    #             )
-    #     else:
-    #         notes = dict()
-    #     return cls(text=text, role=role, data_path=data_path, data=data, notes=notes)
-
-    # def __str__(self):
-    #     if self.data_path is None and self._data is None and self.role is None:
-    #         return self._text
-    #     else:
-    #         parts = self.to_dict()
-    #         return f"<Turn {repr(parts)}>"
-
-    # def __eq__(self, other) -> bool:
-    #     if not isinstance(other, Turn):
-    #         return False
-    #     match other:
-    #         case _ if self.text != other.text:
-    #             return False
-    #         case _ if self.to_dict() != other.to_dict():
-    #             return False
-    #         case _:
-    #             return True
+            return f.read()
 
 
 @dataclass
 class Turn:
+    """Object to attach actor context to a message, denoted as taking a `Turn` in the conversation
+
+    :param role: Role of the participant who issued the utterance Expected: ["system", "user", "assistant"]
+    :type role: str
+    """
+
     role: str
     content: Message
+
+    @staticmethod
+    def from_dict(value: dict):
+        from copy import deepcopy
+
+        entity = deepcopy(value)
+        message = entity.pop("content", {})
+        entity["content"] = Message(**message)
+        ret_val = Turn(**entity)
+        return ret_val
 
 
 @dataclass
 class Conversation:
     """Class to maintain a sequence of Turn objects and, if relevant, apply conversation templates.
-    :param messages: A list of dictionaries or Turns
-    :type messages: list
+
+    :param turns: A list of Turns
+    :type turns: list
     :param template: Jinja template for formatting conversations
     :type template: str
     :param notes: Free form dictionary of notes for the conversation
@@ -218,77 +109,16 @@ class Conversation:
     template: str = None
     notes: dict = field(default_factory=dict)  # is this valid for a dataclass?
 
-    # def __init__(
-    #     self,
-    #     messages: list[Union[dict, Turn]] = None,
-    #     template: str = None,
-    #     notes: dict = {},
-    # ):
-    #     if messages is None:
-    #         self.messages = list()
-    #     else:
-    #         for message in messages:
-    #             if isinstance(message, dict):
-    #                 self.messages.append(Turn.from_dict(message))
-    #             elif isinstance(message, Turn):
-    #                 self.messages.append(message)
-    #             else:
-    #                 raise TypeError(
-    #                     f"Conversations can only be constructed from Turn or dict objects but got {type(message)}"
-    #                 )
-    #     if len(messages) > 0:
-    #         for message in messages:
-    #             if message.role == "user":
-    #                 self.initial_user_prompt = message.text
-    #                 break
-    #     self.template = template
-    #     self.notes = notes
+    @staticmethod
+    def from_dict(value: dict):
+        from copy import deepcopy
 
-    # def append(self, message: Union[Turn, dict]) -> None:
-    #     if isinstance(message, Turn):
-    #         self.messages.append(message)
-
-    #     elif isinstance(message, dict):
-    #         self.messages.append(Turn.from_dict(message))
-
-    #     else:
-    #         raise TypeError("`Conversation` objects can only contain `Turn`s")
-
-    # def apply_template(self) -> list[str]:
-    #     if len(self.messages) < 1:
-    #         logging.warning("Cannot apply a template to an empty Conversation")
-    #         return ""
-    #     if self.template is None:
-    #         logging.warning(
-    #             "Attempted to apply a chat template to Conversation but none is specified."
-    #         )
-    #         return [turn.text for turn in self.messages]
-    #     compiled_template = self._compile_template()
-    #     rendered_chats = list()
-    #     for turn in self.messages:
-    #         rendered_chat = compiled_template.render(messages=turn.text)
-    #         rendered_chats.append(rendered_chat)
-    #     return rendered_chats
-
-    # def clear_history(self):
-    #     self.messages = list()
-
-    # def latest_message(self):
-    #     if len(self.messages) > 0:
-    #         return self.messages[-1]
-    #     else:
-    #         raise ValueError(
-    #             "Attempted to return latest message from Conversation but message history is empty."
-    #         )
-
-    # def __len__(self):
-    #     return len(self.messages)
-
-    # def __getitem__(self, key):
-    #     return self.messages[key]
-
-    # def __iter__(self):
-    #     yield from self.messages
+        entity = deepcopy(value)
+        turns = entity.pop("turns", [])
+        ret_val = Conversation(**entity)
+        for turn in turns:
+            ret_val.turns.append(Turn.from_dict(turn))
+        return ret_val
 
     # @lru_cache
     # def _compile_template(self):
@@ -375,7 +205,7 @@ class Attempt:
     :param status: The status of this attempt; ``ATTEMPT_NEW``, ``ATTEMPT_STARTED``, or ``ATTEMPT_COMPLETE``
     :type status: int
     :param prompt: The processed prompt that will presented to the generator
-    :type prompt: Turn
+    :type prompt: Union[str|Turn|Conversation]
     :param probe_classname: Name of the probe class that originated this ``Attempt``
     :type probe_classname: str
     :param probe_params: Non-default parameters logged by the probe
@@ -437,9 +267,17 @@ class Attempt:
     ) -> None:
         self.uuid = uuid.uuid4()
         if prompt is not None:
-            # this should not assume `str` a Turn or Conversation could be supplied
-            msg = Message(text=prompt, lang=lang)
-            self.conversations = [Conversation([Turn("user", msg)])]
+            if isinstance(prompt, Conversation):
+                self.conversations = [prompt]
+            elif isinstance(prompt, str):
+                msg = Message(text=prompt, lang=lang)
+            elif isinstance(prompt, Message):
+                msg = prompt
+            else:
+                raise TypeError("prompts must be ")
+            if not hasattr(self, "conversations"):
+                self.conversations = [Conversation([Turn("user", msg)])]
+            self.prompt = self.conversations[0]
         else:
             # is this the right way to model an empty Attempt?
             self.conversations = [Conversation()]
@@ -467,26 +305,29 @@ class Attempt:
             "probe_classname": self.probe_classname,
             "probe_params": self.probe_params,
             "targets": self.targets,
-            "prompt": self.prompt.text,  # this should really serialize the turn in full
-            "outputs": self.outputs,
+            "prompt": asdict(self.prompt),
+            "outputs": [asdict(output) for output in self.outputs],
             "detector_results": {k: list(v) for k, v in self.detector_results.items()},
             "notes": self.notes,
             "goal": self.goal,
             "conversations": [
-                [turn.to_dict() for turn in conversation]
-                for conversation in self.conversations
+                asdict(conversation) for conversation in self.conversations
             ],
             "lang": self.lang,
-            "reverse_translation_outputs": list(self.reverse_translation_outputs),
+            "reverse_translation_outputs": [
+                asdict(output) for output in self.reverse_translation_outputs
+            ],
         }
 
     @property
     def prompt(self) -> Union[Conversation | None]:
+        if hasattr(self, "_prompt"):
+            return self._prompt
         if len(self.conversations[0].turns) == 0:  # nothing set
             return None
         else:
             try:
-                return self.conversations[0].turns[0].content
+                return self.conversations[0]
             except:
                 raise ValueError(
                     "Message history of attempt uuid %s in unexpected state, sorry: "
@@ -522,11 +363,11 @@ class Attempt:
                     [
                         idx
                         for idx, val in enumerate(conversation.turns)
-                        if val[-1].role == "user"
+                        if val.role == "user"
                     ]
                 )
                 # return these (via list compr)
-                latest.append(self.conversations[last_output_turn].turns[-1].content)
+                latest.append(conversation.turns[last_output_turn].content)
             return latest  # should this now return a Turn or a Conversation?
         else:
             return (
@@ -545,13 +386,22 @@ class Attempt:
 
     @prompt.setter
     def prompt(self, value: Union[str | Message | Conversation]):
+        if hasattr(self, "_prompt"):
+            raise TypeError("prompt cannot be changed once set")
         if value is None:
             raise TypeError("'None' prompts are not valid")
         if isinstance(value, str):
-            value = Message(text=value)
-        if not isinstance(value, Message):
-            raise TypeError("prompt must be a Turn or str object")
-        self._add_first_turn("user", value)
+            # note this does not contain a lang
+            self._prompt = Conversation([Turn("user", Message(text=value))])
+        if isinstance(value, Message):
+            # make a copy to store an immutable object
+            self._prompt = Conversation([Turn("user", Message(**asdict(value)))])
+        if isinstance(value, Conversation):
+            # make a copy to store an immutable object
+            self._prompt = Conversation.from_dict(asdict(value))
+        if not hasattr(self, "_prompt"):
+            raise TypeError("prompt must be a Conversation, Message or str object")
+        self.conversations = [Conversation.from_dict(asdict(self._prompt))]
 
     @outputs.setter
     def outputs(self, value: Union[GeneratorType | List[str | Message]]):
@@ -604,7 +454,7 @@ class Attempt:
             and self.conversations[0].turns[0].content.lang != lang
         ):
             return (
-                self.reverse_translator_outputs
+                self.reverse_translation_outputs
             )  # this needs to be wired back in for support
         return self.all_outputs
 

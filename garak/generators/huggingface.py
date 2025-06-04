@@ -107,8 +107,11 @@ class Pipeline(Generator, HFCompatible):
     def _clear_client(self):
         self.generator = None
 
-    def _format_chat_prompt(self, chat_prompt_string: str) -> List[dict]:
-        return [{"role": "user", "content": chat_prompt_string}]
+    def _format_chat_prompt(self, chat_conversation: str) -> List[dict]:
+        return [
+            {"role": turn.role, "content": turn.content.text}
+            for turn in chat_conversation.turns
+        ]
 
     def _call_model(
         self, prompt: Conversation, generations_this_call: int = 1
@@ -122,9 +125,9 @@ class Pipeline(Generator, HFCompatible):
                     # chat template should be automatically utilized if the pipeline tokenizer has support
                     # and a properly formatted list[dict] is supplied
                     if self.use_chat:
-                        formatted_prompt = self._format_chat_prompt(prompt.text)
+                        formatted_prompt = self._format_chat_prompt(prompt)
                     else:
-                        formatted_prompt = prompt.text
+                        formatted_prompt = prompt.turns[-1].content.text
 
                     raw_output = self.generator(
                         formatted_prompt,
@@ -148,8 +151,9 @@ class Pipeline(Generator, HFCompatible):
             text_outputs = outputs
 
         if self.deprefix_prompt:
+            # should this be formatted_prompt or prompt.turns[-1].content.text
             text_outputs = [
-                re.sub("^" + re.escape(prompt.text), "", _o) for _o in text_outputs
+                re.sub("^" + re.escape(formatted_prompt), "", _o) for _o in text_outputs
             ]
 
         return [Message(t) for t in text_outputs]

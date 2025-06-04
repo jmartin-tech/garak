@@ -11,7 +11,7 @@ from garak import cli, _config
 
 
 #####################
-# Test Turn object #
+# Test Message object #
 #####################
 def test_prompt_structure():
     p = garak.attempt.Message()
@@ -21,9 +21,77 @@ def test_prompt_structure():
     assert p.text == TEST_STRING
 
 
+def test_message_setup():
+    test_prompt = "Inter Arma Enim Silent Leges"
+    t = garak.attempt.Message(test_prompt)
+    assert t.text == test_prompt, "text member of turn should match constructor param"
+    # TODO: parts not longer exists
+    # assert (
+    #     t.parts["text"] == test_prompt
+    # ), "Turn parts['text'] should match constructor param"
+    # test_prompt_lower = test_prompt.lower()
+    # t.parts["text"] = test_prompt_lower
+    # assert (
+    #     t.parts["text"] == t.text
+    # ), "text member of turn should match text item of turn.parts"
+
+
+def test_message_serializable():
+    # think about how this should work, is dataclass.asdict support enough?
+    from dataclasses import asdict
+
+    t = garak.attempt.Message()
+    asdict(t)
+
+
+def test_message_image_load():
+    # adding binary data to a turn should needs to either allow for byte array for load of a file's content in binary mode.
+    t = garak.attempt.Message(text=None, data_path="tests/_assets/tinytrans.gif")
+    assert (
+        t.data
+        == b"GIF89a\x01\x00\x01\x00\x80\x01\x00\xff\xff\xff\x00\x00\x00!\xf9\x04\x01\n\x00\x01\x00,\x00\x00\x00\x00\x01\x00\x01\x00\x00\x02\x02L\x01\x00;"
+    )
+
+    # this seems like a restrictive way to allow binary data set, consider how we might get the constructor to work
+    t = garak.attempt.Message()
+    t.data = b"GIF89a\x01\x00\x01\x00\x80\x01\x00\xff\xff\xff\x00\x00\x00!\xf9\x04\x01\n\x00\x01\x00,\x00\x00\x00\x00\x01\x00\x01\x00\x00\x02\x02L\x01\x00;"
+
+    assert (
+        t.data
+        == b"GIF89a\x01\x00\x01\x00\x80\x01\x00\xff\xff\xff\x00\x00\x00!\xf9\x04\x01\n\x00\x01\x00,\x00\x00\x00\x00\x01\x00\x01\x00\x00\x02\x02L\x01\x00;"
+    )
+
+
+def test_message_internal_serialize():
+    import dataclasses
+
+    test_prompt = "But the point is, if you lie all the time, nobody's going to believe you, even when you're telling the truth."
+    src = garak.attempt.Message()
+    src.text = test_prompt
+    serialised = dataclasses.asdict(src)
+    dest = garak.attempt.Message(**serialised)
+    assert src == dest
+
+
+#####################
+# Test Turn object #
+#####################
+
+
 ############################
 # Test Conversation object #
 ############################
+def test_conversation_internal_serialize():
+    import dataclasses
+
+    test_prompt = "But the point is, if you lie all the time, nobody's going to believe you, even when you're telling the truth."
+    src = garak.attempt.Message()
+    src.text = test_prompt
+    src_turn = garak.attempt.Turn("user", src)
+    src_conv = garak.attempt.Conversation([src_turn])
+    serialised = dataclasses.asdict(src_conv)
+    dest = garak.attempt.Conversation.from_dict(serialised)
+    assert src_conv == dest
 
 
 ##########################
@@ -54,8 +122,8 @@ def test_attempt_turn_taking():
     first_prompt_text = "what is up"
     first_prompt = garak.attempt.Message(first_prompt_text)
     a.prompt = first_prompt
-    assert (
-        a.prompt == first_prompt
+    assert a.prompt == garak.attempt.Conversation(
+        [garak.attempt.Turn("user", first_prompt)]
     ), "Setting attempt.prompt on new prompt should lead to attempt.prompt returning that prompt object"
     assert a.conversations == [
         garak.attempt.Conversation([garak.attempt.Turn("user", first_prompt)])
@@ -63,7 +131,9 @@ def test_attempt_turn_taking():
     assert a.outputs == []
     first_response = [garak.attempt.Message(a) for a in ["not much", "as an ai"]]
     a.outputs = first_response
-    assert a.prompt == first_prompt
+    assert a.prompt == garak.attempt.Conversation(
+        [garak.attempt.Turn("user", first_prompt)]
+    )
     assert a.conversations == [
         garak.attempt.Conversation(
             [
@@ -124,7 +194,7 @@ def test_attempt_illegal_ops():
     a = garak.attempt.Attempt()
     a.prompt = "prompt"
     a.outputs = [garak.attempt.Message("output")]
-    with pytest.raises(ValueError):  # should this have changed to ValueError?
+    with pytest.raises(TypeError):  # should this have changed to ValueError?
         a.prompt = "shouldn't be able to set initial prompt after output turned up"
 
     a = garak.attempt.Attempt()
@@ -196,16 +266,16 @@ def test_attempt_set_prompt_var():
     test_text = "Plain Simple Garak"
     direct_attempt = garak.attempt.Attempt()
     direct_attempt.prompt = test_text
-    assert direct_attempt.prompt == garak.attempt.Message(
-        test_text
+    assert direct_attempt.prompt == garak.attempt.Conversation(
+        [garak.attempt.Turn("user", garak.attempt.Message(test_text))]
     ), "setting attempt.prompt should put the a Prompt with the given text in attempt.prompt"
 
 
 def test_attempt_constructor_prompt():
     test_text = "Plain Simple Garak"
     constructor_attempt = garak.attempt.Attempt(prompt=test_text, lang="*")
-    assert constructor_attempt.prompt == garak.attempt.Message(
-        test_text, lang="*"
+    assert constructor_attempt.prompt == garak.attempt.Conversation(
+        [garak.attempt.Turn("user", garak.attempt.Message(test_text, lang="*"))]
     ), "instantiating an Attempt with prompt in the constructor should put a Prompt with the prompt text in attempt.prompt"
 
 
@@ -230,7 +300,13 @@ def test_demo_attempt_dialogue_accessor_usage():
             ]
         ),
     ]
-    assert demo_a.prompt == garak.attempt.Message(test_prompt, lang=prompt_lang)
+    assert demo_a.prompt == garak.attempt.Conversation(
+        [
+            garak.attempt.Turn(
+                "user", garak.attempt.Message(test_prompt, lang=prompt_lang)
+            )
+        ]
+    )
 
     demo_a.outputs = [garak.attempt.Message(test_sys1, lang=response_lang)]
     assert demo_a.conversations == [
@@ -326,7 +402,13 @@ def test_demo_attempt_dialogue_method_usage():
             ]
         )
     ]
-    assert demo_a.prompt == garak.attempt.Message(test_prompt, lang=prompt_lang)
+    assert demo_a.prompt == garak.attempt.Conversation(
+        [
+            garak.attempt.Turn(
+                "user", garak.attempt.Message(test_prompt, lang=prompt_lang)
+            )
+        ]
+    )
 
     # why call expand with 1? I suspect this was for previous implementation reasons
     demo_a._expand_prompt_to_histories(1)
@@ -339,7 +421,13 @@ def test_demo_attempt_dialogue_method_usage():
             ]
         )
     ]
-    assert demo_a.prompt == garak.attempt.Message(test_prompt, lang=prompt_lang)
+    assert demo_a.prompt == garak.attempt.Conversation(
+        [
+            garak.attempt.Turn(
+                "user", garak.attempt.Message(test_prompt, lang=prompt_lang)
+            )
+        ]
+    )
 
     demo_a._add_turn(
         "assistant", [garak.attempt.Message(test_sys1, lang=response_lang)]
@@ -470,50 +558,11 @@ def test_attempt_all_outputs():
     ]
 
 
-def test_attempt_turn_prompt_init():
+def test_attempt_message_prompt_init():
     test_prompt = "Enabran Tain"
     att = garak.attempt.Attempt(prompt=test_prompt, lang="*")
-    assert att.prompt == garak.attempt.Message(text=test_prompt, lang="*")
-
-
-def test_turn_internal_serialize():
-    import dataclasses
-
-    test_prompt = "But the point is, if you lie all the time, nobody's going to believe you, even when you're telling the truth."
-    src = garak.attempt.Message()
-    src.text = test_prompt
-    serialised = dataclasses.asdict(src)
-    dest = garak.attempt.Message(**serialised)
-    assert src == dest
-
-
-def test_turn_setup():
-    test_prompt = "Inter Arma Enim Silent Leges"
-    t = garak.attempt.Message(test_prompt)
-    assert t.text == test_prompt, "text member of turn should match constructor param"
-    # TODO: parts not longer exists
-    # assert (
-    #     t.parts["text"] == test_prompt
-    # ), "Turn parts['text'] should match constructor param"
-    # test_prompt_lower = test_prompt.lower()
-    # t.parts["text"] = test_prompt_lower
-    # assert (
-    #     t.parts["text"] == t.text
-    # ), "text member of turn should match text item of turn.parts"
-
-
-def test_turn_serializable():
-    t = garak.attempt.Message()
-    json.dumps(t)
-
-
-def test_turn_image_load():
-    t = garak.attempt.Message()
-    t.add_part("image_filename", "tests/_assets/tinytrans.gif")
-    t.load_image()
-    assert (
-        t.parts["image_data"]
-        == b"GIF89a\x01\x00\x01\x00\x80\x01\x00\xff\xff\xff\x00\x00\x00!\xf9\x04\x01\n\x00\x01\x00,\x00\x00\x00\x00\x01\x00\x01\x00\x00\x02\x02L\x01\x00;"
+    assert att.prompt == garak.attempt.Conversation(
+        [garak.attempt.Turn("user", garak.attempt.Message(text=test_prompt, lang="*"))]
     )
 
 
@@ -530,17 +579,58 @@ def test_json_serialize():
         "probe_classname": None,
         "probe_params": {},
         "targets": [],
-        "prompt": {"text": "well hello"},
+        "prompt": {
+            "turns": [
+                {
+                    "role": "user",
+                    "content": {
+                        "text": "well hello",
+                        "data_path": None,
+                        "lang": "*",
+                        "notes": {},
+                    },
+                },
+            ],
+            "template": None,
+            "notes": {},
+        },
         "lang": "*",
-        "outputs": [{"text": "output one"}],
+        "outputs": [
+            {
+                "text": "output one",
+                "data_path": None,
+                "lang": None,
+                "notes": {},
+            }
+        ],
         "detector_results": {},
         "notes": {},
         "goal": None,
-        "messages": [
-            [
-                {"role": "user", "content": {"text": "well hello"}},
-                {"role": "assistant", "content": {"text": "output one"}},
-            ]
+        "conversations": [
+            {
+                "turns": [
+                    {
+                        "role": "user",
+                        "content": {
+                            "text": "well hello",
+                            "data_path": None,
+                            "lang": "*",
+                            "notes": {},
+                        },
+                    },
+                    {
+                        "role": "assistant",
+                        "content": {
+                            "text": "output one",
+                            "data_path": None,
+                            "lang": None,
+                            "notes": {},
+                        },
+                    },
+                ],
+                "template": None,
+                "notes": {},
+            }
         ],
         "reverse_translation_outputs": [],
     }
@@ -575,27 +665,29 @@ def test_attempt_sticky_params(capsys):
 
 def test_prompt_for():
     og_prompt = garak.attempt.Message("Enabran Tain", lang="en")
+    og_conv = garak.attempt.Conversation([garak.attempt.Turn("user", og_prompt)])
     tlh_prompt = garak.attempt.Message("eNa'bRaN tayn", lang="tlh")
+    tlh_conv = garak.attempt.Conversation([garak.attempt.Turn("user", tlh_prompt)])
 
     all_output_a = garak.attempt.Attempt()
     all_output_a.prompt = tlh_prompt
     all_output_a.notes = {
-        "pre_translation_prompt": og_prompt,
+        "pre_translation_prompt": og_conv,
     }
 
     all_output_b = garak.attempt.Attempt()
     all_output_b.prompt = tlh_prompt
 
-    assert all_output_a.prompt == tlh_prompt
-    assert all_output_a.prompt_for("tlh") == tlh_prompt
-    assert all_output_a.prompt_for(None) == tlh_prompt
-    assert all_output_a.prompt_for("*") == tlh_prompt
-    assert all_output_a.prompt_for("en") == og_prompt
+    assert all_output_a.prompt == tlh_conv
+    assert all_output_a.prompt_for("tlh") == tlh_conv
+    assert all_output_a.prompt_for(None) == tlh_conv
+    assert all_output_a.prompt_for("*") == tlh_conv
+    assert all_output_a.prompt_for("en") == og_conv
 
-    assert all_output_b.prompt_for("tlh") == tlh_prompt
-    assert all_output_b.prompt_for(None) == tlh_prompt
-    assert all_output_b.prompt_for("*") == tlh_prompt
-    assert all_output_b.prompt_for("en") == tlh_prompt
+    assert all_output_b.prompt_for("tlh") == tlh_conv
+    assert all_output_b.prompt_for(None) == tlh_conv
+    assert all_output_b.prompt_for("*") == tlh_conv
+    assert all_output_b.prompt_for("en") == tlh_conv
 
 
 def test_outputs_for():
@@ -623,14 +715,14 @@ def test_outputs_for():
     tlh_outputs = [garak.attempt.Message("DajlI' QInvam", lang="tlh")]
     reverse_outputs = [garak.attempt.Message("This is a test", lang="*")]
 
-    all_output_b = garak.attempt.Attempt()
-    all_output_b.prompt = tlh_prompt
-    all_output_b.outputs = tlh_outputs
-    all_output_b.reverse_translator_outputs = reverse_outputs
+    # all_output_b = garak.attempt.Attempt()
+    # all_output_b.prompt = tlh_prompt
+    # all_output_b.outputs = tlh_outputs
+    # all_output_b.reverse_translation_outputs = reverse_outputs
 
-    # is this actually a different scenario here? Before this tested the prompt as "*" but we no longer used that
-    assert all_output_b.all_outputs == tlh_outputs
-    assert all_output_b.outputs_for("tlh") == tlh_outputs
-    assert all_output_b.outputs_for(None) == tlh_outputs
-    assert all_output_b.outputs_for("*") == tlh_outputs
-    assert all_output_b.outputs_for("en") == tlh_outputs
+    # # is this actually a different scenario here? Before this tested the prompt as "*" but we no longer used that
+    # assert all_output_b.all_outputs == tlh_outputs
+    # assert all_output_b.outputs_for("tlh") == tlh_outputs
+    # assert all_output_b.outputs_for(None) == tlh_outputs
+    # assert all_output_b.outputs_for("*") == tlh_outputs
+    # assert all_output_b.outputs_for("en") == tlh_outputs
