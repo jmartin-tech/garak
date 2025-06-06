@@ -107,7 +107,7 @@ class Pipeline(Generator, HFCompatible):
     def _clear_client(self):
         self.generator = None
 
-    def _format_chat_prompt(self, chat_conversation: str) -> List[dict]:
+    def _format_chat_prompt(self, chat_conversation: Conversation) -> List[dict]:
         return [
             {"role": turn.role, "content": turn.content.text}
             for turn in chat_conversation.turns
@@ -152,8 +152,11 @@ class Pipeline(Generator, HFCompatible):
 
         if self.deprefix_prompt:
             # should this be formatted_prompt or prompt.turns[-1].content.text
+            prefix = formatted_prompt
+            if isinstance(formatted_prompt, list):
+                prefix = formatted_prompt[-1]["content"]
             text_outputs = [
-                re.sub("^" + re.escape(formatted_prompt), "", _o) for _o in text_outputs
+                re.sub("^" + re.escape(prefix), "", _o) for _o in text_outputs
             ]
 
         return [Message(t) for t in text_outputs]
@@ -466,12 +469,12 @@ class Model(Pipeline, HFCompatible):
             with torch.no_grad():
                 if self.use_chat:
                     formatted_prompt = self.tokenizer.apply_chat_template(
-                        self._format_chat_prompt(prompt.text),
+                        self._format_chat_prompt(prompt),
                         tokenize=False,
                         add_generation_prompt=True,
                     )
                 else:
-                    formatted_prompt = prompt.text
+                    formatted_prompt = prompt.turns[-1].content.text
 
                 inputs = self.tokenizer(
                     formatted_prompt, truncation=True, return_tensors="pt"
@@ -486,7 +489,7 @@ class Model(Pipeline, HFCompatible):
                         **inputs, generation_config=self.generation_config
                     )
                 except Exception as e:
-                    if len(prompt.text) == 0:
+                    if len(formatted_prompt) == 0:
                         returnval = [None] * generations_this_call
                         logging.exception("Error calling generate for empty prompt")
                         print(returnval)

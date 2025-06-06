@@ -2,7 +2,7 @@ import pytest
 import requests
 import transformers
 
-from garak.attempt import Message, Conversation
+from garak.attempt import Message, Turn, Conversation
 from garak._config import GarakSubConfig
 import garak.generators.huggingface
 
@@ -46,7 +46,8 @@ def test_pipeline(hf_generator_config):
     assert g.max_tokens == 99
     g.temperature = 0.1
     assert g.temperature == 0.1
-    output = g.generate(Message(""), generations_this_call=generations)
+    conv = Conversation([Turn("user", Message(""))])
+    output = g.generate(conv, generations_this_call=generations)
     assert len(output) == generations  # verify generation count matched call
     for item in output:
         assert isinstance(item, Message)
@@ -60,7 +61,8 @@ def test_pipeline_chat(mocker, hf_generator_config):
     mock_format = mocker.patch.object(
         g, "_format_chat_prompt", wraps=g._format_chat_prompt
     )
-    output = g.generate(Message("Hello world!"))
+    conv = Conversation([Turn("user", Message("Hello world!"))])
+    output = g.generate(conv)
     mock_format.assert_called_once()
     assert len(output) == 1
     for item in output:
@@ -88,7 +90,8 @@ def test_inference(mocker, hf_mock_response, hf_generator_config):
     assert g.max_tokens == 99
     g.temperature = 0.1
     assert g.temperature == 0.1
-    output = g.generate(Message(""))
+    conv = Conversation([Turn("user", Message(""))])
+    output = g.generate(conv)
     mock_request.assert_called_once()
     assert len(output) == 1  # 1 generation by default
     for item in output:
@@ -114,7 +117,8 @@ def test_endpoint(mocker, hf_mock_response, hf_generator_config):
     assert g.max_tokens == 99
     g.temperature = 0.1
     assert g.temperature == 0.1
-    output = g.generate(Message(""))
+    conv = Conversation([Turn("user", Message(""))])
+    output = g.generate(conv)
     mock_request.assert_called_once()
     assert len(output) == 1  # 1 generation by default
     for item in output:
@@ -132,7 +136,8 @@ def test_model(hf_generator_config):
     assert g.max_tokens == 99
     g.temperature = 0.1
     assert g.temperature == 0.1
-    output = g.generate(Message(""))
+    conv = Conversation([Turn("user", Message(""))])
+    output = g.generate(conv)
     assert len(output) == 1  # expect 1 generation by default
     for item in output:
         assert item is None  # gpt2 is known raise exception returning `None`
@@ -146,7 +151,8 @@ def test_model_chat(mocker, hf_generator_config):
     mock_format = mocker.patch.object(
         g, "_format_chat_prompt", wraps=g._format_chat_prompt
     )
-    output = g.generate(Message("Hello world!"))
+    conv = Conversation([Turn("user", Message("Hello world!"))])
+    output = g.generate(conv)
     mock_format.assert_called_once()
     assert len(output) == 1
     for item in output:

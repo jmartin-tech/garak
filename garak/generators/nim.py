@@ -10,7 +10,7 @@ from typing import List, Union
 import openai
 
 from garak import _config
-from garak.attempt import Message, Conversation
+from garak.attempt import Message, Turn, Conversation
 from garak.exception import GarakException
 from garak.generators.openai import OpenAICompatible
 
@@ -64,7 +64,7 @@ class NVOpenAIChat(OpenAICompatible):
             )
         self.generator = self.client.chat.completions
 
-    def _prepare_prompt(self, prompt: Message) -> Message:
+    def _prepare_prompt(self, prompt: Conversation) -> Conversation:
         return prompt
 
     def _call_model(
@@ -98,7 +98,7 @@ class NVOpenAIChat(OpenAICompatible):
         except Exception as oe:
             msg = "NIM generation failed. Is the model name spelled correctly?"
             logging.critical(msg, exc_info=oe)
-            raise GarakException(f"🛑 {msg}") from nfe
+            raise GarakException(f"🛑 {msg}") from oe
 
         return result
 
@@ -150,38 +150,49 @@ class Vision(NVOpenAIChat):
 
     modality = {"in": {"text", "image"}, "out": {"text"}}
 
-    def _prepare_prompt(self, turn: Message) -> Message:
+    def _prepare_prompt(self, conv: Conversation) -> Conversation:
+        from dataclasses import asdict
 
-        text = turn.text
+        prepared_conv = Conversation()
 
-        image_extension = "jpeg"  # guessing a default in the case of direct data
+        for turn in conv.turns:
+            msg = turn.content
+            # only manipulate the copy
+            prepared_msg = Message(**asdict(msg))
 
-        if "image_filename" in turn.parts and "image_data" not in turn.parts:
-            turn.load_image()
-            image_extension = turn.parts["image_filename"].split(".")[-1].lower()
-            if image_extension == "jpg":  # image/jpg is not a valid mimetype
-                image_extension = "jpeg"
+            text = msg.text
 
-        if "image_data" in turn.parts:
-            import base64
+            image_extension = "jpeg"  # guessing a default in the case of direct data
+            # should this used mime/type detection on the actually data vs a default guess?
 
-            image_b64 = base64.b64encode(turn.parts["image_data"]).decode()
+            if msg.data_path:
+                image_extension = msg.data_path.split(".")[-1].lower()
+                if image_extension == "jpg":  # image/jpg is not a valid mimetype
+                    image_extension = "jpeg"
 
-            if len(image_b64) > self.max_image_len:
-                big_img_filename = "<direct data>"
-                if "image_filename" in turn.parts:
-                    big_img_filename = turn.parts["image_filename"]
-                logging.error(
-                    "Image %s exceeds length limit. To upload larger images, use the assets API (not yet supported)",
-                    big_img_filename,
+            if msg.data is not None:
+                import base64
+
+                image_b64 = base64.b64encode(msg.data).decode()
+
+                if len(image_b64) > self.max_image_len:
+                    big_img_filename = "<direct data>"
+                    if msg.data_path is not None:
+                        big_img_filename = msg.data_path
+                    logging.error(
+                        "Image %s exceeds length limit. To upload larger images, use the assets API (not yet supported)",
+                        big_img_filename,
+                    )
+                    return None
+
+                text = (
+                    text
+                    + f' <img src="data:image/{image_extension};base64,{image_b64}" />'
                 )
-                return None
+                prepared_msg.text = text
 
-            text = (
-                text + f' <img src="data:image/{image_extension};base64,{image_b64}" />'
-            )
-            turn.text = text
-        return turn
+            prepared_conv.turns.append(Turn(turn.role, prepared_msg))
+        return prepared_conv
 
 
 DEFAULT_CLASS = "NVOpenAIChat"

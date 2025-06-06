@@ -4,8 +4,7 @@
 import os
 import pytest
 
-import garak._plugins
-from garak.attempt import Message, Conversation
+from garak.attempt import Message, Turn, Conversation
 import garak.cli
 from garak.generators.nim import NVOpenAIChat
 
@@ -80,15 +79,21 @@ def test_nim_conservative_api():  # extraneous params can throw 422
 
 def test_nim_vision_prep():
     test_prompt = "test vision prompt"
-    t = Message(test_prompt)
-    t.parts["image_filename"] = "tests/_assets/tinytrans.gif"
+    t = Conversation(
+        [
+            Turn(
+                "user",
+                Message(text=test_prompt, data_path="tests/_assets/tinytrans.gif"),
+            )
+        ]
+    )
     from garak.generators.nim import Vision
 
     v = Vision  # skip instantiation, not req'd
     setattr(v, "max_image_len", 100_000)
-    vision_turn = Vision._prepare_prompt(v, t)
+    vision_conv = Vision._prepare_prompt(v, t)
     assert (
-        vision_turn.text
+        vision_conv.turns[-1].content.text
         == test_prompt
         + ' <img src="data:image/gif;base64,R0lGODlhAQABAIABAP///wAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==" />'
     )

@@ -10,7 +10,7 @@ import inspect
 
 from collections.abc import Iterable
 
-from garak.attempt import Message, Conversation
+from garak.attempt import Message, Turn, Conversation
 from garak.generators.openai import OpenAICompatible
 
 
@@ -80,7 +80,7 @@ def generate_in_subprocess(*args):
             )
         )
 
-        return generator.generate(Message(prompt))
+        return generator.generate(prompt)
 
 
 @pytest.mark.parametrize("classname", compatible())
@@ -92,10 +92,23 @@ def test_openai_multiprocessing(openai_compat_mocks, classname):
     mod = importlib.import_module(namespace)
     klass = getattr(mod, klass_name)
     generator = build_test_instance(klass)
+    Conversation([Turn("user", Message("first testing string"))])
     prompts = [
-        (generator, openai_compat_mocks, Message("first testing string")),
-        (generator, openai_compat_mocks, Message("second testing string")),
-        (generator, openai_compat_mocks, Message("third testing string")),
+        (
+            generator,
+            openai_compat_mocks,
+            Conversation([Turn("user", Message("first testing string"))]),
+        ),
+        (
+            generator,
+            openai_compat_mocks,
+            Conversation([Turn("user", Message("second testing string"))]),
+        ),
+        (
+            generator,
+            openai_compat_mocks,
+            Conversation([Turn("user", Message("third testing string"))]),
+        ),
     ]
 
     for _ in range(iterations):

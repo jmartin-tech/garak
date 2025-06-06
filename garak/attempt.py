@@ -1,18 +1,11 @@
 """Defines the Attempt class, which encapsulates a prompt with metadata and results"""
 
-import json
-import logging
-from dataclasses import dataclass, field, asdict
+from dataclasses import dataclass, field, asdict, is_dataclass
 from copy import deepcopy
 from pathlib import Path
 from types import GeneratorType
-from typing import Any, List, Union
+from typing import List, Union
 import uuid
-from contextlib import contextmanager
-import jinja2
-from jinja2.ext import Extension
-from jinja2.sandbox import ImmutableSandboxedEnvironment
-from functools import lru_cache
 
 (
     ATTEMPT_NEW,
@@ -56,7 +49,7 @@ class Message:
             if self.data_path is not None:
                 self._data = Message._load_data(self.data_path)
             else:
-                raise ValueError("no binary data found")
+                return None
         return self._data
 
     @data.setter
@@ -119,84 +112,6 @@ class Conversation:
         for turn in turns:
             ret_val.turns.append(Turn.from_dict(turn))
         return ret_val
-
-    # @lru_cache
-    # def _compile_template(self):
-    #     # Largely borrowed and gently modified from HuggingFace's implementation of the same
-    #     # https://github.com/huggingface/transformers/blob/main/src/transformers/utils/chat_template_utils.py#L365
-    #     class AssistantTracker(Extension):
-    #         # This extension is used to track the indices of assistant-generated tokens in the rendered chat
-    #         tags = {"generation"}
-
-    #         def __init__(self, environment: ImmutableSandboxedEnvironment):
-    #             # The class is only initiated by jinja.
-    #             super().__init__(environment)
-    #             environment.extend(activate_tracker=self.activate_tracker)
-    #             self._rendered_blocks = None
-    #             self._generation_indices = None
-
-    #         def parse(self, parser: jinja2.parser.Parser) -> jinja2.nodes.CallBlock:
-    #             lineno = next(parser.stream).lineno
-    #             body = parser.parse_statements(["name:endgeneration"], drop_needle=True)
-    #             return jinja2.nodes.CallBlock(
-    #                 self.call_method("_generation_support"), [], [], body
-    #             ).set_lineno(lineno)
-
-    #         @jinja2.pass_eval_context
-    #         def _generation_support(
-    #             self, context: jinja2.nodes.EvalContext, caller: jinja2.runtime.Macro
-    #         ) -> str:
-    #             rv = caller()
-    #             if self.is_active():
-    #                 # Only track generation indices if the tracker is active
-    #                 start_index = len("".join(self._rendered_blocks))
-    #                 end_index = start_index + len(rv)
-    #                 self._generation_indices.append((start_index, end_index))
-    #             return rv
-
-    #         def is_active(self) -> bool:
-    #             return self._rendered_blocks or self._generation_indices
-
-    #         @contextmanager
-    #         def activate_tracker(
-    #             self, rendered_blocks: List[int], generation_indices: List[int]
-    #         ):
-    #             try:
-    #                 if self.is_active():
-    #                     raise ValueError(
-    #                         "AssistantTracker should not be reused before closed"
-    #                     )
-    #                 self._rendered_blocks = rendered_blocks
-    #                 self._generation_indices = generation_indices
-
-    #                 yield
-    #             finally:
-    #                 self._rendered_blocks = None
-    #                 self._generation_indices = None
-
-    #     def jinja_exception(msg):
-    #         raise jinja2.exceptions.TemplateError(msg)
-
-    #     def to_json(
-    #         text, ensure_ascii=False, indent=None, separators=None, sort_keys=False
-    #     ):
-    #         return json.dumps(
-    #             text,
-    #             ensure_ascii=ensure_ascii,
-    #             indent=indent,
-    #             separators=separators,
-    #             sort_keys=sort_keys,
-    #         )
-
-    #     jinja_env = ImmutableSandboxedEnvironment(
-    #         trim_blocks=True,
-    #         lstrip_blocks=True,
-    #         extensions=[AssistantTracker, jinja2.ext.loopcontrols],
-    #     )
-    #     jinja_env.filters["tojson"] = to_json
-    #     jinja_env.globals["raise_exception"] = jinja_exception
-
-    #     return jinja_env.from_string(self.template)
 
 
 class Attempt:
@@ -290,13 +205,22 @@ class Attempt:
         self.detector_results = {} if detector_results is None else detector_results
         self.goal = goal
         self.seq = seq
-        self.lang = lang
         self.reverse_translation_outputs = (
             {} if reverse_translation_outputs is None else reverse_translation_outputs
         )
 
     def as_dict(self) -> dict:
         """Converts the attempt to a dictionary."""
+        notes = {}
+        for k, v in self.notes.items():
+            if is_dataclass(v):
+                notes[k] = asdict(v)
+                continue
+            if isinstance(v, list) and len(v) > 0 and is_dataclass(v[0]):
+                notes[k] = [asdict(e) for e in v]
+            else:
+                notes[k] = v
+
         return {
             "entry_type": "attempt",
             "uuid": str(self.uuid),
@@ -308,12 +232,11 @@ class Attempt:
             "prompt": asdict(self.prompt),
             "outputs": [asdict(output) for output in self.outputs],
             "detector_results": {k: list(v) for k, v in self.detector_results.items()},
-            "notes": self.notes,
+            "notes": notes,
             "goal": self.goal,
             "conversations": [
                 asdict(conversation) for conversation in self.conversations
             ],
-            "lang": self.lang,
             "reverse_translation_outputs": [
                 asdict(output) for output in self.reverse_translation_outputs
             ],
@@ -323,17 +246,10 @@ class Attempt:
     def prompt(self) -> Union[Conversation | None]:
         if hasattr(self, "_prompt"):
             return self._prompt
-        if len(self.conversations[0].turns) == 0:  # nothing set
-            return None
-        else:
-            try:
-                return self.conversations[0]
-            except:
-                raise ValueError(
-                    "Message history of attempt uuid %s in unexpected state, sorry: "
-                    % str(self.uuid)
-                    + repr(self.conversations)
-                )
+
+    @property
+    def lang(self):
+        self.prompt.turns[-1].content.lang
 
     @property
     def outputs(self) -> List[Message]:
@@ -352,27 +268,6 @@ class Attempt:
                 # return these (via list compr)
                 generated_outputs.append(conversation.turns[last_output_turn].content)
         return generated_outputs
-
-    @property
-    def latest_prompts(self) -> Union[Message | List[Message]]:
-        if len(self.conversations) > 1 or len(self.conversations[-1].turns) > 1:
-            latest = []
-            for conversation in self.conversations:
-                # work out last_output_turn that was user
-                last_output_turn = max(
-                    [
-                        idx
-                        for idx, val in enumerate(conversation.turns)
-                        if val.role == "user"
-                    ]
-                )
-                # return these (via list compr)
-                latest.append(conversation.turns[last_output_turn].content)
-            return latest  # should this now return a Turn or a Conversation?
-        else:
-            return (
-                self.prompt
-            )  # returning a Turn instead of a list tips us off that generation count is not yet known
 
     @property
     def all_outputs(self) -> List[Message]:
@@ -403,8 +298,14 @@ class Attempt:
             raise TypeError("prompt must be a Conversation, Message or str object")
         self.conversations = [Conversation.from_dict(asdict(self._prompt))]
 
+    @lang.setter
+    def lang(self, value):
+        raise NotImplemented("Language of an attempt cannot be set after creation")
+
     @outputs.setter
-    def outputs(self, value: Union[GeneratorType | List[str | Message]]):
+    def outputs(
+        self, value: Union[GeneratorType | List[str | Message]]
+    ) -> List[Message]:
         # these need to build or be Turns and add to Conversations
         if not (isinstance(value, list) or isinstance(value, GeneratorType)):
             raise TypeError("Value for attempt.outputs must be a list or generator")
@@ -420,12 +321,7 @@ class Attempt:
         # append each list item to each history, with role:assistant
         self._add_turn("assistant", value)
 
-    @latest_prompts.setter
-    def latest_prompts(self, value):
-        assert isinstance(value, list)
-        self._add_turn("user", value)
-
-    def prompt_for(self, lang) -> Message:
+    def prompt_for(self, lang) -> Conversation:
         """prompt for a known language
 
         When "*" or None are passed returns the prompt passed to the model
@@ -471,34 +367,6 @@ class Attempt:
 
         self.conversations = [deepcopy(self.conversations[0]) for _ in range(breadth)]
 
-    def _add_first_turn(self, role: str, content: Union[str | Message]) -> None:
-        """add the first turn (after a prompt) to a message history"""
-
-        # tests show this should be restricted if progress has started
-        # this suggests the values should not be modified
-
-        if isinstance(content, str) and isinstance(role, str):
-            content = Message(text=content, role=role)
-
-        if len(self.conversations) and len(self.conversations[0].turns):
-            if isinstance(self.conversations[0].turns[-1], Turn):
-                logging.warning(
-                    f"Cannot set prompt of attempt uuid {self.uuid} with content already in message history: {repr(self.conversations)}"
-                )
-                if (
-                    self.conversations[0].turns[-1].role != "user"
-                    or self.conversations[0].turns[-1].role != "system"
-                ):
-                    raise ValueError(
-                        "Unexpected state in attempt messages -- first message is not `user` or `system`."
-                    )
-
-        else:
-            if len(self.conversations) == 0:
-                self.conversations.append(list())
-            self.conversations[0].turns.append(Turn(role, content))
-            return
-
     def _add_turn(self, role: str, contents: List[Union[Message, str]]) -> None:
         """add a 'layer' to a message history.
 
@@ -523,7 +391,7 @@ class Attempt:
             for idx, entry in enumerate(contents):
                 content = entry
                 if isinstance(entry, str):
-                    content = Message(entry)
+                    content = Message(entry, lang=self.lang)
                 self.conversations[idx].turns.append(Turn(role, content))
             return
         raise ValueError(

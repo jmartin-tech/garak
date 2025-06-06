@@ -124,9 +124,12 @@ class LiteLLMGenerator(Generator):
     def _call_model(
         self, prompt: Conversation, generations_this_call: int = 1
     ) -> List[Union[Message, None]]:
-        if isinstance(prompt, Message):
-            litellm_prompt = [{"role": "user", "content": prompt.text}]
+        if isinstance(prompt, Conversation):
+            litellm_prompt = []
+            for turn in prompt.turns:
+                litellm_prompt.append({"role": turn.role, "content": turn.content.text})
         elif isinstance(prompt, list):
+            # should we maintain support for list here?
             litellm_prompt = prompt
         else:
             msg = (

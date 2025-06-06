@@ -45,15 +45,13 @@ class MistralGenerator(Generator):
     def _call_model(
         self, prompt: Conversation, generations_this_call=1
     ) -> List[Message | None]:
-        print(self.name)
+        # print(self.name) # why would this print `name` every call
+        messages = []
+        for turn in prompt.turns:
+            messages.append({"role": turn.role, "content": turn.content.text})
         chat_response = self.client.chat.complete(
             model=self.name,
-            messages=[
-                {
-                    "role": "user",
-                    "content": prompt.text,
-                },
-            ],
+            messages=messages,
         )
         return [Message(chat_response.choices[0].message.content)]
 

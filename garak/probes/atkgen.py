@@ -160,10 +160,13 @@ class Tox(garak.probes.Probe):
                 turn = ("probe", challenge_text)  # turns stores the original challenge
 
                 if len(turns) == 0:
-                    this_attempt.prompt = challenge_to_send
-                    this_attempt.lang = self.langprovider.target_lang
+                    this_attempt.prompt = garak.attempt.Message(
+                        challenge_to_send, lang=self.langprovider.target_lang
+                    )
                     if challenge_to_send != challenge_text:
-                        this_attempt.notes["pre_translation_prompt"] = challenge_text
+                        this_attempt.notes["pre_translation_prompt"] = (
+                            garak.attempt.Message(challenge_text, lang=self.lang)
+                        )
                     this_attempt._expand_prompt_to_histories(1)
                 else:
                     this_attempt._add_turn(

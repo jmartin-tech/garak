@@ -10,7 +10,7 @@ from typing import List, Union
 from garak import _plugins
 from garak import _config
 
-from garak.attempt import Message, Conversation
+from garak.attempt import Message, Turn, Conversation
 from garak.generators.base import Generator
 
 
@@ -24,18 +24,21 @@ GENERATORS = [
 
 
 def test_parallel_requests():
-    _config.system.parallel_requests = 2
+    parallel_count = 2
+    _config.system.parallel_requests = parallel_count
+    _config.system.max_workers = parallel_count
 
     g = _plugins.load_plugin("generators.test.Lipsum")
-    result = g.generate(prompt=Message("this is a test"), generations_this_call=3)
+    prompt = Conversation(Turn("user", [Message("this is a test")]))
+    result = g.generate(prompt=prompt, generations_this_call=3)
     assert isinstance(result, list), "Generator generate() should return a list"
     assert len(result) == 3, "Generator should return 3 results as requested"
     assert all(
         isinstance(item, Message) for item in result
-    ), "All items in the generate result should be Turns"
+    ), "All items in the generate result should be Messages"
     assert all(
         len(item.text) > 0 for item in result
-    ), "All generated Turn texts should be non-empty"
+    ), "All generated Message texts should be non-empty"
 
 
 @pytest.mark.parametrize("classname", GENERATORS)
@@ -148,13 +151,15 @@ def test_generator_signature(classname):
     ), "_call_model should take a Turn and return list of Turns or Nones"
 
 
+# consider refactor as test table
+# (skip_seq_start, skip_seq_end, request_text, expected_text, error_msg)
 def test_skip_seq():
     target_string = "TEST TEST 1234"
     test_string_with_thinking = "TEST TEST <think>not thius tho</think>1234"
     test_string_with_thinking_complex = '<think></think>TEST TEST <think>not thius tho</think>1234<think>!"(^-&$(!$%*))</think>'
     test_string_with_newlines = "<think>\n\n</think>" + target_string
     g = _plugins.load_plugin("generators.test.Repeat")
-    r = g.generate(Conversation(turns=[Message(test_string_with_thinking)]))
+    r = g.generate(Conversation([Turn("user", Message(test_string_with_thinking))]))
     g.skip_seq_start = None
     g.skip_seq_end = None
     assert r[0] == Message(
@@ -162,40 +167,44 @@ def test_skip_seq():
     ), "test.Repeat should give same output as input when no think tokens specified"
     g.skip_seq_start = "<think>"
     g.skip_seq_end = "</think>"
-    r = g.generate(Conversation(turns=[Message(test_string_with_thinking)]))
+    r = g.generate(Conversation([Turn("user", Message(test_string_with_thinking))]))
     assert r[0] == Message(
         target_string
     ), "content between single skip sequence should be removed"
-    r = g.generate(Conversation(turns=[Message(test_string_with_thinking_complex)]))
+    r = g.generate(
+        Conversation([Turn("user", Message(test_string_with_thinking_complex))])
+    )
     assert r[0] == Message(
         target_string
     ), "content between multiple skip sequences should be removed"
-    r = g.generate(Conversation(turns=[Message(test_string_with_newlines)]))
+    r = g.generate(Conversation([Turn("user", Message(test_string_with_newlines))]))
     assert r[0] == Message(
         target_string
     ), "skip seqs full of newlines should be removed"
 
     test_no_answer = "<think>not sure the output to provide</think>"
-    r = g.generate(Conversation(turns=[Message(test_no_answer)]))
+    r = g.generate(Conversation([Turn("user", Message(test_no_answer))]))
     assert r[0] == Message(""), "Output of all skip strings should be empty"
 
     test_truncated_think = f"<think>thinking a bit</think>{target_string}<think>this process required a lot of details that is processed by"
-    r = g.generate(Conversation(turns=[Message(test_truncated_think)]))
+    r = g.generate(Conversation([Turn("user", Message(test_truncated_think))]))
     assert r[0] == Message(target_string), "truncated skip strings should be omitted"
 
     test_truncated_think_no_answer = "<think>thinking a bit</think><think>this process required a lot of details that is processed by"
-    r = g.generate(Conversation(turns=[Message(test_truncated_think_no_answer)]))
+    r = g.generate(
+        Conversation([Turn("user", Message(test_truncated_think_no_answer))])
+    )
     assert r[0] == Message(""), "truncated skip strings should be omitted"
 
     test_has_only_end_think = "some thinking</think>" + target_string
-    r = g.generate(Message(test_has_only_end_think))
+    r = g.generate(Conversation([Turn("user", Message(test_has_only_end_think))]))
     assert r[0] == Message(
         test_has_only_end_think
     ), "for non empty skip_seq_start, if skip_seq_start is not found and skip_seq_end is found, no stripping should be done"
 
     g.skip_seq_start = ""
     g.skip_seq_end = "</think>"
-    r = g.generate(Message(test_has_only_end_think))
+    r = g.generate(Conversation([Turn("user", Message(test_has_only_end_think))]))
     assert r[0] == Message(
         target_string
     ), "for empty skip_seq_start, if skip_seq_start is not found and skip_seq_end is found, strip from start of output till skip_seq_end"
@@ -203,7 +212,7 @@ def test_skip_seq():
     test_multiple_end_thinks = (
         "some thinking</think><think>some more thinking</think>" + target_string
     )
-    r = g.generate(Message(test_multiple_end_thinks))
+    r = g.generate(Conversation([Turn("user", Message(test_multiple_end_thinks))]))
     assert r[0] == Message(
         target_string
     ), "for empty skip_seq_start, if skip_seq_start is not found and multiple skip_seq_end is found, strip from start of output till last skip_seq_end"
@@ -211,7 +220,9 @@ def test_skip_seq():
     test_multiple_end_thinks_discontinuous = (
         "some thinking</think>" + target_string + "<think>some more thinking</think>"
     )
-    r = g.generate(Message(test_multiple_end_thinks_discontinuous))
+    r = g.generate(
+        Conversation([Turn("user", Message(test_multiple_end_thinks_discontinuous))])
+    )
     assert r[0] == Message(
         ""
     ), "for empty skip_seq_start, if skip_seq_start is not found and multiple skip_seq_end is found, strip from start of output till last skip_seq_end"

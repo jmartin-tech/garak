@@ -165,46 +165,29 @@ def test_attempt_history_lengths():
     with pytest.raises(ValueError):
         a.outputs = ["x"] * (generations + 1)
     new_prompt_text = "y"
-    a.latest_prompts = [garak.attempt.Message(new_prompt_text)] * generations
-    assert len(a.conversations) == generations, "History should track all generations"
-    assert len(a.conversations[0].turns) == 3, "Three turns so far"
-    assert (
-        len(a.latest_prompts) == generations
-    ), "Should be correct number of latest prompts"
-    assert a.latest_prompts[0] == garak.attempt.Message(
-        new_prompt_text
-    ), "latest_prompts should be tracking latest addition"
+    expand_attempts = []
+    for conversation in a.conversations:
+        b = garak.attempt.Attempt()
+        new_conv = garak.attempt.Conversation(
+            conversation.turns
+            + [garak.attempt.Turn("user", garak.attempt.Message(new_prompt_text))]
+        )
+        b.prompt = new_conv
+        assert len(b.prompt.turns) == 3, "Three turns so far"
+        assert b.prompt.turns[-1].content == garak.attempt.Message(
+            new_prompt_text
+        ), "last message should be tracking latest addition"
+        expand_attempts.append(b)
+
+    assert len(expand_attempts) == generations, "History should track all generations"
 
 
 def test_attempt_illegal_ops():
     a = garak.attempt.Attempt()
-    with pytest.raises(ValueError):
-        a.latest_prompts = [
-            "a"
-        ]  # shouldn't be able to set latest_prompts until the generations count is known, from outputs()
-
-    # a = garak.attempt.Attempt(lang="*")
-    # a.prompt = "prompts"
-    # with pytest.raises(ValueError):
-    #     # why do we have a latest_prompts method? This does not look like it is called but it is tested.
-    #     a.latest_prompts = [
-    #         "a"
-    #     ]  # shouldn't be able to set latest_prompts until the generations count is known, from outputs()
-
-    a = garak.attempt.Attempt()
     a.prompt = "prompt"
     a.outputs = [garak.attempt.Message("output")]
-    with pytest.raises(TypeError):  # should this have changed to ValueError?
+    with pytest.raises(TypeError):
         a.prompt = "shouldn't be able to set initial prompt after output turned up"
-
-    a = garak.attempt.Attempt()
-    a.prompt = "prompt"
-    a.outputs = [garak.attempt.Message("output")]
-    with pytest.raises(ValueError):
-        a.latest_prompts = [
-            "reply1",
-            "reply2",
-        ]  # latest_prompts size must match outputs size
 
     a = garak.attempt.Attempt()
     with pytest.raises(TypeError):
@@ -247,21 +230,6 @@ def test_attempt_no_prompt_output_access():
         ]  # should raise exception: message history can't be started w/o a prompt
 
 
-# def test_attempt_reset_prompt():
-#     test2 = "obsidian"
-
-#     a = garak.attempt.Attempt()
-#     a.prompt = "prompt"
-#     # Should this be allowed, exception seems appropriate
-#     a.prompt = test2
-#     assert a.prompt == garak.attempt.Turn(test2)
-
-#     a = garak.attempt.Attempt()
-#     a._add_first_turn("user", "whatever")
-#     a._add_first_turn("user", test2)
-#     assert a.prompt == garak.attempt.Turn(test2)
-
-
 def test_attempt_set_prompt_var():
     test_text = "Plain Simple Garak"
     direct_attempt = garak.attempt.Attempt()
@@ -279,109 +247,6 @@ def test_attempt_constructor_prompt():
     ), "instantiating an Attempt with prompt in the constructor should put a Prompt with the prompt text in attempt.prompt"
 
 
-# this is not longer supported due to immutable prompt
-def test_demo_attempt_dialogue_accessor_usage():
-    test_prompt = "Plain Simple Garak"
-    test_sys1 = "sys aa987h0f"
-    test_user_reply = "user kjahsdg09"
-    test_sys2 = "sys m0sd0fg"
-    prompt_lang = "*"
-    response_lang = "en"  # should this actually be the same as the prompt_lang?  In theory the model responds in the same language it was queried
-
-    demo_a = garak.attempt.Attempt()
-
-    demo_a.prompt = garak.attempt.Message(test_prompt, lang=prompt_lang)
-    assert demo_a.conversations == [
-        garak.attempt.Conversation(
-            [
-                garak.attempt.Turn(
-                    "user", garak.attempt.Message(test_prompt, lang=prompt_lang)
-                )
-            ]
-        ),
-    ]
-    assert demo_a.prompt == garak.attempt.Conversation(
-        [
-            garak.attempt.Turn(
-                "user", garak.attempt.Message(test_prompt, lang=prompt_lang)
-            )
-        ]
-    )
-
-    demo_a.outputs = [garak.attempt.Message(test_sys1, lang=response_lang)]
-    assert demo_a.conversations == [
-        garak.attempt.Conversation(
-            [
-                garak.attempt.Turn(
-                    "user", garak.attempt.Message(test_prompt, lang=prompt_lang)
-                ),
-                garak.attempt.Turn(
-                    "assistant", garak.attempt.Message(test_sys1, lang=response_lang)
-                ),
-            ],
-        ),
-    ]
-    assert demo_a.outputs == [garak.attempt.Message(test_sys1, lang=response_lang)]
-
-    demo_a.latest_prompts = [garak.attempt.Message(test_user_reply, lang=prompt_lang)]
-    """
-    # target structure:
-    assert demo_a.messages == [
-        [
-            {"role": "user", "content": garak.attempt.Turn(test_prompt)},
-            {"role": "assistant", "content": test_sys1},
-            {"role": "user", "content": garak.attempt.Turn(test_user_reply)},
-        ]
-    ]
-    """
-    assert isinstance(demo_a.conversations, list)
-    assert len(demo_a.conversations) == 1
-    assert isinstance(demo_a.conversations[0], garak.attempt.Conversation)
-
-    assert len(demo_a.conversations[0].turns) == 3
-    assert isinstance(demo_a.conversations[0].turns[0], garak.attempt.Turn)
-    assert demo_a.conversations[0].turns[0].role == "user"
-    assert demo_a.conversations[0].turns[0].content == garak.attempt.Message(
-        test_prompt, lang=prompt_lang
-    )
-
-    assert demo_a.conversations[0].turns[1] == garak.attempt.Turn(
-        "assistant",
-        garak.attempt.Message(test_sys1, lang=response_lang),
-    )
-
-    assert isinstance(demo_a.conversations[0].turns[2], garak.attempt.Turn)
-    assert demo_a.conversations[0].turns[2].role == "user"
-    assert demo_a.conversations[0].turns[2].content == garak.attempt.Message(
-        test_user_reply, lang=prompt_lang
-    )
-
-    assert demo_a.latest_prompts == [
-        garak.attempt.Message(test_user_reply, lang=prompt_lang)
-    ]
-
-    demo_a.outputs = [garak.attempt.Message(test_sys2, lang=response_lang)]
-
-    """
-    # target structure:
-    assert demo_a.messages == [
-        [
-            {"role": "user", "content": test_prompt},
-            {"role": "assistant", "content": test_sys1},
-            {"role": "user", "content": test_user_reply},
-            {"role": "assistant", "content": test_sys2},
-        ]
-    ]
-    """
-    assert len(demo_a.conversations[0].turns) == 4
-    assert demo_a.conversations[0].turns[3] == garak.attempt.Turn(
-        "assistant",
-        garak.attempt.Message(test_sys2, lang=response_lang),
-    )
-
-    assert demo_a.outputs == [garak.attempt.Message(test_sys2, lang=response_lang)]
-
-
 def test_demo_attempt_dialogue_method_usage():
     test_prompt = "Plain Simple Garak"
     test_sys1 = "sys aa987h0f"
@@ -391,8 +256,7 @@ def test_demo_attempt_dialogue_method_usage():
     response_lang = "en"
 
     demo_a = garak.attempt.Attempt()
-    # why is this `_add_first_turn` instead of `prompt`
-    demo_a._add_first_turn("user", garak.attempt.Message(test_prompt, lang=prompt_lang))
+    demo_a.prompt = garak.attempt.Message(test_prompt, lang=prompt_lang)
     assert demo_a.conversations == [
         garak.attempt.Conversation(
             [
@@ -464,9 +328,9 @@ def test_demo_attempt_dialogue_method_usage():
             ]
         )
     ]
-    assert demo_a.latest_prompts == [
-        garak.attempt.Message(test_user_reply, lang=prompt_lang)
-    ]
+    assert demo_a.conversations[-1].turns[-1].content == garak.attempt.Message(
+        test_user_reply, lang=prompt_lang
+    )
 
     demo_a._add_turn(
         "assistant", [garak.attempt.Message(test_sys2, lang=response_lang)]
@@ -527,9 +391,7 @@ def test_attempt_outputs():
 
     output_empty = garak.attempt.Attempt()
     assert output_empty.outputs == []
-    output_empty._add_first_turn(
-        "user", garak.attempt.Message("cardassia prime", lang=prompt_lang)
-    )
+    output_empty.prompt = garak.attempt.Message("cardassia prime", lang=prompt_lang)
     assert output_empty.outputs == []
     output_empty._expand_prompt_to_histories(1)
     assert output_empty.outputs == []
@@ -594,7 +456,6 @@ def test_json_serialize():
             "template": None,
             "notes": {},
         },
-        "lang": "*",
         "outputs": [
             {
                 "text": "output one",
@@ -709,20 +570,3 @@ def test_outputs_for():
     assert all_output_a.outputs_for(None) == tlh_outputs
     assert all_output_a.outputs_for("*") == tlh_outputs
     assert all_output_a.outputs_for("en") == reverse_outputs
-
-    og_prompt = garak.attempt.Message("Enabran Tain", lang="*")
-    tlh_prompt = garak.attempt.Message("eNa'bRaN tayn", lang="tlh")
-    tlh_outputs = [garak.attempt.Message("DajlI' QInvam", lang="tlh")]
-    reverse_outputs = [garak.attempt.Message("This is a test", lang="*")]
-
-    # all_output_b = garak.attempt.Attempt()
-    # all_output_b.prompt = tlh_prompt
-    # all_output_b.outputs = tlh_outputs
-    # all_output_b.reverse_translation_outputs = reverse_outputs
-
-    # # is this actually a different scenario here? Before this tested the prompt as "*" but we no longer used that
-    # assert all_output_b.all_outputs == tlh_outputs
-    # assert all_output_b.outputs_for("tlh") == tlh_outputs
-    # assert all_output_b.outputs_for(None) == tlh_outputs
-    # assert all_output_b.outputs_for("*") == tlh_outputs
-    # assert all_output_b.outputs_for("en") == tlh_outputs

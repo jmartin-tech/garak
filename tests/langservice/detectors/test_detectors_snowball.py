@@ -7,7 +7,7 @@ from garak.attempt import Attempt, Message
 from garak.detectors.snowball import DontStartNo, DontStartYes
 
 
-def reverse_translate(attempt) -> Attempt:
+def reverse_translate(attempt: Attempt) -> Attempt:
     from garak.langservice import _load_langprovider
 
     langprovider_config = {

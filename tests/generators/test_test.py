@@ -5,7 +5,7 @@ import pytest
 import random
 
 import garak._plugins
-from garak.attempt import Message, Conversation
+from garak.attempt import Message, Turn, Conversation
 import garak.generators.base
 from garak.generators.test import Blank, Repeat, Single
 
@@ -29,7 +29,8 @@ def test_test_instantiate(klassname):
 def test_test_gen(klassname):
     g = garak._plugins.load_plugin(klassname)
     for generations in (1, 50):
-        out = g.generate(Message(""), generations_this_call=generations)
+        conv = Conversation([Turn("user", Message(""))])
+        out = g.generate(conv, generations_this_call=generations)
         assert isinstance(out, list), ".generate() must return a list"
         assert (
             len(out) == generations
@@ -42,7 +43,8 @@ def test_test_gen(klassname):
 
 def test_generators_test_blank():
     g = Blank(DEFAULT_GENERATOR_NAME)
-    output = g.generate(prompt=Message("test"), generations_this_call=5)
+    conv = Conversation([Turn("user", Message("test"))])
+    output = g.generate(conv, generations_this_call=5)
     assert output == [
         Message(""),
         Message(""),
@@ -54,7 +56,8 @@ def test_generators_test_blank():
 
 def test_generators_test_repeat():
     g = Repeat(DEFAULT_GENERATOR_NAME)
-    output = g.generate(prompt=Message(DEFAULT_PROMPT_TEXT))
+    conv = Conversation([Turn("user", Message(DEFAULT_PROMPT_TEXT))])
+    output = g.generate(conv)
     assert output == [
         Message(DEFAULT_PROMPT_TEXT)
     ], "generators.test.Repeat should send back a list of the posed prompt string"
@@ -62,7 +65,8 @@ def test_generators_test_repeat():
 
 def test_generators_test_single_one():
     g = Single(DEFAULT_GENERATOR_NAME)
-    output = g.generate(prompt=Message("test"))
+    conv = Conversation([Turn("user", Message("test"))])
+    output = g.generate(conv)
     assert isinstance(
         output, list
     ), "Single generator .generate() should send back a list"
@@ -73,7 +77,7 @@ def test_generators_test_single_one():
         output[0], Message
     ), "Single generator output list should contain strings"
 
-    output = g._call_model(prompt=Message("test"))
+    output = g._call_model(conv)
     assert isinstance(output, list), "Single generator _call_model should return a list"
     assert (
         len(output) == 1
@@ -86,9 +90,8 @@ def test_generators_test_single_one():
 def test_generators_test_single_many():
     random_generations = random.randint(2, 12)
     g = Single(DEFAULT_GENERATOR_NAME)
-    output = g.generate(
-        prompt=Message("test"), generations_this_call=random_generations
-    )
+    conv = Conversation([Turn("user", Message("test"))])
+    output = g.generate(prompt=conv, generations_this_call=random_generations)
     assert isinstance(
         output, list
     ), "Single generator .generate() should send back a list"
@@ -104,13 +107,15 @@ def test_generators_test_single_many():
 def test_generators_test_single_too_many():
     g = Single(DEFAULT_GENERATOR_NAME)
     with pytest.raises(ValueError):
-        output = g._call_model(prompt=Message("test"), generations_this_call=2)
+        conv = Conversation([Turn("user", Message("test"))])
+        g._call_model(conv, generations_this_call=2)
     assert "Single._call_model should refuse to process generations_this_call > 1"
 
 
 def test_generators_test_blank_one():
     g = Blank(DEFAULT_GENERATOR_NAME)
-    output = g.generate(prompt=Message("test"))
+    conv = Conversation([Turn("user", Message("test"))])
+    output = g.generate(conv)
     assert isinstance(
         output, list
     ), "Blank generator .generate() should send back a list"
@@ -127,7 +132,8 @@ def test_generators_test_blank_one():
 
 def test_generators_test_blank_many():
     g = Blank(DEFAULT_GENERATOR_NAME)
-    output = g.generate(prompt=Message("test"), generations_this_call=2)
+    conv = Conversation([Turn("user", Message("test"))])
+    output = g.generate(conv, generations_this_call=2)
     assert isinstance(
         output, list
     ), "Blank generator .generate() should send back a list"

@@ -68,14 +68,14 @@ def test_detector_detect(classname):
     assert isinstance(di, Detector), "detectors must eventually inherit from Detector"
     assert isinstance(di, Configurable), "detectors must be configurable"
 
-    a = Attempt(lang=di.lang_spec.split(",")[0])
+    a = Attempt()
     # dressing required to get 'some' detectors to return results
     a.notes["trigger"] = "x"
     a.notes["triggers"] = ["x", "x", "x", "x"]
     a.notes["repeat_word"] = "x"
     a.probe_classname = "test.Blank"
 
-    a.prompt = Message("")
+    a.prompt = Message("", lang=di.lang_spec.split(",")[0])
     a.notes["format"] = "local filename"
     a.outputs = [Message(s) for s in ["", None]]
     a.detector_results = {"x": [0.0]}
@@ -106,6 +106,7 @@ def test_detector_detect(classname):
     if not isinstance(
         di, garak.detectors.base.FileDetector
     ):  # this returns nothing - remove when Nones are OK in detector output
+        # 2 conversations based on 2 outputs set above, why are there more expected?
         assert len(list(results)) in (
             3,
             4,

@@ -3,12 +3,12 @@
 
 import pytest
 
-from garak.attempt import Attempt, Message
+from garak.attempt import Attempt, Message, Conversation, Turn
 from garak.detectors.misleading import MustContradictNLI
 from garak.detectors.base import HFDetector
 
 
-def reverse_translate(attempt) -> Attempt:
+def reverse_translate(attempt: Attempt) -> Attempt:
     from garak.langservice import _load_langprovider
 
     langprovider_config = {
@@ -32,7 +32,11 @@ def test_must_contradict_NLI_detection():
     must_contradict_NLI_detector = MustContradictNLI()
     attempt = Attempt(
         prompt=Message("これはテストプロンプトです"),
-        notes={"pre_translation_prompt": Message("This is a test prompt.")},
+        notes={
+            "pre_translation_prompt": Conversation(
+                [Turn("user", Message("This is a test prompt.", lang="en"))]
+            )
+        },
         lang="ja",
     )
     attempt.outputs = [

@@ -34,7 +34,7 @@ class Repeat(Generator):
     def _call_model(
         self, prompt: Conversation, generations_this_call: int = 1
     ) -> List[Message | None]:
-        return [prompt.turns[-1]] * generations_this_call
+        return [prompt.turns[-1].content] * generations_this_call
 
 
 class Single(Generator):

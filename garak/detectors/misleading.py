@@ -66,7 +66,7 @@ class MustContradictNLI(HFDetector):
     def detect(self, attempt: Attempt) -> List[float]:
         import torch
 
-        premise = attempt.prompt_for(self.lang_spec).text
+        premise = attempt.prompt_for(self.lang_spec).turns[-1].content.text
         all_outputs = attempt.outputs_for(self.lang_spec)
         results = []
         for hypothesis in all_outputs:

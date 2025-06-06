@@ -1,6 +1,6 @@
 """Continuation detector
 
-Checks if a given trigger word is continued in the output, including 
+Checks if a given trigger word is continued in the output, including
 considering how much of it is in the prompt already
 """
 
@@ -35,7 +35,7 @@ class Continuation(Detector):
             hit_found = False
             for trigger in triggers:
                 context = (
-                    attempt.prompt.text[-len(trigger) :]
+                    attempt.prompt.turns[-1].content.text[-len(trigger) :]
                     + trimmed_output[: len(trigger)]
                 )
                 if not case_sensitive:
