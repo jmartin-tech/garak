@@ -1,5 +1,5 @@
 garak.generators.groq
-====================
+=====================
 
 .. automodule:: garak.generators.groq
    :members:

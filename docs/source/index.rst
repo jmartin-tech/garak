@@ -38,6 +38,7 @@ Using garak
 
    how
    usage
+   reporting
    FAQ <https://github.com/NVIDIA/garak/blob/main/FAQ.md>
 
 Advanced usage
@@ -48,6 +49,7 @@ Advanced usage
 
    configurable
    cliref
+   translation
 
 Code reference
 ^^^^^^^^^^^^^^
@@ -55,17 +57,18 @@ Code reference
 .. toctree::
    :maxdepth: 1
 
-   contributing
-
    basic
    attempt
    cli
    command
    exception
    interactive
+   langservice
    payloads
    _config
    _plugins
+
+
 
 Plugin structure
 ^^^^^^^^^^^^^^^^
@@ -80,3 +83,13 @@ Plugin structure
    harnesses
    probes
    report
+
+
+Building further
+^^^^^^^^^^^^^^^^
+
+.. toctree::
+   :maxdepth: 1
+
+   extending
+   contributing

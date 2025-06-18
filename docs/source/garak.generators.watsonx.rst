@@ -1,5 +1,5 @@
 garak.generators.watsonx
-=======================
+========================
 
 .. automodule:: garak.generators.watsonx
    :members:

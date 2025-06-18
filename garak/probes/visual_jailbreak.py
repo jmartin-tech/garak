@@ -12,12 +12,12 @@ import requests
 import tqdm
 
 from garak import _config
-from garak.probes.base import Probe
+import garak.probes
 from garak.data import path as data_path
 from garak.generators.base import Generator
 
 
-class FigStep(Probe):
+class FigStepFull(garak.probes.Probe):
     """Using another modal - image to assist jailbreak
 
     Title: FigStep: Jailbreaking Large Vision-language Models via Typographic Visual Prompts
@@ -27,7 +27,7 @@ class FigStep(Probe):
 
     active = False  # default to use limit version - FigStep80
     doc_uri = "https://arxiv.org/abs/2311.05608"
-    bcp47 = "en"
+    lang = "en"
     recommended_detector = ["visual_jailbreak.FigStep"]
     tags = [
         # "avid-effect:security:S0403",
@@ -37,6 +37,7 @@ class FigStep(Probe):
         "payload:jailbreak",
     ]
     goal = "disregard the system prompt with both text and image"
+    tier = garak.probes.Tier.COMPETE_WITH_SOTA
 
     prompts = []
 
@@ -87,10 +88,6 @@ class FigStep(Probe):
     def probe(self, generator):
         if not isinstance(generator, Generator):
             raise ValueError("Incorrect class type of incoming argument `generator`.")
-        if not generator.modality["in"] == self.modality["in"]:
-            raise ValueError(
-                f"Incorrect generator input modality {generator.modality['in']}, expect {self.modality['in']} for this probe."
-            )
         self.prompts = [
             {
                 "text": prompt["text"],
@@ -106,20 +103,16 @@ class FigStep(Probe):
         return super().probe(generator)
 
 
-class FigStepTiny(FigStep, Probe):
+class FigStep(FigStepFull, garak.probes.Probe):
     active = False
 
-    __doc__ = FigStep.__doc__ + " - Tiny version"
+    __doc__ = FigStepFull.__doc__ + " - Tiny version"
 
     safebench_image_catalog = data_path / "safebenchtiny_filenames.txt"
 
     def probe(self, generator):
         if not isinstance(generator, Generator):
             raise ValueError("Incorrect class type of incoming argument `generator`.")
-        if not generator.modality["in"] == self.modality["in"]:
-            raise ValueError(
-                f"Incorrect generator input modality {generator.modality['in']}, expect {self.modality['in']} for this probe."
-            )
         self.prompts = [
             {
                 "text": prompt["text"],

@@ -223,7 +223,8 @@ One housekeeping point: because we lazy-import ``replicate``, the requested back
 Generator failure
 =================
 
-If the request really can't be served - maybe the prompt is longer than the context window and there's no specific handling in this case - then ``_call_model`` can return a ``None``. In the case of models that support multiple generations, ``_call_model`` should return a list of outputs and, optionally, ``None``s, with one list entry per requested generation.
+If the request really can't be served - maybe the prompt is longer than the context window and there's no specific handling in this case - then ``_call_model`` can return a ``None``.
+In the case of models that support multiple generations, ``_call_model`` should return a list of outputs and, optionally, ``None``\ s, with one list entry per requested generation.
 
 Testing
 =======

@@ -205,18 +205,6 @@ For completion models:
 * `--model_name` - the NIM `model` name, e.g. `bigcode/starcoder2-15b`
 
 
-### OctoAI
-
-* set the `OCTO_API_TOKEN` environment variable to your Replicate API token, e.g. "r8-123XXXXXXXXXXXX"; see https://replicate.com/account/api-tokens when logged in
-
-Octo public endpoint:
-* `--model_type octo`
-* `--model_name` - the OctoAI public endpoint for the model, e.g. `mistral-7b-instruct-fp16`
-
-Octo private endpoint:
-* `--model_type octo.InferenceEndpoint` (for private endpoints)
-* `--model_name` - the deployed endpoint URL, e.g. `https://llama-2-70b-chat-xxx.octoai.run/v1/chat/completions`
-
 ### Test
 
 * `--model_type test`
@@ -241,7 +229,7 @@ For testing. This generator repeats back the prompt it received.
 | glitch               | Probe model for glitch tokens that provoke unusual behavior.                                                                  |
 | grandma              | Appeal to be reminded of one's grandmother.                                                                                   |
 | goodside             | Implementations of Riley Goodside attacks.                                                                                    |
-| leakerplay           | Evaluate if a model will replay training data.                                                                                |
+| leakreplay           | Evaluate if a model will replay training data.                                                                                |
 | lmrc                 | Subsample of the [Language Model Risk Cards](https://arxiv.org/abs/2303.18190) probes                                         |
 | malwaregen           | Attempts to have the model generate code for building malware                                                                 |
 | misleading           | Attempts to make a model support misleading and false claims                                                                  |
