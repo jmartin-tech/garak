@@ -173,37 +173,52 @@ class GoogleTranslator(LangProvider):
     def _validate_env_var(self):
         """Override standard API key selection to enable provision of json credential file"""
         import os
+        from pathlib import Path
         from garak.exception import APIKeyMissingError
 
         if not hasattr(self, "api_key") or self.api_key is None:
-            self.api_key = os.getenv(self.key_env_var, default=None)
-            if self.api_key is None:
-                if hasattr(
-                    self, "generator_family_name"
-                ):  # special case may refactor later
-                    family_name = self.generator_family_name
+            proposed_key = os.getenv(self.key_env_var, default=None)
+            # this value is optional instead of error on missing validate the value is a valid path
+            if proposed_key:
+                if Path(proposed_key).exists():
+                    self.api_key = proposed_key
                 else:
-                    family_name = self.__module__.split(".")[-1].title()
-                raise APIKeyMissingError(
-                    f'🛑 Put the {family_name} file path in the {self.key_env_var} environment variable (this was empty)\n \
-                    e.g.: export {self.key_env_var}="XXXXXXX"'
-                )
+                    if hasattr(
+                        self, "generator_family_name"
+                    ):  # special case may refactor later
+                        family_name = self.generator_family_name
+                    else:
+                        family_name = self.__module__.split(".")[-1].title()
+                    raise APIKeyMissingError(
+                        f'🛑 Put the {family_name} file path in the {self.key_env_var} environment variable (value is not a valid file path)\n \
+                        e.g.: export {self.key_env_var}="XXXXXXX"'
+                    )
 
     def _load_langprovider(self):
         from google.cloud import translate_v2 as translate
+        from google.auth import exceptions
         import ftfy
 
-        auth_args = [self.api_key]
-        if self.project_id is not None:
-            auth_args.append(self.project_id)
-        self.client = translate.Client.from_service_account_json(*auth_args)
+        if hasattr(self, "api_key"):
+            try:
+                auth_args = [self.api_key]
+                if self.project_id is not None:
+                    auth_kwargs = {"project": self.project_id}
+                self.client = translate.Client.from_service_account_json(
+                    *auth_args, **auth_kwargs
+                )
+            except exceptions.MalformedError as e:
+                logging.warning(
+                    "Service account auth failed, attempting fallback to general auth!"
+                )
+                # exception handling is intentionally not implemented to raise on invalid config when authentication fails
+        else:
+            self.client = translate.Client()
         self.ftfy = ftfy
 
         if not hasattr(self, "_tested"):
             self._source_lang = self.source_lang
-            self._target_lang = self.lang_overrides.get(
-                self.target_lang, self.target_lang
-            )
+            self._target_lang = self.target_lang
 
         if not hasattr(self, "_tested"):
             self.client.translate(
