@@ -168,7 +168,7 @@ def test_validate_call_model_chat_token_restrictions(openai_compat_mocks):
         assert (
             req_body["max_completion_tokens"] < generator.max_completion_tokens
             and req_body.get("max_tokens", None) is None
-        ), "request max_completion_tokens is suppressed when larger than output_max limited known model"
+        ), "request max_tokens is suppressed when max_completion_tokens is sent"
 
 
 def test_validate_call_model_completion_token_restrictions(openai_compat_mocks):
