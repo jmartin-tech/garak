@@ -2496,7 +2496,7 @@
       "mod_time": "2025-06-27 16:42:09 +0000"
     },
     "probes.leakreplay.GuardianCloze": {
-      "description": "Cloze data replay for literature. Uses passages that either GPT-4 or ChatGPT have been known to replay.",
+      "description": "Lightweight version of Guardian cloze test for data leakage.",
       "DEFAULT_PARAMS": {},
       "active": true,
       "doc_uri": "https://arxiv.org/abs/2305.00118",
@@ -2521,15 +2521,43 @@
         "payload:leak:training"
       ],
       "tier": 2,
-      "mod_time": "2025-06-27 13:34:35 +0000"
+      "mod_time": "2025-06-27 18:12:50 +0000"
+    },
+    "probes.leakreplay.GuardianClozeFull": {
+      "description": "Test for data leakage on Guardian articles with masked entities in a cloze test format.",
+      "DEFAULT_PARAMS": {},
+      "active": false,
+      "doc_uri": "https://arxiv.org/abs/2305.00118",
+      "extended_detectors": [],
+      "goal": "replay training data by filling in the correct missing words",
+      "lang": "*",
+      "modality": {
+        "in": [
+          "text"
+        ]
+      },
+      "parallelisable_attempts": true,
+      "primary_detector": null,
+      "recommended_detector": [
+        "base.TriggerListDetector"
+      ],
+      "tags": [
+        "avid-effect:security:S0301",
+        "owasp:llm10",
+        "owasp:llm06",
+        "quality:Security:ExtractionInversion",
+        "payload:leak:training"
+      ],
+      "tier": 2,
+      "mod_time": "2025-06-27 18:12:50 +0000"
     },
     "probes.leakreplay.GuardianComplete": {
-      "description": "Data replay probe for literature, using document completion. Uses passages that either GPT-4 or ChatGPT have been known to replay.",
+      "description": "Lightweight version of Guardian completion test for data leakage.",
       "DEFAULT_PARAMS": {},
       "active": true,
       "doc_uri": "https://arxiv.org/abs/2305.00118",
       "extended_detectors": [],
-      "goal": "replay training data by filling in the correct missing words",
+      "goal": "replay training data by providing document completions that match training examples",
       "lang": "*",
       "modality": {
         "in": [
@@ -2548,11 +2576,39 @@
         "quality:Security:ExtractionInversion",
         "payload:leak:training"
       ],
-      "tier": 1,
-      "mod_time": "2025-06-27 13:34:35 +0000"
+      "tier": 2,
+      "mod_time": "2025-06-27 18:12:50 +0000"
+    },
+    "probes.leakreplay.GuardianCompleteFull": {
+      "description": "Test for data leakage on Guardian articles through text completion.",
+      "DEFAULT_PARAMS": {},
+      "active": false,
+      "doc_uri": "https://arxiv.org/abs/2305.00118",
+      "extended_detectors": [],
+      "goal": "replay training data by providing document completions that match training examples",
+      "lang": "*",
+      "modality": {
+        "in": [
+          "text"
+        ]
+      },
+      "parallelisable_attempts": true,
+      "primary_detector": null,
+      "recommended_detector": [
+        "leakreplay.StartsWith"
+      ],
+      "tags": [
+        "avid-effect:security:S0301",
+        "owasp:llm10",
+        "owasp:llm06",
+        "quality:Security:ExtractionInversion",
+        "payload:leak:training"
+      ],
+      "tier": 2,
+      "mod_time": "2025-06-27 18:12:50 +0000"
     },
     "probes.leakreplay.LiteratureCloze": {
-      "description": "Cloze data replay for literature. Uses passages that either GPT-4 or ChatGPT have been known to replay.",
+      "description": "Lightweight version of literature cloze test for data leakage.",
       "DEFAULT_PARAMS": {},
       "active": true,
       "doc_uri": "https://arxiv.org/abs/2305.00118",
@@ -2577,10 +2633,10 @@
         "payload:leak:training"
       ],
       "tier": 2,
-      "mod_time": "2025-06-27 13:34:35 +0000"
+      "mod_time": "2025-06-27 18:12:50 +0000"
     },
     "probes.leakreplay.LiteratureClozeFull": {
-      "description": "Cloze data replay for literature. Uses passages that either GPT-4 or ChatGPT have been known to replay.",
+      "description": "Test for data leakage on literature passages with masked entities in a cloze test format.",
       "DEFAULT_PARAMS": {},
       "active": false,
       "doc_uri": "https://arxiv.org/abs/2305.00118",
@@ -2605,15 +2661,15 @@
         "payload:leak:training"
       ],
       "tier": 2,
-      "mod_time": "2025-06-27 13:34:35 +0000"
+      "mod_time": "2025-06-27 18:12:50 +0000"
     },
     "probes.leakreplay.LiteratureComplete": {
-      "description": "Data replay probe for literature, using document completion. Uses passages that either GPT-4 or ChatGPT have been known to replay.",
+      "description": "Lightweight version of literature completion test for data leakage.",
       "DEFAULT_PARAMS": {},
       "active": true,
       "doc_uri": "https://arxiv.org/abs/2305.00118",
       "extended_detectors": [],
-      "goal": "replay training data by filling in the correct missing words",
+      "goal": "replay training data by providing document completions that match training examples",
       "lang": "*",
       "modality": {
         "in": [
@@ -2632,11 +2688,67 @@
         "quality:Security:ExtractionInversion",
         "payload:leak:training"
       ],
-      "tier": 1,
-      "mod_time": "2025-06-27 13:34:35 +0000"
+      "tier": 2,
+      "mod_time": "2025-06-27 18:12:50 +0000"
     },
     "probes.leakreplay.LiteratureCompleteFull": {
-      "description": "Data replay probe for literature, using document completion. Uses passages that either GPT-4 or ChatGPT have been known to replay.",
+      "description": "Test for data leakage on literature passages through text completion.",
+      "DEFAULT_PARAMS": {},
+      "active": false,
+      "doc_uri": "https://arxiv.org/abs/2305.00118",
+      "extended_detectors": [],
+      "goal": "replay training data by providing document completions that match training examples",
+      "lang": "*",
+      "modality": {
+        "in": [
+          "text"
+        ]
+      },
+      "parallelisable_attempts": true,
+      "primary_detector": null,
+      "recommended_detector": [
+        "leakreplay.StartsWith"
+      ],
+      "tags": [
+        "avid-effect:security:S0301",
+        "owasp:llm10",
+        "owasp:llm06",
+        "quality:Security:ExtractionInversion",
+        "payload:leak:training"
+      ],
+      "tier": 2,
+      "mod_time": "2025-06-27 18:12:50 +0000"
+    },
+    "probes.leakreplay.NYTCloze": {
+      "description": "Lightweight version of NYT cloze test for data leakage.",
+      "DEFAULT_PARAMS": {},
+      "active": true,
+      "doc_uri": "https://arxiv.org/abs/2305.00118",
+      "extended_detectors": [],
+      "goal": "replay training data by filling in the correct missing words",
+      "lang": "*",
+      "modality": {
+        "in": [
+          "text"
+        ]
+      },
+      "parallelisable_attempts": true,
+      "primary_detector": null,
+      "recommended_detector": [
+        "base.TriggerListDetector"
+      ],
+      "tags": [
+        "avid-effect:security:S0301",
+        "owasp:llm10",
+        "owasp:llm06",
+        "quality:Security:ExtractionInversion",
+        "payload:leak:training"
+      ],
+      "tier": 2,
+      "mod_time": "2025-06-27 18:12:50 +0000"
+    },
+    "probes.leakreplay.NYTClozeFull": {
+      "description": "Test for data leakage on New York Times articles with masked entities in a cloze test format.",
       "DEFAULT_PARAMS": {},
       "active": false,
       "doc_uri": "https://arxiv.org/abs/2305.00118",
@@ -2651,34 +2763,6 @@
       "parallelisable_attempts": true,
       "primary_detector": null,
       "recommended_detector": [
-        "leakreplay.StartsWith"
-      ],
-      "tags": [
-        "avid-effect:security:S0301",
-        "owasp:llm10",
-        "owasp:llm06",
-        "quality:Security:ExtractionInversion",
-        "payload:leak:training"
-      ],
-      "tier": 1,
-      "mod_time": "2025-06-27 13:34:35 +0000"
-    },
-    "probes.leakreplay.NYTCloze": {
-      "description": "Cloze data replay for literature. Uses passages that either GPT-4 or ChatGPT have been known to replay.",
-      "DEFAULT_PARAMS": {},
-      "active": true,
-      "doc_uri": "https://arxiv.org/abs/2305.00118",
-      "extended_detectors": [],
-      "goal": "replay training data by filling in the correct missing words",
-      "lang": "*",
-      "modality": {
-        "in": [
-          "text"
-        ]
-      },
-      "parallelisable_attempts": true,
-      "primary_detector": null,
-      "recommended_detector": [
         "base.TriggerListDetector"
       ],
       "tags": [
@@ -2689,15 +2773,15 @@
         "payload:leak:training"
       ],
       "tier": 2,
-      "mod_time": "2025-06-27 13:34:35 +0000"
+      "mod_time": "2025-06-27 18:12:50 +0000"
     },
     "probes.leakreplay.NYTComplete": {
-      "description": "Data replay probe for literature, using document completion. Uses passages that either GPT-4 or ChatGPT have been known to replay.",
+      "description": "Lightweight version of NYT completion test for data leakage.",
       "DEFAULT_PARAMS": {},
       "active": true,
       "doc_uri": "https://arxiv.org/abs/2305.00118",
       "extended_detectors": [],
-      "goal": "replay training data by filling in the correct missing words",
+      "goal": "replay training data by providing document completions that match training examples",
       "lang": "*",
       "modality": {
         "in": [
@@ -2716,11 +2800,39 @@
         "quality:Security:ExtractionInversion",
         "payload:leak:training"
       ],
-      "tier": 1,
-      "mod_time": "2025-06-27 13:34:35 +0000"
+      "tier": 2,
+      "mod_time": "2025-06-27 18:12:50 +0000"
+    },
+    "probes.leakreplay.NYTCompleteFull": {
+      "description": "Test for data leakage on New York Times articles through text completion.",
+      "DEFAULT_PARAMS": {},
+      "active": false,
+      "doc_uri": "https://arxiv.org/abs/2305.00118",
+      "extended_detectors": [],
+      "goal": "replay training data by providing document completions that match training examples",
+      "lang": "*",
+      "modality": {
+        "in": [
+          "text"
+        ]
+      },
+      "parallelisable_attempts": true,
+      "primary_detector": null,
+      "recommended_detector": [
+        "leakreplay.StartsWith"
+      ],
+      "tags": [
+        "avid-effect:security:S0301",
+        "owasp:llm10",
+        "owasp:llm06",
+        "quality:Security:ExtractionInversion",
+        "payload:leak:training"
+      ],
+      "tier": 2,
+      "mod_time": "2025-06-27 18:12:50 +0000"
     },
     "probes.leakreplay.PotterCloze": {
-      "description": "Cloze data replay for literature. Uses passages that either GPT-4 or ChatGPT have been known to replay.",
+      "description": "Lightweight version of Harry Potter cloze test for data leakage.",
       "DEFAULT_PARAMS": {},
       "active": true,
       "doc_uri": "https://arxiv.org/abs/2305.00118",
@@ -2745,15 +2857,43 @@
         "payload:leak:training"
       ],
       "tier": 2,
-      "mod_time": "2025-06-27 13:34:35 +0000"
+      "mod_time": "2025-06-27 18:12:50 +0000"
+    },
+    "probes.leakreplay.PotterClozeFull": {
+      "description": "Test for data leakage on Harry Potter text with masked entities in a cloze test format.",
+      "DEFAULT_PARAMS": {},
+      "active": false,
+      "doc_uri": "https://arxiv.org/abs/2305.00118",
+      "extended_detectors": [],
+      "goal": "replay training data by filling in the correct missing words",
+      "lang": "*",
+      "modality": {
+        "in": [
+          "text"
+        ]
+      },
+      "parallelisable_attempts": true,
+      "primary_detector": null,
+      "recommended_detector": [
+        "base.TriggerListDetector"
+      ],
+      "tags": [
+        "avid-effect:security:S0301",
+        "owasp:llm10",
+        "owasp:llm06",
+        "quality:Security:ExtractionInversion",
+        "payload:leak:training"
+      ],
+      "tier": 2,
+      "mod_time": "2025-06-27 18:12:50 +0000"
     },
     "probes.leakreplay.PotterComplete": {
-      "description": "Data replay probe for literature, using document completion. Uses passages that either GPT-4 or ChatGPT have been known to replay.",
+      "description": "Lightweight version of Harry Potter completion test for data leakage.",
       "DEFAULT_PARAMS": {},
       "active": true,
       "doc_uri": "https://arxiv.org/abs/2305.00118",
       "extended_detectors": [],
-      "goal": "replay training data by filling in the correct missing words",
+      "goal": "replay training data by providing document completions that match training examples",
       "lang": "*",
       "modality": {
         "in": [
@@ -2772,8 +2912,36 @@
         "quality:Security:ExtractionInversion",
         "payload:leak:training"
       ],
-      "tier": 1,
-      "mod_time": "2025-06-27 13:34:35 +0000"
+      "tier": 2,
+      "mod_time": "2025-06-27 18:12:50 +0000"
+    },
+    "probes.leakreplay.PotterCompleteFull": {
+      "description": "Test for data leakage on Harry Potter text through completion.",
+      "DEFAULT_PARAMS": {},
+      "active": false,
+      "doc_uri": "https://arxiv.org/abs/2305.00118",
+      "extended_detectors": [],
+      "goal": "replay training data by providing document completions that match training examples",
+      "lang": "*",
+      "modality": {
+        "in": [
+          "text"
+        ]
+      },
+      "parallelisable_attempts": true,
+      "primary_detector": null,
+      "recommended_detector": [
+        "leakreplay.StartsWith"
+      ],
+      "tags": [
+        "avid-effect:security:S0301",
+        "owasp:llm10",
+        "owasp:llm06",
+        "quality:Security:ExtractionInversion",
+        "payload:leak:training"
+      ],
+      "tier": 2,
+      "mod_time": "2025-06-27 18:12:50 +0000"
     },
     "probes.lmrc.Anthropomorphisation": {
       "description": "Providing output that encourages anthropomorphisation of AI systems",
