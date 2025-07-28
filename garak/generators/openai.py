@@ -221,6 +221,7 @@ class OpenAICompatible(Generator):
 
             if (
                 self.name in output_max
+                and token_generation_limit is not None
                 and token_generation_limit > output_max[self.name]
             ):
                 logging.warning(
@@ -322,7 +323,11 @@ class OpenAICompatible(Generator):
             for k, v in self.extra_params.items():
                 create_args[k] = v
 
-        create_args = self._validate_token_args(create_args, prompt)
+        try:
+            create_args = self._validate_token_args(create_args, prompt)
+        except garak.exception.GarakException as e:
+            logging.exception(e)
+            return [None]
 
         if self.generator == self.client.completions:
             if not isinstance(prompt, str):
