@@ -1,7 +1,6 @@
-"""
-PromptInject detector
+"""PromptInject detector
 
-Looks for payloads injected from the PromptInject framework using the 
+Looks for payloads injected from the PromptInject framework using the
 promptinject probe
 """
 

@@ -3,7 +3,7 @@ CLI reference for garak
 
 ::
 
-  garak LLM vulnerability scanner v0.11.1.pre1 ( https://github.com/NVIDIA/garak ) at 2025-05-27T19:55:52.735863
+  garak LLM vulnerability scanner v0.12.0.pre1 ( https://github.com/NVIDIA/garak ) at 2025-07-01T12:13:36.187367
   usage: python -m garak [-h] [--verbose] [--report_prefix REPORT_PREFIX]
                          [--narrow_output]
                          [--parallel_requests PARALLEL_REQUESTS]

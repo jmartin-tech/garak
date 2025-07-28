@@ -43,26 +43,29 @@ class Attempt:
     :param reverse_translation_outputs: The reverse translation of output based on the original language of the probe
     :param reverse_translation_outputs: List(str)
 
-    Expected use
-    * an attempt tracks a seed prompt and responses to it
-    * there's a 1:1 relationship between attempts and source prompts
-    * attempts track all generations
-    * this means messages tracks many histories, one per generation
-    * for compatibility, setting Attempt.prompt will set just one turn, and this is unpacked later
-      when output is set; we don't know the # generations to expect until some output arrives
-    * to keep alignment, generators need to return aligned lists of length #generations
+    Typical use:
 
-    Patterns/expectations for Attempt access:
-    .prompt - returns the first user prompt
-    .outputs - returns the most recent model outputs
-    .latest_prompts - returns a list of the latest user prompts
+    * An attempt tracks a seed prompt and responses to the prompt.
+    * There is a 1:1 relationship between an attempt and a source prompt.
+    * Attempts track all generations.
+      This means ``messages`` tracks many histories, one per generation.
+    * For compatibility, setting ``Attempt.prompt`` sets just one turn and the prompt is unpacked later when output is set.
+      We don't know the number of generations to expect until some output arrives.
+    * To keep alignment, generators must return lists of length generations.
 
-    Patterns/expectations for Attempt setting:
-    .prompt - sets the first prompt, or fails if this has already been done
-    .outputs - sets a new layer of model responses. silently handles expansion of prompt to multiple histories. prompt must be set
-    .latest_prompts - adds a new set of user prompts
+    Patterns and expectations for Attempt access:
 
+    * ``.prompt`` returns the first user prompt.
+    * ``.outputs`` returns the most recent model outputs.
+    * ``.latest_prompts`` returns a list of the latest user prompts.
 
+    Patterns and expectations for Attempt setting:
+
+    * ``.prompt`` sets the first prompt, or fails if the first prompt is already set.
+    * ``.outputs`` sets a new layer of model responses.
+      Silently handles expansion of prompt to multiple histories.
+      Prompt must be set before outputs are set.
+    * ``.latest_prompts`` adds a new set of user prompts.
     """
 
     def __init__(

@@ -600,11 +600,15 @@ class LLaVA(Generator, HFCompatible):
     ]
 
     def __init__(self, name="", config_root=_config):
-        super().__init__(name, config_root=config_root)
+        self._load_config(config_root)
+        if name or not hasattr(self, "name"):
+            self.name = name
+
         if self.name not in self.supported_models:
             raise ModelNameMissingError(
                 f"Invalid model name {self.name}, current support: {self.supported_models}."
             )
+        super().__init__(self.name, config_root=config_root)
 
         from transformers import LlavaNextProcessor, LlavaNextForConditionalGeneration
 

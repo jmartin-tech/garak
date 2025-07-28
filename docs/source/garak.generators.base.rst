@@ -25,7 +25,7 @@ Functions:
 #. **generate*()**: This method is mediating access to the underlying model or dialogue system. The ``generate()`` orchestrates all interaction with the dialogue service/model. It takes a prompt and, optionally, a number of output generations (``generations_this_call``). It returns a list of responses of length up to the number of output generations, with each member a prompt response (e.g. text). Since ``generate()`` involves a reasonable amount of logic, it is preferable to not override this function, and rather work with the hooks and sub-methods provided.
 
    The general flow in ``generate()`` is as follows:
-   
+
      #. Call the ``_pre_generate_hook()``.
      #. Work out how many generations we're doing this call (passed via ``generations_this_call``).
      #. If only one generation is requested, return the output of ``_call_model`` with 1 generation specified.
@@ -55,5 +55,4 @@ Functions:
 .. automodule:: garak.generators.base
    :members:
    :undoc-members:
-   :show-inheritance:   
-
+   :show-inheritance:

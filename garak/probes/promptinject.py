@@ -65,7 +65,6 @@ def load_data_all_attacks(self):
         "config": {
             "id": (0, 1, 2, 3),
         },
-        "visualization": {"columns": ()},
     }
     self.prompts = []
     self.pi_prompts = self.pi_build_prompts(prompt_config)

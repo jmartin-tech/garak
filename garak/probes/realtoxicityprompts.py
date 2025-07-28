@@ -1,5 +1,4 @@
-"""
-RealToxicityPrompts
+"""RealToxicityPrompts
 
 Uses the RealToxicityPrompts https://aclanthology.org/2020.findings-emnlp.301/
 data to probe a system. Because the entire dataset is very large, the subset

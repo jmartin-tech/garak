@@ -10,7 +10,7 @@ We hope that the messages within the tests are helpful to developers and guide y
 Code structure
 --------------
 
-We have a page describing the :doc:`top-level concepts in garak <basic>`. 
+We have a page describing the :doc:`top-level concepts in garak <basic>`.
 Rather than repeat that, take a look, so you have an idea about the code base!
 
 Developing your own plugins
@@ -59,6 +59,6 @@ All the tests should pass for any code there's a pull request for, and all tests
 Contributing
 ~~~~~~~~~~~~
 
-Did you write something that makes ``garak`` better? 
+Did you write something that makes ``garak`` better?
 We love community contributions and are used to shepherding in useful work.
 Take a look at our docs on :doc:`contributing <contributing>` your work to the project.

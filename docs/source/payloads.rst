@@ -38,4 +38,4 @@ The JSON structure of a payload is:
 .. automodule:: garak.payloads
    :members:
    :undoc-members:
-   :show-inheritance:   
+   :show-inheritance:

@@ -47,9 +47,7 @@ class Report:
             self.records = []
 
     def load(self):
-        """
-        Loads a garak report.
-        """
+        """Loads a garak report."""
         with open(self.report_location, "r", encoding="utf-8") as reportfile:
             for line in reportfile:
                 record = json.loads(line.strip())
@@ -81,7 +79,8 @@ class Report:
         self.evaluations["score"] = np.where(
             self.evaluations["total"] != 0,
             100 * self.evaluations["passed"] / self.evaluations["total"],
-            0)
+            0,
+        )
         self.scores = self.evaluations[["probe", "score"]].groupby("probe").mean()
         return self
 

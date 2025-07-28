@@ -31,4 +31,3 @@ For a detailed oversight into how a generator operates, see :doc:`garak.generato
    garak.generators.rasa
    garak.generators.test
    garak.generators.watsonx
-

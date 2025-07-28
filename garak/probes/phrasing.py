@@ -1,9 +1,8 @@
-"""Past Tense
+"""About Past Tense Probes
 
-    Refusal training is widely used to prevent LLMs from generating harmful, undesirable, or illegal
-outputs. We reveal a curious generalization gap in the current refusal training approaches:
-simply reformulating a harmful request in the past tense  is often sufficient to jailbreak many state-
-of-the-art LLMs
+Refusal training is widely used to prevent LLMs from generating harmful, undesirable, or illegal outputs.
+We reveal a curious generalization gap in the current refusal training approaches:
+simply reformulating a harmful request in the past tense is often sufficient to jailbreak many state-of-the-art LLMs.
 """
 
 from garak import _config

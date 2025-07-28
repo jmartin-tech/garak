@@ -14,9 +14,7 @@ All probes will inherit from ``garak.probes.base.Probe``, exposed at package lev
     import garak.probes
 
     class MyNewProbe(garak.probes.Probe):
-        """
-        Probe to do something naughty to a language model
-        """
+        """Probe to do something naughty to a language model"""
         ...
 
 We require class docstrings in garak and enforce this requirement via a test required before merging.
@@ -104,9 +102,7 @@ Many of these are decent defaults, though there are a few that we absolutely wan
 .. code-block:: python
 
     class MyNewProbe(garak.probes.Probe):
-        """
-        Probe to do something naughty to a language model
-        """
+        """Probe to do something naughty to a language model"""
 
         recommended_detector = ["mitigation.MitigationBypass"]
         tags = [
@@ -142,7 +138,7 @@ Otherwise, try to address the encountered errors.
 Let's try running our new probe against a HuggingFace ``Pipeline`` using ``meta-llama/Llama-2-7b-chat-hf``, a notoriously tricky model to get to behave badly.
 
 .. code-block:: bash
-    
+
   $ garak -m huggingface -n meta-llama/Llama-2-7b-chat-hf -p mynewprobe.MyNewProbe
 
 If it all runs well, you'll get a log and a hitlog file, which tell you how successful your new probe was!

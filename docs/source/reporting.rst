@@ -10,9 +10,9 @@ By default, ``garak`` outputs:
 Report JSONL
 ------------
 
-The report JSON consists of JSON rows. Each row has an ``entry_type`` field. 
+The report JSON consists of JSON rows. Each row has an ``entry_type`` field.
 Different entry types have different other fields.
-Attempt-type entries have uuid and status fields. 
+Attempt-type entries have uuid and status fields.
 Status can be 0 (not sent to target), 1 (with target response but not evaluated), or 2 (with response and evaluation).
 Eval-type entries are added after each probe/detector pair completes, and list the results used to compute the score.
 

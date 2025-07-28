@@ -18,11 +18,13 @@ from garak.generators.base import Generator
 
 
 class FigStepFull(garak.probes.Probe):
-    """Using another modal - image to assist jailbreak
+    """Using image modality to assist jailbreak.
+    Refer to the following paper for more detail:
 
-    Title: FigStep: Jailbreaking Large Vision-language Models via Typographic Visual Prompts
-    Link: https://arxiv.org/pdf/2311.05608.pdf
-    Reference: Yichen Gong, Delong Ran, Jinyuan Liu, Conglei Wang, Tianshuo Cong, Anyu Wang, Sisi Duan, and Xiaoyun Wang. 2023. FigStep: Jailbreaking Large Vision-language Models via Typographic Visual Prompts.
+    Yichen Gong, Delong Ran, Jinyuan Liu, Conglei Wang, Tianshuo Cong, Anyu Wang, Sisi Duan, and Xiaoyun Wang. 2023.
+    "FigStep: Jailbreaking Large Vision-language Models via Typographic Visual Prompts."
+    ArXiv. https://arxiv.org/pdf/2311.05608
+
     """
 
     active = False  # default to use limit version - FigStep80

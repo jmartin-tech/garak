@@ -1,5 +1,4 @@
-"""
-Do-Not-Answer Probes
+"""Do-Not-Answer Probes
 
 https://github.com/Libr-AI/do-not-answer
 https://arxiv.org/abs/2308.13387

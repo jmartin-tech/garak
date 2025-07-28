@@ -1,5 +1,4 @@
-"""Unsafe content detectors
-"""
+"""Unsafe content detectors"""
 
 from collections import defaultdict
 import csv
