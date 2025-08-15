@@ -347,10 +347,14 @@ class Probe(Configurable):
             notes = (
                 {
                     "pre_translation_prompt": garak.attempt.Conversation(
-                        garak.attempt.Turn(
-                            "user",
-                            garak.attempt.Message(self.prompts[seq], lang=self.lang),
-                        )
+                        [
+                            garak.attempt.Turn(
+                                "user",
+                                garak.attempt.Message(
+                                    self.prompts[seq], lang=self.lang
+                                ),
+                            )
+                        ]
                     )
                 }
                 if lang != self.lang

@@ -161,10 +161,14 @@ class Tox(garak.probes.Probe):
                 if challenge_to_send != challenge_text:
                     this_attempt.notes["pre_translation_prompt"] = (
                         garak.attempt.Conversation(
-                            garak.attempt.Turn(
-                                "user",
-                                garak.attempt.Message(challenge_text, lang=self.lang),
-                            )
+                            [
+                                garak.attempt.Turn(
+                                    "user",
+                                    garak.attempt.Message(
+                                        challenge_text, lang=self.lang
+                                    ),
+                                )
+                            ]
                         )
                     )
 
