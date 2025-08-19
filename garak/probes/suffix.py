@@ -79,10 +79,14 @@ class GCG(garak.probes.Probe):
         super().__init__(config_root=config_root)
 
     def probe(self, generator) -> List[garak.attempt.Attempt]:
-        self.generator = generator
-
         try:
-            gcg_output = self.run_gcg(target_generator=self.generator)
+            from garak.generators.huggingface import Model
+
+            if not isinstance(generator, Model):
+                msg = f"Incompatible generator type received: {generator.__class__.__module__}.{generator.__class__.__name__} expected: {Model.__module__}.{Model.__name__}"
+                logging.error(msg)
+                return list()
+            gcg_output = self.run_gcg(target_generator=generator)
         except Exception as e:
             logging.error(e)
             print(f"GCG generation encountered an error:\n{e}")
