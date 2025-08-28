@@ -129,7 +129,7 @@ class Conversation:
             raise ValueError("No messages available")
         if not role:
             return self.turns[-1].content
-        for idx in range(len(self.turns), 0):
+        for idx in range(len(self.turns) - 1, -1, -1):
             if role == self.turns[idx].role:
                 return self.turns[idx].content
         raise ValueError(f"No messages for role: {role}")

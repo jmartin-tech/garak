@@ -122,10 +122,11 @@ class EvaluationJudge:
             Conversation(
                 [
                     Turn(
-                        "user",
-                        Message(
-                            self._create_conv(get_evaluator_prompt(prompt, response))
-                        ),
+                        role=turn["role"],
+                        content=Message(turn["content"]),
+                    )
+                    for turn in self._create_conv(
+                        get_evaluator_prompt(prompt, response)
                     )
                 ]
             )
@@ -142,13 +143,12 @@ class EvaluationJudge:
             Conversation(
                 [
                     Turn(
-                        "user",
-                        Message(
-                            self._create_conv(
-                                get_evaluator_prompt_on_topic(prompt),
-                                system_prompt=self.system_prompt_on_topic,
-                            )
-                        ),
+                        role=turn["role"],
+                        content=Message(turn["content"]),
+                    )
+                    for turn in self._create_conv(
+                        get_evaluator_prompt_on_topic(prompt),
+                        system_prompt=self.system_prompt_on_topic,
                     )
                 ]
             )
