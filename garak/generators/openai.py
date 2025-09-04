@@ -21,6 +21,7 @@ import openai
 import backoff
 
 from garak import _config
+from garak.attempt import Message, Conversation
 import garak.exception
 from garak.generators.base import Generator
 
@@ -185,7 +186,7 @@ class OpenAICompatible(Generator):
     def _validate_config(self):
         pass
 
-    def _validate_token_args(self, create_args: dict, prompt: str) -> dict:
+    def _validate_token_args(self, create_args: dict, prompt: Conversation) -> dict:
         """Ensure maximum token limit compatibility with OpenAI create request"""
         token_generation_limit_key = "max_tokens"
         fixed_cost = 0
@@ -203,6 +204,7 @@ class OpenAICompatible(Generator):
             # every reply is primed with <|start|>assistant<|message|> (3 toks) plus 1 for name change
             # see https://github.com/openai/openai-cookbook/blob/main/examples/How_to_count_tokens_with_tiktoken.ipynb
             # section 6 "Counting tokens for chat completions API calls"
+            # TODO: adjust fixed cost to account for each `turn` already in the prompt
             fixed_cost = 7
 
         # basic token boundary validation to ensure requests are not rejected for exceeding target context length
@@ -234,7 +236,9 @@ class OpenAICompatible(Generator):
                 prompt_tokens = 0  # this should apply to messages object
                 try:
                     encoding = tiktoken.encoding_for_model(self.name)
-                    prompt_tokens = len(encoding.encode(prompt))
+                    prompt_tokens = 0
+                    for turn in prompt.turns:
+                        prompt_tokens = len(encoding.encode(turn.content.text))
                 except KeyError as e:
                     prompt_tokens = int(
                         len(prompt.split()) * 4 / 3
@@ -299,8 +303,8 @@ class OpenAICompatible(Generator):
         max_value=70,
     )
     def _call_model(
-        self, prompt: Union[str, List[dict]], generations_this_call: int = 1
-    ) -> List[Union[str, None]]:
+        self, prompt: Union[Conversation, List[dict]], generations_this_call: int = 1
+    ) -> List[Union[Message, None]]:
         if self.client is None:
             # reload client once when consuming the generator
             self._load_client()
@@ -330,28 +334,29 @@ class OpenAICompatible(Generator):
             return [None]
 
         if self.generator == self.client.completions:
-            if not isinstance(prompt, str):
+            if not isinstance(prompt, Conversation) or len(prompt.turns) > 1:
                 msg = (
-                    f"Expected a string for {self.generator_family_name} completions model {self.name}, but got {type(prompt)}. "
+                    f"Expected a Conversation with one Turn for {self.generator_family_name} completions model {self.name}, but got {type(prompt)}. "
                     f"Returning nothing!"
                 )
                 logging.error(msg)
-                return list()
+                return [None] * generations_this_call
 
-            create_args["prompt"] = prompt
+            create_args["prompt"] = prompt.last_message().text
 
         elif self.generator == self.client.chat.completions:
-            if isinstance(prompt, str):
-                messages = [{"role": "user", "content": prompt}]
+            if isinstance(prompt, Conversation):
+                messages = self._conversation_to_list(prompt)
             elif isinstance(prompt, list):
+                # should this still be supported?
                 messages = prompt
             else:
                 msg = (
-                    f"Expected a list of dicts for {self.generator_family_name} Chat model {self.name}, but got {type(prompt)} instead. "
+                    f"Expected a Conversation or list of dicts for {self.generator_family_name} Chat model {self.name}, but got {type(prompt)} instead. "
                     f"Returning nothing!"
                 )
                 logging.error(msg)
-                return list()
+                return [None] * generations_this_call
 
             create_args["messages"] = messages
 
@@ -361,7 +366,7 @@ class OpenAICompatible(Generator):
             msg = "Bad request: " + str(repr(prompt))
             logging.exception(e)
             logging.error(msg)
-            return [None]
+            return [None] * generations_this_call
         except json.decoder.JSONDecodeError as e:
             logging.exception(e)
             if self.retry_json:
@@ -378,12 +383,12 @@ class OpenAICompatible(Generator):
             if self.retry_json:
                 raise garak.exception.GarakBackoffTrigger(msg)
             else:
-                return [None]
+                return [None] * generations_this_call
 
         if self.generator == self.client.completions:
-            return [c.text for c in response.choices]
+            return [Message(c.text) for c in response.choices]
         elif self.generator == self.client.chat.completions:
-            return [c.message.content for c in response.choices]
+            return [Message(c.message.content) for c in response.choices]
 
 
 class OpenAIGenerator(OpenAICompatible):
@@ -425,8 +430,8 @@ class OpenAIGenerator(OpenAICompatible):
                 f"No {self.generator_family_name} API defined for '{self.name}' in generators/openai.py - please add one!"
             )
 
-        if self.__class__.__name__ == "OpenAIGenerator" and self.name.startswith("o1-"):
-            msg = "'o1'-class models should use openai.OpenAIReasoningGenerator. Try e.g. `-m openai.OpenAIReasoningGenerator` instead of `-m openai`"
+        if self.__class__.__name__ == "OpenAIGenerator" and self.name.startswith("o"):
+            msg = "'o'-class models should use openai.OpenAIReasoningGenerator. Try e.g. `-m openai.OpenAIReasoningGenerator` instead of `-m openai`"
             logging.error(msg)
             raise garak.exception.BadGeneratorException("🛑 " + msg)
 

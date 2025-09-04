@@ -50,6 +50,7 @@ Advanced usage
    configurable
    cliref
    translation
+   ascii_smuggling
 
 Code reference
 ^^^^^^^^^^^^^^

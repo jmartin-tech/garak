@@ -35,6 +35,7 @@ For a detailed oversight into how a probe operates, see :doc:`garak.probes.base`
    garak.probes.phrasing
    garak.probes.promptinject
    garak.probes.realtoxicityprompts
+   garak.probes.sata
    garak.probes.snowball
    garak.probes.suffix
    garak.probes.tap
