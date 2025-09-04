@@ -331,7 +331,7 @@ class OpenAICompatible(Generator):
             create_args = self._validate_token_args(create_args, prompt)
         except garak.exception.GarakException as e:
             logging.exception(e)
-            return [None]
+            return [None] * generations_this_call
 
         if self.generator == self.client.completions:
             if not isinstance(prompt, Conversation) or len(prompt.turns) > 1:
