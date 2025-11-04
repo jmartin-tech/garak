@@ -149,7 +149,9 @@ class OpenAICompatible(Generator):
     # avoid attempt to pickle the client attribute
     def __getstate__(self) -> object:
         self._clear_client()
-        return dict(self.__dict__)
+        ret_val = dict(self.__dict__)
+        self._load_client()
+        return ret_val
 
     # restore the client attribute
     def __setstate__(self, d) -> object:
@@ -215,6 +217,8 @@ class OpenAICompatible(Generator):
             # reload client once when consuming the generator
             self._load_client()
 
+        is_completion = self.generator == self.client.completions
+
         create_args = {}
         if "n" not in self.suppressed_params:
             create_args["n"] = generations_this_call
@@ -232,7 +236,7 @@ class OpenAICompatible(Generator):
             for k, v in self.extra_params.items():
                 create_args[k] = v
 
-        if self.generator == self.client.completions:
+        if is_completion:
             if not isinstance(prompt, Conversation) or len(prompt.turns) > 1:
                 msg = (
                     f"Expected a Conversation with one Turn for {self.generator_family_name} completions model {self.name}, but got {type(prompt)}. "
@@ -243,7 +247,7 @@ class OpenAICompatible(Generator):
 
             create_args["prompt"] = prompt.last_message().text
 
-        elif self.generator == self.client.chat.completions:
+        else:  # is chat
             if isinstance(prompt, Conversation):
                 messages = self._conversation_to_list(prompt)
             elif isinstance(prompt, list):
@@ -284,9 +288,9 @@ class OpenAICompatible(Generator):
             else:
                 return [None]
 
-        if self.generator == self.client.completions:
+        if is_completion:
             return [Message(c.text) for c in response.choices]
-        elif self.generator == self.client.chat.completions:
+        else:
             return [Message(c.message.content) for c in response.choices]
 
 
