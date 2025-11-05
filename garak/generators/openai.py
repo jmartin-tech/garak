@@ -149,9 +149,7 @@ class OpenAICompatible(Generator):
     # avoid attempt to pickle the client attribute
     def __getstate__(self) -> object:
         self._clear_client()
-        ret_val = dict(self.__dict__)
-        self._load_client()
-        return ret_val
+        return dict(self.__dict__)
 
     # restore the client attribute
     def __setstate__(self, d) -> object:
@@ -217,12 +215,15 @@ class OpenAICompatible(Generator):
             # reload client once when consuming the generator
             self._load_client()
 
-        is_completion = self.generator == self.client.completions
+        # TODO: refactor to always use local scoped variables for _call_model client objects to avoid serialization state issues
+        client = self.client
+        generator = self.generator
+        is_completion = generator == client.completions
 
         create_args = {}
         if "n" not in self.suppressed_params:
             create_args["n"] = generations_this_call
-        for arg in inspect.signature(self.generator.create).parameters:
+        for arg in inspect.signature(generator.create).parameters:
             if arg == "model":
                 create_args[arg] = self.name
                 continue
@@ -264,7 +265,7 @@ class OpenAICompatible(Generator):
             create_args["messages"] = messages
 
         try:
-            response = self.generator.create(**create_args)
+            response = generator.create(**create_args)
         except openai.BadRequestError as e:
             msg = "Bad request: " + str(repr(prompt))
             logging.exception(e)
