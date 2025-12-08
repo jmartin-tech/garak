@@ -289,10 +289,15 @@ class AttackPrompt(object):
                     self._assistant_role_slice.stop - 1, len(toks) - 2
                 )
             else:
+                try:
+                    system_msg = self.conv.last_message("system").text
+                except ValueError as _:
+                    system_msg = ""
                 self._system_slice = slice(
                     None,
-                    encoding.char_to_token(len(self.conv.last_message("system"))),
+                    encoding.char_to_token(len(system_msg)),
                 )
+
                 self._user_role_slice = slice(
                     encoding.char_to_token(prompt.find("user")),
                     encoding.char_to_token(prompt.find("user") + len("user") + 1),
