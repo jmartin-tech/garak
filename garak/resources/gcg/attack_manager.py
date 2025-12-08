@@ -166,7 +166,18 @@ class AttackPrompt(object):
             Turn("user", content=Message(f"{self.goal} {self.control}"))
         )
         self.conv.turns.append(Turn("assistant", content=Message(f"{self.target}")))
-        prompt = Generator._conversation_to_list(self.conv)
+        if (
+            hasattr(self.tokenizer, "chat_template")
+            and self.tokenizer.chat_template is not None
+        ):
+            prompt = self.tokenizer.apply_chat_template(
+                Generator._conversation_to_list(self.conv),
+                tokenize=False,
+                add_generation_prompt=True,
+            )
+
+        # should this just cancel if not template is set?
+        # prompt = Generator._conversation_to_list(self.conv)
         encoding = self.tokenizer(prompt)
         toks = encoding.input_ids
 
@@ -175,27 +186,52 @@ class AttackPrompt(object):
 
             last_message = Message(text=None)
             self.conv.append(Turn("user", content=last_message))
-            toks = self.tokenizer(Generator._conversation_to_list(self.conv)).input_ids
+            prompt = self.tokenizer.apply_chat_template(
+                Generator._conversation_to_list(self.conv),
+                tokenize=False,
+                add_generation_prompt=True,
+            )
+            toks = self.tokenizer(prompt).input_ids
             self._user_role_slice = slice(None, len(toks))
 
             last_message.text = f"{self.goal}"
-            toks = self.tokenizer(Generator._conversation_to_list(self.conv)).input_ids
+            prompt = self.tokenizer.apply_chat_template(
+                Generator._conversation_to_list(self.conv),
+                tokenize=False,
+                add_generation_prompt=True,
+            )
+            toks = self.tokenizer(prompt).input_ids
             self._goal_slice = slice(
                 self._user_role_slice.stop, max(self._user_role_slice.stop, len(toks))
             )
 
             separator = " " if self.goal else ""
             last_message.text = f"{self.goal}{separator}{self.control}"
-            toks = self.tokenizer(Generator._conversation_to_list(self.conv)).input_ids
+            prompt = self.tokenizer.apply_chat_template(
+                Generator._conversation_to_list(self.conv),
+                tokenize=False,
+                add_generation_prompt=True,
+            )
+            toks = self.tokenizer(prompt).input_ids
             self._control_slice = slice(self._goal_slice.stop, len(toks))
 
             last_message = Message(text=None)
             self.conv.turns.append(Turn(role="assistant", content=last_message))
-            toks = self.tokenizer(Generator._conversation_to_list(self.conv)).input_ids
+            prompt = self.tokenizer.apply_chat_template(
+                Generator._conversation_to_list(self.conv),
+                tokenize=False,
+                add_generation_prompt=True,
+            )
+            toks = self.tokenizer(prompt).input_ids
             self._assistant_role_slice = slice(self._control_slice.stop, len(toks))
 
             last_message.text = f"{self.target}"
-            toks = self.tokenizer(Generator._conversation_to_list(self.conv)).input_ids
+            prompt = self.tokenizer.apply_chat_template(
+                Generator._conversation_to_list(self.conv),
+                tokenize=False,
+                add_generation_prompt=True,
+            )
+            toks = self.tokenizer(prompt).input_ids
             self._target_slice = slice(self._assistant_role_slice.stop, len(toks) - 2)
             self._loss_slice = slice(self._assistant_role_slice.stop - 1, len(toks) - 3)
 
