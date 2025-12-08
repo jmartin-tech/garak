@@ -565,7 +565,6 @@ def join_words_with_punctuation(words: list) -> str:
 
 def get_score_autodan(
     generator,
-    conv_template,
     instruction,
     target,
     test_controls=None,
@@ -576,7 +575,6 @@ def get_score_autodan(
 
     Args:
         generator (garak.generators.huggingface.Model): Generator for model
-        conv_template (Conversation): Conversation template for the model
         instruction (str): Instruction to be given to the model
         target (str): Target output
         test_controls (list): List of test jailbreak strings
@@ -593,7 +591,6 @@ def get_score_autodan(
     for item in test_controls:
         prefix_manager = AutoDanPrefixManager(
             generator=generator,
-            conv_template=conv_template,
             instruction=instruction,
             target=target,
             adv_string=item,

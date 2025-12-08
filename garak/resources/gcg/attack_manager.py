@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: Portions Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+#
 # MIT License
 #
 # Copyright (c) 2023 Andy Zou
@@ -33,7 +35,6 @@ import pandas as pd
 import torch
 import torch.multiprocessing as mp
 import torch.nn as nn
-from fastchat.model import get_conversation_template
 from transformers import (
     GPT2LMHeadModel,
     GPTJForCausalLM,
@@ -43,9 +44,9 @@ from transformers import (
 from logging import getLogger
 from tqdm import tqdm
 
-import garak.generators
-from garak.generators.huggingface import Model
 from garak.resources.common import load_advbench, REJECTION_STRINGS
+from garak.attempt import Conversation, Turn, Message
+from garak.generators.base import Generator
 
 logger = getLogger(__name__)
 
@@ -115,30 +116,6 @@ def get_nonascii_toks(tokenizer, device="cpu"):
     return torch.tensor(ascii_toks, device=device)
 
 
-def get_conv_name(model_name: str) -> str:
-    """Helper function to map model names to their conversational model name
-
-    Parameters
-    ----------
-    model_name : String containing the model name
-
-    Returns
-    -------
-    conv_model_name : String for loading the relevant fastchat conversation template
-    """
-    model_name = model_name.lower()
-    if "/" in model_name:
-        model_name = model_name.split("/")[-1]
-    if "llama-2" in model_name:
-        return "llama-2"
-    elif "vicuna" in model_name:
-        return "vicuna_v1.1"
-    elif "mpt" in model_name:
-        return "mpt-30b-chat"
-    else:
-        return model_name
-
-
 class AttackPrompt(object):
     """A class used to generate an attack prompt."""
 
@@ -147,7 +124,6 @@ class AttackPrompt(object):
         goal,
         target,
         tokenizer,
-        conv_template,
         control_init="! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! !",
         test_prefixes=REJECTION_STRINGS,
         *args,
@@ -163,8 +139,6 @@ class AttackPrompt(object):
             The target of the attack
         tokenizer : Transformer Tokenizer
             The tokenizer used to convert text into tokens
-        conv_template : Template
-            The conversation template used for the attack
         control_init : str, optional
             A string used to control the attack (default is "! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ")
         test_prefixes : list, optional
@@ -175,10 +149,9 @@ class AttackPrompt(object):
         self.target = target
         self.control = control_init
         self.tokenizer = tokenizer
-        self.conv_template = conv_template
         self.test_prefixes = test_prefixes
 
-        self.conv_template.messages = []
+        self.conv = Conversation()
 
         self.test_new_toks = len(self.tokenizer(self.target).input_ids) + 2  # buffer
         for prefix in self.test_prefixes:
@@ -189,45 +162,47 @@ class AttackPrompt(object):
         self._update_ids()
 
     def _update_ids(self):
-        self.conv_template.append_message(
-            self.conv_template.roles[0], f"{self.goal} {self.control}"
+        self.conv.turns.append(
+            Turn("user", content=Message(f"{self.goal} {self.control}"))
         )
-        self.conv_template.append_message(self.conv_template.roles[1], f"{self.target}")
-        prompt = self.conv_template.get_prompt()
+        self.conv.turns.append(Turn("assistant", content=Message(f"{self.target}")))
+        prompt = Generator._conversation_to_list(self.conv)
         encoding = self.tokenizer(prompt)
         toks = encoding.input_ids
 
-        if self.conv_template.name == "llama-2":
-            self.conv_template.messages = []
+        if hasattr(self, "template_name") and self.template_name == "llama-2":
+            self.conv.turns = []
 
-            self.conv_template.append_message(self.conv_template.roles[0], None)
-            toks = self.tokenizer(self.conv_template.get_prompt()).input_ids
+            last_message = Message(text=None)
+            self.conv.append(Turn("user", content=last_message))
+            toks = self.tokenizer(Generator._conversation_to_list(self.conv)).input_ids
             self._user_role_slice = slice(None, len(toks))
 
-            self.conv_template.update_last_message(f"{self.goal}")
-            toks = self.tokenizer(self.conv_template.get_prompt()).input_ids
+            last_message.text = f"{self.goal}"
+            toks = self.tokenizer(Generator._conversation_to_list(self.conv)).input_ids
             self._goal_slice = slice(
                 self._user_role_slice.stop, max(self._user_role_slice.stop, len(toks))
             )
 
             separator = " " if self.goal else ""
-            self.conv_template.update_last_message(
-                f"{self.goal}{separator}{self.control}"
-            )
-            toks = self.tokenizer(self.conv_template.get_prompt()).input_ids
+            last_message.text = f"{self.goal}{separator}{self.control}"
+            toks = self.tokenizer(Generator._conversation_to_list(self.conv)).input_ids
             self._control_slice = slice(self._goal_slice.stop, len(toks))
 
-            self.conv_template.append_message(self.conv_template.roles[1], None)
-            toks = self.tokenizer(self.conv_template.get_prompt()).input_ids
+            last_message = Message(text=None)
+            self.conv.turns.append(Turn(role="assistant", content=last_message))
+            toks = self.tokenizer(Generator._conversation_to_list(self.conv)).input_ids
             self._assistant_role_slice = slice(self._control_slice.stop, len(toks))
 
-            self.conv_template.update_last_message(f"{self.target}")
-            toks = self.tokenizer(self.conv_template.get_prompt()).input_ids
+            last_message.text = f"{self.target}"
+            toks = self.tokenizer(Generator._conversation_to_list(self.conv)).input_ids
             self._target_slice = slice(self._assistant_role_slice.stop, len(toks) - 2)
             self._loss_slice = slice(self._assistant_role_slice.stop - 1, len(toks) - 3)
 
         else:
-            python_tokenizer = False or self.conv_template.name == "oasst_pythia"
+            python_tokenizer = False or (
+                hasattr(self, "template_name") and self.template_name == "oasst_pythia"
+            )
             try:
                 encoding.char_to_token(len(prompt) - 1)
             except:
@@ -235,32 +210,42 @@ class AttackPrompt(object):
             if python_tokenizer:
                 # This is specific to the vicuna and pythia tokenizer and conversation prompt.
                 # It will not work with other tokenizers or prompts.
-                self.conv_template.messages = []
+                self.conv.turns = []
 
-                self.conv_template.append_message(self.conv_template.roles[0], None)
-                toks = self.tokenizer(self.conv_template.get_prompt()).input_ids
+                last_message = Message(text=None)
+                self.conv.append(Turn("user", content=last_message))
+                toks = self.tokenizer(
+                    Generator._conversation_to_list(self.conv)
+                ).input_ids
                 self._user_role_slice = slice(None, len(toks))
 
-                self.conv_template.update_last_message(f"{self.goal}")
-                toks = self.tokenizer(self.conv_template.get_prompt()).input_ids
+                last_message.text = f"{self.goal}"
+                toks = self.tokenizer(
+                    Generator._conversation_to_list(self.conv)
+                ).input_ids
                 self._goal_slice = slice(
                     self._user_role_slice.stop,
                     max(self._user_role_slice.stop, len(toks) - 1),
                 )
 
                 separator = " " if self.goal else ""
-                self.conv_template.update_last_message(
-                    f"{self.goal}{separator}{self.control}"
-                )
-                toks = self.tokenizer(self.conv_template.get_prompt()).input_ids
+                last_message.text = f"{self.goal}{separator}{self.control}"
+                toks = self.tokenizer(
+                    Generator._conversation_to_list(self.conv)
+                ).input_ids
                 self._control_slice = slice(self._goal_slice.stop, len(toks) - 1)
 
-                self.conv_template.append_message(self.conv_template.roles[1], None)
-                toks = self.tokenizer(self.conv_template.get_prompt()).input_ids
+                last_message = Message(text=None)
+                self.conv.turns.append(Turn(role="assistant", content=last_message))
+                toks = self.tokenizer(
+                    Generator._conversation_to_list(self.conv)
+                ).input_ids
                 self._assistant_role_slice = slice(self._control_slice.stop, len(toks))
 
-                self.conv_template.update_last_message(f"{self.target}")
-                toks = self.tokenizer(self.conv_template.get_prompt()).input_ids
+                last_message.text = f"{self.target}"
+                toks = self.tokenizer(
+                    Generator._conversation_to_list(self.conv)
+                ).input_ids
                 self._target_slice = slice(
                     self._assistant_role_slice.stop, len(toks) - 1
                 )
@@ -270,15 +255,11 @@ class AttackPrompt(object):
             else:
                 self._system_slice = slice(
                     None,
-                    encoding.char_to_token(len(self.conv_template.system_message)),
+                    encoding.char_to_token(len(self.conv.last_message("system"))),
                 )
                 self._user_role_slice = slice(
-                    encoding.char_to_token(prompt.find(self.conv_template.roles[0])),
-                    encoding.char_to_token(
-                        prompt.find(self.conv_template.roles[0])
-                        + len(self.conv_template.roles[0])
-                        + 1
-                    ),
+                    encoding.char_to_token(prompt.find("user")),
+                    encoding.char_to_token(prompt.find("user") + len("user") + 1),
                 )
                 self._goal_slice = slice(
                     encoding.char_to_token(prompt.find(self.goal)),
@@ -291,11 +272,9 @@ class AttackPrompt(object):
                     ),
                 )
                 self._assistant_role_slice = slice(
-                    encoding.char_to_token(prompt.find(self.conv_template.roles[1])),
+                    encoding.char_to_token(prompt.find("assistant")),
                     encoding.char_to_token(
-                        prompt.find(self.conv_template.roles[1])
-                        + len(self.conv_template.roles[1])
-                        + 1
+                        prompt.find("assistant") + len("assistant") + 1
                     ),
                 )
                 self._target_slice = slice(
@@ -309,7 +288,7 @@ class AttackPrompt(object):
                 )
 
         self.input_ids = torch.tensor(toks[: self._target_slice.stop], device="cpu")
-        self.conv_template.messages = []
+        self.conv.turns = []
 
     @torch.no_grad()
     def generate(self, model, gen_config=None):
@@ -530,7 +509,6 @@ class PromptManager(object):
         goals,
         targets,
         tokenizer,
-        conv_template,
         control_init="! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! !",
         test_prefixes=REJECTION_STRINGS,
         managers=None,
@@ -547,8 +525,6 @@ class PromptManager(object):
             The list of targets of the attack
         tokenizer : Transformer Tokenizer
             The tokenizer used to convert text into tokens
-        conv_template : Template
-            The conversation template used for the attack
         control_init : str, optional
             A string used to control the attack (default is "! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! !")
         test_prefixes : list, optional
@@ -565,9 +541,7 @@ class PromptManager(object):
         self.tokenizer = tokenizer
 
         self._prompts = [
-            managers["AP"](
-                goal, target, tokenizer, conv_template, control_init, test_prefixes
-            )
+            managers["AP"](goal, target, tokenizer, control_init, test_prefixes)
             for goal, target in zip(goals, targets)
         ]
 
@@ -719,7 +693,6 @@ class MultiPromptAttack(object):
                 goals,
                 targets,
                 worker.tokenizer,
-                worker.conv_template,
                 control_init,
                 test_prefixes,
                 managers,
@@ -933,7 +906,6 @@ class MultiPromptAttack(object):
                 self.goals + self.test_goals,
                 self.targets + self.test_targets,
                 worker.tokenizer,
-                worker.conv_template,
                 self.control_str,
                 self.test_prefixes,
                 self.managers,
@@ -1092,7 +1064,6 @@ class ProgressiveMultiPromptAttack(object):
                                 {
                                     "model_path": worker.model.name_or_path,
                                     "tokenizer_path": worker.tokenizer.name_or_path,
-                                    "conv_template": worker.conv_template.name,
                                 }
                                 for worker in self.workers
                             ],
@@ -1100,7 +1071,6 @@ class ProgressiveMultiPromptAttack(object):
                                 {
                                     "model_path": worker.model.name_or_path,
                                     "tokenizer_path": worker.tokenizer.name_or_path,
-                                    "conv_template": worker.conv_template.name,
                                 }
                                 for worker in self.test_workers
                             ],
@@ -1341,7 +1311,6 @@ class IndividualPromptAttack(object):
                                 {
                                     "model_path": worker.model.name_or_path,
                                     "tokenizer_path": worker.tokenizer.name_or_path,
-                                    "conv_template": worker.conv_template.name,
                                 }
                                 for worker in self.workers
                             ],
@@ -1349,7 +1318,6 @@ class IndividualPromptAttack(object):
                                 {
                                     "model_path": worker.model.name_or_path,
                                     "tokenizer_path": worker.tokenizer.name_or_path,
-                                    "conv_template": worker.conv_template.name,
                                 }
                                 for worker in self.test_workers
                             ],
@@ -1555,7 +1523,6 @@ class EvaluateAttack(object):
                                 {
                                     "model_path": worker.model.name_or_path,
                                     "tokenizer_path": worker.tokenizer.name_or_path,
-                                    "conv_template": worker.conv_template.name,
                                 }
                                 for worker in self.workers
                             ],
@@ -1563,7 +1530,6 @@ class EvaluateAttack(object):
                                 {
                                     "model_path": worker.model.name_or_path,
                                     "tokenizer_path": worker.tokenizer.name_or_path,
-                                    "conv_template": worker.conv_template.name,
                                 }
                                 for worker in self.test_workers
                             ],
@@ -1714,12 +1680,11 @@ class EvaluateAttack(object):
 
 
 class ModelWorker(object):
-    def __init__(self, generator, conv_template):
+    def __init__(self, generator):
         """Worker for running against models
 
         Args:
             generator (garak.Generator): Generator to run against
-            conv_template (fastchat.Conversation): Conversation template
         """
         self.model = generator.model
         self.model.requires_grad_(False)  # Disable grads to reduce memory consumption
@@ -1727,7 +1692,7 @@ class ModelWorker(object):
         self.tokenizer.pad_token_id = (
             self.tokenizer.eos_token_id
         )  # Suppress warning for open-end generation.
-        self.conv_template = conv_template
+        self.conv = Conversation
         self.tasks = mp.JoinableQueue()
         self.results = mp.JoinableQueue()
         self.process = None
@@ -1793,25 +1758,8 @@ def get_workers(generators: list, n_train_models=1, evaluate=False):
     tuple of train workers and test workers.
 
     """
-    conv_model_names = [get_conv_name(generator.name) for generator in generators]
-    raw_conv_templates = [
-        get_conversation_template(conv_model) for conv_model in conv_model_names
-    ]
-    conv_templates = []
-    for conv in raw_conv_templates:
-        if conv.name == "zero_shot":
-            conv.roles = tuple(["### " + r for r in conv.roles])
-            conv.sep = "\n"
-        elif conv.name == "llama-2":
-            conv.sep2 = conv.sep2.strip()
-        conv_templates.append(conv)
 
-    workers = [
-        ModelWorker(generator, conv_template)
-        for generator, conv_template in zip(
-            [generator for generator in generators], conv_templates
-        )
-    ]
+    workers = [ModelWorker(generator) for generator in generators]
     if not evaluate:
         for worker in workers:
             worker.start()

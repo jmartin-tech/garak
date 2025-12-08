@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: Portions Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 import argparse
 from logging import getLogger
 import os
@@ -130,7 +133,6 @@ def autodan_generate(
 
     adv_string_init = open(init_prompt_path, "r", encoding="utf-8").readlines()[0]
 
-    conv_template = load_conversation_template(generator.name)
     crit = nn.CrossEntropyLoss(reduction="mean")
 
     config_root = {
@@ -150,11 +152,11 @@ def autodan_generate(
 
     # TODO: Have this support references other than ChatGPT.
     for o in range(len(reference)):
-        reference[o] = reference[o].replace("ChatGPT", conv_template.name)
-        reference[o] = reference[o].replace("chatGPT", conv_template.name)
-        reference[o] = reference[o].replace(
-            "ModelKeeper", developer_dict.get(conv_template.name, "Moderation")
-        )
+        # reference[o] = reference[o].replace("ChatGPT", conv_template.name)
+        # reference[o] = reference[o].replace("chatGPT", conv_template.name)
+        # reference[o] = reference[o].replace(
+        #     "ModelKeeper", developer_dict.get(conv_template.name, "Moderation")
+        # )
         reference[o] = reference[o] + " [PROMPT]:"
 
     new_adv_prefixes = reference[:batch_size]
@@ -165,7 +167,6 @@ def autodan_generate(
         with torch.no_grad():
             losses = get_score_autodan(
                 generator=generator,
-                conv_template=conv_template,
                 instruction=prompt,
                 target=target,
                 test_controls=new_adv_prefixes,

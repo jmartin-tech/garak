@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: Portions Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+#
 # MIT License
 #
 # Copyright (c) 2024 Robust Intelligence
@@ -28,20 +30,6 @@ import string
 import logging
 import numpy as np
 import json
-
-from fastchat.model import get_conversation_template
-
-
-def get_template(model_name, self_id=None, parent_id=None):
-    template = get_conversation_template(model_name)
-    if template.name == "llama-2":
-        template.sep2 = template.sep2.strip()
-
-    # IDs of self and parent in the tree of thought
-    template.self_id = self_id
-    template.parent_id = parent_id
-
-    return template
 
 
 def random_string(n):

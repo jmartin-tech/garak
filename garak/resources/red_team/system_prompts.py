@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: Portions Copyright (c) 2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+#
 # MIT License
 #
 # Copyright (c) 2024 Robust Intelligence
