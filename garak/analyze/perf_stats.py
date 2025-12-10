@@ -1,22 +1,27 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 # SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+# calculate calibration data given a list of report.jsonl files
 # input: list of report jsonl
 # process:
 #  for each combination of probe & detector:
 #   compute mean, standard deviation, shapiro-wilk across all input report evals
 # output: json dict: keys are probe/detector, values are dict: keys are mu, sigma, sw
 
+import argparse
 from collections import defaultdict
 import datetime
 from glob import glob
 import json
-import os
+import sys
 
 import numpy as np
 import scipy
+
+import garak
+from garak import _config
 
 
 def build_score_dict(filenames):
@@ -30,8 +35,13 @@ def build_score_dict(filenames):
         for r in records:
             if r["entry_type"] == "eval":
                 key = r["probe"] + "/" + r["detector"].replace("detector.", "")
-                value = float(r["passed"]) / r["total"]
-                eval_scores[key].append(value)
+                if r["total"] != 0:
+                    value = float(r["passed"]) / r["total"]
+                    eval_scores[key].append(value)
+                else:
+                    print(
+                        f"invalid result check {filename} for {key}: total tests was 0"
+                    )
 
     distribution_dict = {}
     for key in eval_scores:
@@ -42,17 +52,50 @@ def build_score_dict(filenames):
 
     distribution_dict["garak_calibration_meta"] = {
         "date": str(datetime.datetime.now(datetime.UTC)) + "Z",
-        "filenames": [n.split(os.sep)[-1] for n in filenames],
+        "filenames": filenames,
     }
 
     return distribution_dict
 
 
-if __name__ == "__main__":
-    import sys
+def main(argv=None) -> None:
+    if argv is None:
+        argv = sys.argv[1:]
+
+    _config.load_config()
+    print(
+        f"garak {garak.__description__} v{_config.version} ( https://github.com/NVIDIA/garak )"
+    )
+
+    parser = argparse.ArgumentParser(
+        prog="python -m garak.analyze.perf_stats",
+        description="Compute performance statistics across one or more garak JSONL reports",
+        epilog="See https://github.com/NVIDIA/garak",
+        allow_abbrev=False,
+    )
+    parser.add_argument(
+        "-r",
+        "--report_paths",
+        metavar="REPORT",
+        nargs="+",
+        help="One or more garak JSONL report paths",
+    )
+    parser.add_argument(
+        "reports_positional",
+        nargs="*",
+        help="One or more garak JSONL report paths (positional)",
+    )
+    args = parser.parse_args(argv)
 
     sys.stdout.reconfigure(encoding="utf-8")
-
-    input_filenames = glob(sys.argv[1])
-    distribution_dict = build_score_dict(input_filenames)
+    report_list = args.report_paths or args.reports_positional
+    if not report_list:
+        parser.error(
+            "one or more report paths are required (-r/--report_paths or positional)"
+        )
+    distribution_dict = build_score_dict(report_list)
     print(json.dumps(distribution_dict, indent=2, sort_keys=True))
+
+
+if __name__ == "__main__":
+    main()

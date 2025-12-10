@@ -2,9 +2,11 @@ import os
 import pytest
 import httpx
 
+from garak.attempt import Message, Turn, Conversation
 from garak.generators.azure import AzureOpenAIGenerator
 
 DEFAULT_DEPLOYMENT_NAME = "gpt-4o-deployment-test"
+
 
 @pytest.fixture
 def set_fake_env(request) -> None:
@@ -17,12 +19,14 @@ def set_fake_env(request) -> None:
             AzureOpenAIGenerator.ENDPOINT_ENV_VAR, None
         ),
     }
+
     def restore_env():
         for k, v in stored_env.items():
             if v is not None:
                 os.environ[k] = v
             else:
                 del os.environ[k]
+
     os.environ[AzureOpenAIGenerator.ENV_VAR] = "test_value"
     os.environ[AzureOpenAIGenerator.MODEL_NAME_ENV_VAR] = "gpt-4o"
     os.environ[AzureOpenAIGenerator.ENDPOINT_ENV_VAR] = "https://garak.example.com/"
@@ -58,13 +62,14 @@ def test_azureopenai_chat(respx_mock, openai_compat_mocks):
     )
     generator = AzureOpenAIGenerator(name=DEFAULT_DEPLOYMENT_NAME)
     assert generator.name == DEFAULT_DEPLOYMENT_NAME
-    assert generator.model_name == os.environ[AzureOpenAIGenerator.MODEL_NAME_ENV_VAR]
+    assert generator.target_name == os.environ[AzureOpenAIGenerator.MODEL_NAME_ENV_VAR]
     assert isinstance(generator.max_tokens, int)
     generator.max_tokens = 99
     assert generator.max_tokens == 99
     generator.temperature = 0.5
     assert generator.temperature == 0.5
-    output = generator.generate("Hello OpenAI!", 1)
+    conv = Conversation([Turn("user", Message("Hello OpenAI!"))])
+    output = generator.generate(conv, 1)
     assert len(output) == 1
     for item in output:
-        assert isinstance(item, str)
+        assert isinstance(item, Message)

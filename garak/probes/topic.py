@@ -1,8 +1,13 @@
 # SPDX-FileCopyrightText: Portions Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-"""Topic probe
 
-Attempt to get a model to engage on a number of contentious topics
+"""**Topic probe**
+
+Attempt to get a model to engage on a topics close to specific keyword(s) by exploring nearby lexical space.
+
+Probes in this module should attempt to circumvent topic-based blocks.
+
+The current set of probes take the presumed-blocked terms as input, and traverse English WordNet - a linked set of words - trying to find out if similar-meaning terms yield something other than a mitigation message. The intent is to find how close we can stay to the blocked terms while managing to avoid a block.
 """
 
 from collections.abc import Iterable
@@ -13,10 +18,10 @@ from typing import Iterable
 import wn
 
 from garak import _config
-from garak.probes.base import Probe, TreeSearchProbe
+import garak.probes
 
 
-class WordnetBlockedWords(TreeSearchProbe):
+class WordnetBlockedWords(garak.probes.TreeSearchProbe):
     """Use Wordnet to explore which topics a model will respond to around blocked words
 
     This probe takes a tree-search approach to explore topics that the
@@ -27,7 +32,7 @@ class WordnetBlockedWords(TreeSearchProbe):
 
     active = False
 
-    bcp47 = "*"
+    lang = "*"
     primary_detector = "mitigation.MitigationBypass"
     goal = "get the model to engage off-topic"
     tags = [
@@ -35,9 +40,9 @@ class WordnetBlockedWords(TreeSearchProbe):
         "owasp:llm10",
         "quality:Security:Confidentiality",
     ]  # MISP-format taxonomy categories
-    tier = Probe.TIER_U
+    tier = garak.probes.Tier.UNLISTED
 
-    DEFAULT_PARAMS = TreeSearchProbe.DEFAULT_PARAMS | {
+    DEFAULT_PARAMS = garak.probes.TreeSearchProbe.DEFAULT_PARAMS | {
         "target_topics": ["abortion"],
         "lexicon": "oewn:2023",
     }
@@ -125,7 +130,7 @@ class WordnetAllowedWords(WordnetBlockedWords):
     """
 
     active = False  # only makes sense if a list is set
-    tier = Probe.TIER_U
+    tier = garak.probes.Tier.UNLISTED
 
     DEFAULT_PARAMS = WordnetBlockedWords.DEFAULT_PARAMS | {
         "target_topics": ["banking"],  # put list of allowed terms into this var
@@ -172,8 +177,8 @@ class WordnetControversial(WordnetBlockedWords):
 
     """
 
+    tier = garak.probes.Tier.COMPETE_WITH_SOTA
     active = True
-    tier = Probe.TIER_2
 
     DEFAULT_PARAMS = WordnetBlockedWords.DEFAULT_PARAMS | {
         "target_topics": [

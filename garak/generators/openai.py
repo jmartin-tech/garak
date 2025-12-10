@@ -2,10 +2,11 @@
 
 Supports chat + chatcompletion models. Put your API key in
 an environment variable documented in the selected generator. Put the name of the
-model you want in either the --model_name command line parameter, or
+model you want in either the --target_name command line parameter, or
 pass it as an argument to the Generator constructor.
 
-sources:
+Sources:
+
 * https://platform.openai.com/docs/models/model-endpoint-compatibility
 * https://platform.openai.com/docs/model-index-for-researchers
 """
@@ -20,6 +21,7 @@ import openai
 import backoff
 
 from garak import _config
+from garak.attempt import Message, Conversation
 import garak.exception
 from garak.generators.base import Generator
 
@@ -161,7 +163,7 @@ class OpenAICompatible(Generator):
         self.client = openai.OpenAI(base_url=self.uri, api_key=self.api_key)
         if self.name in ("", None):
             raise ValueError(
-                f"{self.generator_family_name} requires model name to be set, e.g. --model_name org/private-model-name"
+                f"{self.generator_family_name} requires model name to be set, e.g. --target_name org/private-model-name"
             )
         self.generator = self.client.chat.completions
 
@@ -208,16 +210,21 @@ class OpenAICompatible(Generator):
         max_value=70,
     )
     def _call_model(
-        self, prompt: Union[str, List[dict]], generations_this_call: int = 1
-    ) -> List[Union[str, None]]:
+        self, prompt: Union[Conversation, List[dict]], generations_this_call: int = 1
+    ) -> List[Union[Message, None]]:
         if self.client is None:
             # reload client once when consuming the generator
             self._load_client()
 
+        # TODO: refactor to always use local scoped variables for _call_model client objects to avoid serialization state issues
+        client = self.client
+        generator = self.generator
+        is_completion = generator == client.completions
+
         create_args = {}
         if "n" not in self.suppressed_params:
             create_args["n"] = generations_this_call
-        for arg in inspect.signature(self.generator.create).parameters:
+        for arg in inspect.signature(generator.create).parameters:
             if arg == "model":
                 create_args[arg] = self.name
                 continue
@@ -231,25 +238,26 @@ class OpenAICompatible(Generator):
             for k, v in self.extra_params.items():
                 create_args[k] = v
 
-        if self.generator == self.client.completions:
-            if not isinstance(prompt, str):
+        if is_completion:
+            if not isinstance(prompt, Conversation) or len(prompt.turns) > 1:
                 msg = (
-                    f"Expected a string for {self.generator_family_name} completions model {self.name}, but got {type(prompt)}. "
+                    f"Expected a Conversation with one Turn for {self.generator_family_name} completions model {self.name}, but got {type(prompt)}. "
                     f"Returning nothing!"
                 )
                 logging.error(msg)
                 return list()
 
-            create_args["prompt"] = prompt
+            create_args["prompt"] = prompt.last_message().text
 
-        elif self.generator == self.client.chat.completions:
-            if isinstance(prompt, str):
-                messages = [{"role": "user", "content": prompt}]
+        else:  # is chat
+            if isinstance(prompt, Conversation):
+                messages = self._conversation_to_list(prompt)
             elif isinstance(prompt, list):
+                # should this still be supported?
                 messages = prompt
             else:
                 msg = (
-                    f"Expected a list of dicts for {self.generator_family_name} Chat model {self.name}, but got {type(prompt)} instead. "
+                    f"Expected a Conversation or list of dicts for {self.generator_family_name} Chat model {self.name}, but got {type(prompt)} instead. "
                     f"Returning nothing!"
                 )
                 logging.error(msg)
@@ -258,7 +266,7 @@ class OpenAICompatible(Generator):
             create_args["messages"] = messages
 
         try:
-            response = self.generator.create(**create_args)
+            response = generator.create(**create_args)
         except openai.BadRequestError as e:
             msg = "Bad request: " + str(repr(prompt))
             logging.exception(e)
@@ -282,10 +290,10 @@ class OpenAICompatible(Generator):
             else:
                 return [None]
 
-        if self.generator == self.client.completions:
-            return [c.text for c in response.choices]
-        elif self.generator == self.client.chat.completions:
-            return [c.message.content for c in response.choices]
+        if is_completion:
+            return [Message(c.text) for c in response.choices]
+        else:
+            return [Message(c.message.content) for c in response.choices]
 
 
 class OpenAIGenerator(OpenAICompatible):
@@ -306,7 +314,7 @@ class OpenAIGenerator(OpenAICompatible):
         if self.name == "":
             openai_model_list = sorted([m.id for m in self.client.models.list().data])
             raise ValueError(
-                f"Model name is required for {self.generator_family_name}, use --model_name\n"
+                f"Model name is required for {self.generator_family_name}, use --target_name\n"
                 + "  API returns following available models: ▶️   "
                 + "  ".join(openai_model_list)
                 + "\n"
@@ -327,8 +335,8 @@ class OpenAIGenerator(OpenAICompatible):
                 f"No {self.generator_family_name} API defined for '{self.name}' in generators/openai.py - please add one!"
             )
 
-        if self.__class__.__name__ == "OpenAIGenerator" and self.name.startswith("o1-"):
-            msg = "'o1'-class models should use openai.OpenAIReasoningGenerator. Try e.g. `-m openai.OpenAIReasoningGenerator` instead of `-m openai`"
+        if self.__class__.__name__ == "OpenAIGenerator" and self.name.startswith("o"):
+            msg = "'o'-class models should use openai.OpenAIReasoningGenerator. Try e.g. `-m openai.OpenAIReasoningGenerator` instead of `-m openai`"
             logging.error(msg)
             raise garak.exception.BadGeneratorException("🛑 " + msg)
 

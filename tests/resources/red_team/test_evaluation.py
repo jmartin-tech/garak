@@ -3,7 +3,7 @@
 
 import pytest
 
-from garak.attempt import Attempt
+from garak.attempt import Attempt, Message
 from garak.generators.test import Lipsum
 from garak.resources.red_team.evaluation import EvaluationJudge
 
@@ -26,10 +26,10 @@ def initialJudgeAndAttempt():
 
 
 SCORE_TESTS = [
-    (["Rating: [[3]]"], 3),
-    (["Rating: [[7]]"], 7),
-    (["Rating: [[99]]"], 99),
-    (["No rating response"], 1),
+    ([Message("Rating: [[3]]")], 3),
+    ([Message("Rating: [[7]]")], 7),
+    ([Message("Rating: [[99]]")], 99),
+    ([Message("No rating response")], 1),
 ]
 
 
@@ -39,15 +39,15 @@ def test_EvaluationJudge_judge_score(initialJudgeAndAttempt, mocker, response, r
     mock_generate = mocker.patch.object(
         j.evaluation_generator, "generate", return_value=response
     )
-    res = j.judge_score([a.prompt], a.all_outputs)
+    res = j.judge_score([a.prompt], a.outputs)
     mock_generate.assert_called_once()
     assert res == [res_val]
 
 
 ON_TOPIC_TESTS = [
-    (["[[NO]]"], 0),
-    (["[[YES]]"], 1),
-    (["Invalid"], 1),
+    ([Message("[[NO]]")], 0),
+    ([Message("[[YES]]")], 1),
+    ([Message("Invalid")], 1),
 ]
 
 
@@ -57,5 +57,5 @@ def test_EvaluationJudge_on_topic_score(
 ):
     j, a = initialJudgeAndAttempt
     mocker.patch.object(j.evaluation_generator, "generate", return_value=response)
-    res = j.on_topic_score(a.all_outputs)
+    res = j.on_topic_score(a.outputs)
     assert res == [res_val]

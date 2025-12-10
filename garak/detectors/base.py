@@ -21,7 +21,7 @@ class Detector(Configurable):
     """Base class for objects that define a way of detecting a probe hit / LLM failure"""
 
     doc_uri = None  # reference
-    bcp47 = None  # language this is for. format: a comma-separated list of bcp47 tags, or "*"
+    lang_spec = None  # language this is for. format: a comma-separated list of BCP47 tags, or "*"
     precision = 0.0
     recall = 0.0
     accuracy = None
@@ -65,11 +65,12 @@ class Detector(Configurable):
 
         logging.info(f"detector init: {self}")
 
-    def detect(self, attempt: garak.attempt.Attempt) -> Iterable[float]:
+    def detect(self, attempt: garak.attempt.Attempt) -> Iterable[float | None]:
         """Takes a list of Attempts; classifies them; returns a list of results
         in the range 0.0-1.0 where 0.0 represents no hit, 1.0 represents successful hit
         (i.e. vulnerability found)."""
-        return [0.5] * len(attempt.all_outputs)
+
+        raise NotImplementedError
 
 
 class HFDetector(Detector, HFCompatible):
@@ -78,6 +79,7 @@ class HFDetector(Detector, HFCompatible):
     DEFAULT_PARAMS = Detector.DEFAULT_PARAMS | {
         "hf_args": {"device": "cpu"},
         "tokenizer_kwargs": {"padding": True, "truncation": True},
+        "graceful_fail": True,
     }
 
     def __init__(self, config_root=_config):
@@ -129,35 +131,42 @@ class HFDetector(Detector, HFCompatible):
 
         transformers_logging.set_verbosity(orig_loglevel)
 
-        self.graceful_fail = False
-
-    def detect(self, attempt: garak.attempt.Attempt) -> List[float]:
-        # goal: skip None outputs
+    def detect(self, attempt: garak.attempt.Attempt) -> List[float | None]:
+        # goal: return None for None outputs
         # don't adjust attempt.outputs
 
-        all_outputs = attempt.outputs_for(self.bcp47)
-        non_none_outputs = [v for k, v in enumerate(all_outputs) if v is not None]
-        # non_none_offsets = [k for k,v in enumerate(all_outputs) if v is not None] # we'll want this when outputs+scores need to align
+        all_outputs = attempt.outputs_for(self.lang_spec)
+        non_none_outputs = [
+            v.text for k, v in enumerate(all_outputs) if v and v.text is not None
+        ]
+        non_none_offsets = [
+            k for k, v in enumerate(all_outputs) if v is not None and v.text is not None
+        ]  # we'll want this when outputs+scores need to align
         try:
             detector_raw_results = self.detector(
                 non_none_outputs, **self.tokenizer_kwargs
             )
         except Exception as e:
             if self.graceful_fail:
-                print(e)
-                return []
+                logging.critical(
+                    "Exception running %s" % self.__class__.__name__, exc_info=e
+                )
+                return [None] * len(all_outputs)
             else:
                 raise Exception() from e
 
-        # detector_results = [None] * len(attempt.all_outputs) # we'll want this when outputs+scores need to align
+        detector_raw_results.reverse()
         detector_results = []
-        for k, d in enumerate(detector_raw_results):
-            norm_result_score = (
-                (1.0 - d["score"]) / 2
-                if d["label"] != self.detector_target_class
-                else (1.0 + d["score"]) / 2
-            )
-            # detector_results[non_none_offsets[k]] = norm_result_score # we'll want this when outputs+scores need to align
+        for k in range(0, len(all_outputs)):
+            if k in non_none_offsets:
+                d = detector_raw_results.pop()
+                norm_result_score = (
+                    (1.0 - d["score"]) / 2
+                    if d["label"] != self.detector_target_class
+                    else (1.0 + d["score"]) / 2
+                )
+            else:
+                norm_result_score = None
             detector_results.append(norm_result_score)
 
         return detector_results
@@ -176,26 +185,28 @@ class StringDetector(Detector):
 
     def detect(
         self, attempt: garak.attempt.Attempt, case_sensitive=False
-    ) -> Iterable[float]:
+    ) -> Iterable[float | None]:
         detector_results = []
-        all_outputs = attempt.outputs_for(self.bcp47)
+        all_outputs = attempt.outputs_for(self.lang_spec)
 
         for output in all_outputs:
-            if output is None:
+            output_text = output.text if output else None
+            if output_text is None or output.text is None:
+                detector_results.append(None)
                 continue
             match = False
             for s in self.substrings:
                 if not case_sensitive:
-                    s, output = s.lower(), output.lower()
+                    s, output_text = s.lower(), output_text.lower()
 
                 if self.matchtype == "str":
-                    if s in output:
+                    if s in output_text:
                         match = True
                 elif self.matchtype == "word":
-                    if re.search(r"\b" + s + r"\b", output):
+                    if re.search(r"\b" + s + r"\b", output_text):
                         match = True
                 elif self.matchtype == "startswith":
-                    if output.startswith(s):
+                    if output_text.startswith(s):
                         match = True
                 else:
                     raise ValueError(
@@ -211,24 +222,25 @@ class TriggerListDetector(Detector):
 
     def detect(
         self, attempt: garak.attempt.Attempt, case_sensitive=False
-    ) -> Iterable[float]:
+    ) -> Iterable[float | None]:
         detector_results = []
-        all_outputs = attempt.outputs_for(self.bcp47)
+        all_outputs = attempt.outputs_for(self.lang_spec)
 
         if "triggers" in attempt.notes:
             triggers = attempt.notes["triggers"]
             if isinstance(triggers, str):
                 triggers = [triggers]
             for output in all_outputs:
-                if output is None:
+                if output is None or output.text is None:
+                    detector_results.append(None)
                     continue  # trigger is absent
                 match = False
                 for trigger in triggers:
                     if case_sensitive:
-                        if trigger in output:
+                        if trigger in output.text:
                             match = True
                     else:
-                        if trigger.lower() in output.lower():
+                        if trigger.lower() in output.text.lower():
                             match = True
                 detector_results.append(1.0 if match else 0.0)
 
@@ -243,7 +255,7 @@ class FileDetector(Detector):
     def _test_file(self, filename: str) -> Union[None, str]:
         raise NotImplementedError
 
-    def detect(self, attempt: garak.attempt.Attempt) -> Iterable[float]:
+    def detect(self, attempt: garak.attempt.Attempt) -> Iterable[float | None]:
         if self.valid_format and (
             "format" not in attempt.notes
             or attempt.notes["format"] != self.valid_format
@@ -252,15 +264,15 @@ class FileDetector(Detector):
                 f"detectors.fileformats.{self.__class__.__name__} only processes outputs that are '{self.valid_format}'"
             )
 
-        for local_filename in attempt.all_outputs:
-            if local_filename is None or local_filename == "":
+        for local_filename in attempt.outputs:
+            if not local_filename or not local_filename.text:
                 continue
             if not os.path.isfile(
-                local_filename
+                local_filename.text
             ):  # skip missing files but also pipes, devices, etc
                 logging.info("Skipping non-file path %s", local_filename)
                 continue
 
             else:
-                test_result = self._test_file(local_filename)
+                test_result = self._test_file(local_filename.text)
                 yield test_result if test_result is not None else 0.0

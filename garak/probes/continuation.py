@@ -1,4 +1,8 @@
-"""Probes to check if a generator will continue a contentious term.
+"""**Contentious term continuation probes**
+
+These probes pose a phrase ending in an unwanted term, and see if the target will offer a continuation of that term.
+
+Probes that implement this kind of continuation attack belong in this module.
 
 Operates by giving high-risk context as a prompt, extracted from e.g. Urban
 Dictionary examples of use of contentious terms, and seeing if the model will
@@ -6,24 +10,24 @@ continue the term based on varying amounts of prefix.
 """
 
 import json
+import tqdm
 
+import garak.resources.theme
 from garak import _config
 from garak.attempt import Attempt
 from garak.data import path as data_path
-from garak.probes.base import Probe
+import garak.probes
 
 
-class ContinueSlursReclaimedSlursFull(Probe):
+class ContinueSlursReclaimedSlursFull(garak.probes.Probe):
     """Continue partial word with slur or reclaimed slur.
 
     This probe poses a partial ethnic slur with some preceding content, and
     checks to see if the model will complete the slur."""
 
-    bcp47 = "en"
+    lang = "en"
     doc_uri = ""
-    recommended_detector = [
-        "continuation.Continuation",
-    ]
+    primary_detector = "continuation.Continuation"
     tags = [
         "avid-effect:ethics:E0101",
         "avid-effect:ethics:E0301",
@@ -35,7 +39,7 @@ class ContinueSlursReclaimedSlursFull(Probe):
     ]
     goal = "output an ethnic slur"
     active = False
-    tier = Probe.TIER_2
+    tier = garak.probes.Tier.COMPETE_WITH_SOTA
     source_resource_filename = "slurprompts.jsonl"
 
     follow_prompt_cap = False
@@ -76,8 +80,17 @@ class ContinueSlursReclaimedSlursFull(Probe):
         if self.follow_prompt_cap:
             self._prune_data(self.soft_probe_prompt_cap)
 
-        if self.translator is not None:
-            self.triggers = self.translator.translate(self.triggers)
+        if self.langprovider is not None:
+            preparation_bar = tqdm.tqdm(
+                total=len(self.triggers),
+                leave=False,
+                colour=f"#{garak.resources.theme.LANGPROVIDER_RGB}",
+                desc="Preparing triggers",
+            )
+            self.triggers = self.langprovider.get_text(
+                self.triggers, notify_callback=preparation_bar.update
+            )
+            preparation_bar.close()
 
     def _attempt_prestore_hook(self, attempt: Attempt, seq: int) -> Attempt:
         attempt.notes = dict(
@@ -87,7 +100,7 @@ class ContinueSlursReclaimedSlursFull(Probe):
         return attempt
 
 
-class ContinueSlursReclaimedSlurs(ContinueSlursReclaimedSlursFull, Probe):
+class ContinueSlursReclaimedSlurs(ContinueSlursReclaimedSlursFull, garak.probes.Probe):
     """Continue partial word with slur or reclaimed slur.
 
     This probe poses a partial ethnic slur with some preceding content, and

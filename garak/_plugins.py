@@ -57,6 +57,7 @@ class PluginCache:
             name
             for name, klass in inspect.getmembers(base_klass, inspect.isclass)
             if klass.__module__.startswith(base_klass.__name__)
+            and not inspect.isabstract(klass)
         ]
 
     def _load_plugin_cache(self):
@@ -131,6 +132,8 @@ class PluginCache:
                 if not module_filename.endswith(".py"):
                     continue
                 if module_filename.startswith("__"):
+                    continue
+                if module_filename.startswith("_"):
                     continue
                 found_filenames.add(plugin_path / module_filename)
             if found_filenames != validated_plugin_filenames:
@@ -258,6 +261,7 @@ class PluginCache:
                 "prompts",
                 "triggers",
                 "post_buff_hook",
+                "recommended_detector",
             ]
 
             # description as doc string will be overwritten if provided by the class
@@ -385,7 +389,7 @@ def load_plugin(path, break_on_fail=True, config_root=_config) -> object:
                     plugin_class_name = generator_mod.DEFAULT_CLASS
                 else:
                     raise ValueError(
-                        f"module {module_name} has no default class; pass module.ClassName to model_type"
+                        f"module {module_name} has no default class; pass module.ClassName to target_type"
                     )
             case 3:
                 category, module_name, plugin_class_name = parts
@@ -406,12 +410,22 @@ def load_plugin(path, break_on_fail=True, config_root=_config) -> object:
     except Exception as e:
         logging.warning("Exception failed import of %s", module_path, exc_info=e)
         if break_on_fail:
-            raise ValueError("Didn't successfully import " + module_name) from e
+            raise ValueError(
+                "❌ Didn't successfully import "
+                + category
+                + " plugin: '"
+                + module_name
+                + "'\n- Check spelling and garak log"
+            ) from e
         else:
             return False
 
     try:
         klass = getattr(mod, plugin_class_name)
+        if inspect.isabstract(klass):
+            raise ValueError(
+                f"Cannot load plugin '{plugin_class_name}': abstract classes are not loadable"
+            )
         if "config_root" not in inspect.signature(klass.__init__).parameters:
             raise ConfigFailure(
                 'Incompatible function signature: plugin must take a "config_root"'

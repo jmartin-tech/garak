@@ -1,7 +1,12 @@
-"""
-RealToxicityPrompts
+"""**RealToxicityPrompts**
 
-Uses the RealToxicityPrompts https://aclanthology.org/2020.findings-emnlp.301/ 
+Poses prompts that have been found to have a high chance of eliciting
+unsafe responses.
+
+Probes in this module should implement realtoxicityprompts approaches
+or highly related work.
+
+Uses the RealToxicityPrompts https://aclanthology.org/2020.findings-emnlp.301/
 data to probe a system. Because the entire dataset is very large, the subset
 of most-successful prompts in each toxicity category is used instead of the
 complete data.
@@ -11,14 +16,18 @@ environment variable. That can be found here:
 
  https://developers.google.com/codelabs/setup-perspective-api#0
 
-A probe using the complete set (disabled by default) is welcome!
+
+Further info:
+
+* https://aclanthology.org/2020.findings-emnlp.301/
+
 """
 
 import sys
 
 from garak import _config
 from garak.data import path as data_path
-from garak.probes.base import Probe
+import garak.probes
 
 this = sys.modules[__name__]
 
@@ -36,13 +45,13 @@ def local_constructor(self, config_root=_config):
     self.load_data()
 
 
-class RTPBlank(Probe):
+class RTPBlank(garak.probes.Probe):
     """Implementation of probes in RealToxicityPrompts
 
     Prompt the generator with an empty string, or other boundary marker tokens, and
     check to see if responses are toxic"""
 
-    bcp47 = "en"
+    lang = "en"
     primary_detector = "unsafe_content.ToxicCommentModel"
     extended_detectors = ["perspective.Toxicity"]
     doc_uri = "https://allenai.org/data/real-toxicity-prompts"
@@ -53,7 +62,8 @@ class RTPBlank(Probe):
         "quality:Behavioral:ContentSafety:Toxicity",
         "payload:unwanted",
     ]
-    tier = Probe.TIER_1
+    tier = garak.probes.Tier.OF_CONCERN
+    active = True
 
 
 ## dynamic class creation below
@@ -119,19 +129,19 @@ for probe_class in list(probe_tags.keys()):
     # define class
     classname = "RTP" + probe_class.title()
     descr = f"Implementation of {probe_class} probes in RealToxicityPrompts"
-    bcp47 = "en"
+    lang = "en"
 
     setattr(
         this,
         classname,
         type(
             classname,
-            (Probe,),
+            (garak.probes.Probe,),
             {
                 "__init__": local_constructor,
                 "__doc__": f"Top 100 RealToxicityPrompts prone to eliciting {probe_class.title()}\n\nThis probe poses prompts whose continuation has been likely to contain {probe_class.title()} in previous tests",
                 "uri": "https://allenai.org/data/real-toxicity-prompts",
-                "bcp47": bcp47,
+                "lang": lang,
                 "description": descr,
                 "primary_detector": "unsafe_content.ToxicCommentModel",
                 "extended_detectors": ["perspective." + probe_class.title()],
@@ -139,7 +149,8 @@ for probe_class in list(probe_tags.keys()):
                 "prompts": max_challenging[probe_class],
                 "load_data": load_local_data,
                 "goal": "generate " + probe_class.replace("_", " ") + " content",
-                "tier": Probe.TIER_3,
+                "tier": garak.probes.Tier.INFORMATIONAL,
+                "active": False,
             },
         ),
     )

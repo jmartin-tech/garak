@@ -1,25 +1,27 @@
-Configuring ``garak``
-=====================
+..  headings: = - ^ "
+
+Configuring garak
+=================
 
 Beyond the standard CLI options, garak is highly configurable.
 You can use YAML files to configure a garak run, down to the level
 of exactly how each plugin behaves.
 
 
-Specifying custom configuration
+Specifying Custom Configuration
 -------------------------------
 
-``garak`` can be configured in multiple ways:
+garak can be configured in multiple ways:
 
 * Via command-line parameters
 * Using YAML configs
 * Through specifying JSON on the command line
 
-The easiest way is often to use a YAML config, and how to do that is 
+The easiest way is often to use a YAML config, and how to do that is
 described below.
 
-Garak's config hierarchy
-^^^^^^^^^^^^^^^^^^^^^^^^
+Garak Config Hierarchy
+^^^^^^^^^^^^^^^^^^^^^^
 
 Configuration values can come from multiple places. At garak load, the
 ``_config`` module manages parsing configuration. This includes determining
@@ -50,21 +52,24 @@ Let's take a look at the core config.
         max_workers: 500
 
     run:
+        system_prompt: "You are an AI model and this is a system prompt"
         seed:
         deprefix: true
         eval_threshold: 0.5
         generations: 5
         probe_tags:
+        user_agent: "garak/{version} (LLM vulnerability scanner https://garak.ai)"
+        soft_probe_prompt_cap: 256
 
     plugins:
-        model_type:
-        model_name:
+        target_type:
+        target_name:
         probe_spec: all
         detector_spec: auto
         extended_detectors: false
         buff_spec:
         buffs_include_original_prompt: false
-        buff_max: 
+        buff_max:
         detectors: {}
         generators: {}
         buffs: {}
@@ -79,17 +84,18 @@ Let's take a look at the core config.
         taxonomy:
         report_dir: garak_runs
         show_100_pass_modules: true
+        group_aggregation_function: minimum
 
-Here we can see many entries that correspond to command line options, such as 
-``model_name`` and ``model_type``, as well as some entried not exposed via CLI
+Here we can see many entries that correspond to command line options, such as
+``target_name`` and ``target_type``, as well as some entried not exposed via CLI
 such as ``show_100_pass_modules``.
 
 
-``system`` config items
-"""""""""""""""""""""""
+System Config Items
+"""""""""""""""""""
 
-* ``parallel_requests`` - For generators not supporting multiple responses per prompt: how many requests to send in parallel with the same prompt? (raising ``parallel_attempts`` generally yields higher performance, depending on how high ``generations`` is set)
 * ``parallel_attempts`` - For parallelisable generators, how many attempts should be run in parallel? Raising this is a great way of speeding up garak runs for API-based models
+* ``parallel_requests`` - For generators not supporting multiple responses per prompt: how many requests to send in parallel with the same prompt? (raising ``parallel_attempts`` generally yields higher performance, depending on how high ``generations`` is set)
 * ``lite`` - Should we display a caution message that the run might not give very thorough results?
 * ``verbose`` - Degree of verbosity (values above 0 are experimental, the report & log are authoritative)
 * ``narrow_output`` - Support output on narrower CLIs
@@ -97,9 +103,26 @@ such as ``show_100_pass_modules``.
 * ``enable_experimental`` - Enable experimental function CLI flags. Disabled by default. Experimental functions may disrupt your installation and provide unusual/unstable results. Can only be set by editing core config, so a git checkout of garak is recommended for this.
 * ``max_workers`` - Cap on how many parallel workers can be requested. When raising this in order to use higher parallelisation, keep an eye on system resources (e.g. `ulimit -n 4026` on Linux)
 
-``run`` config items
-""""""""""""""""""""
 
+
+**Parallel requests and parallel attempts** These items enable parallelisation within a probe, by launching multiple processes to either try many prompts at the same time (``parallel_attempts``), or to try multiple copies of the same prompt at the same time (``parallel_requests``).
+In testing, garak maintainers find that ``parallel_attempts`` usually runs quicker - especially if the endpoint is capable of returning more than one response to a query at a time.
+
+If an endpoint can only return one response to a query at a time, but generations is set to a value greater than one, then each prompt is posed to the endpoint multiple times.
+This can be slow.
+Setting ``parallel_requests`` to a value over one enables making all these requests at the same time, mitigating the wallclock-time cost of multiple generations.
+
+Parameter ``parallel_requests`` has no effect if generations is set to 1.
+Setting ``parallel_requests`` higher than generations also has the same effect as setting ``parallel_requests`` equal to generations.
+
+In practice, ``parallel_requests`` and ``parallel_attempts`` are mutually exclusive, so you have to choose between them. 
+We find that using ``parallel_attempts`` usually gives a faster run completion time - especially when the number of generations is lower than the number of different prompts from a probe, which is more oftent he case than not in a default garak run.
+
+
+Run Config Items
+""""""""""""""""
+
+* ``system_prompt`` -- If given and not overriden by the probe itself, probes will pass the specified system prompt when possible for generators that support chat modality.
 * ``probe_tags`` - If given, the probe selection is filtered according to these tags; probes that don't match the tags are not selected
 * ``generations`` - How many times to send each prompt for inference
 * ``deprefix`` - Remove the prompt from the start of the output (some models return the prompt as part of their output)
@@ -107,13 +130,14 @@ such as ``show_100_pass_modules``.
 * ``eval_threshold`` - At what point in the 0..1 range output by detectors does a result count as a successful attack / hit
 * ``user_agent`` - What HTTP user agent string should garak use? ``{version}`` can be used to signify where garak version ID should go
 * ``soft_probe_prompt_cap`` - For probes that auto-scale their prompt count, the preferred limit of prompts per probe
-* ``target_lang`` - A single bcp47 value the target application for LLM accepts as prompt and output
-* ``translators`` - A list of configurations representing translators for converting from probe bcp47 language to land_spec target bcp47 languages
+* ``target_lang`` - A single language (as BCP47 that the target application for LLM accepts as prompt and output
+* ``langproviders`` - A list of configurations representing providers for converting from probe language to lang_spec target languages (BCP47)
 
-``plugins`` config items
-""""""""""""""""""""""""
-* ``model_type`` - The generator model type, e.g. "nim" or "huggingface"
-* ``model_name`` - The name of the model to be used (optional - if blank, type-specific default is used)
+Plugins Config Items
+""""""""""""""""""""
+
+* ``target_type`` - The type of target generator, e.g. "nim" or "huggingface"
+* ``target_name`` - The specific name of the target to be used (optional - if blank, type-specific default is used)
 * ``probe_spec`` - A comma-separated list of probe modules or probe classnames (in ``module.classname``) format to be used. If a module is given, only ``active`` plugin in that module are chosen, this is equivalent to passing `-p` to the CLI
 * ``detector_spec`` - An optional spec of detectors to be used, if overriding those recommended in probes. Specifying ``detector_spec`` means the ``pxd`` harness will be used. This is equivalent to passing `-d` to the CLI
 * ``extended_detectors`` - Should just the primary detector be used per probe, or should the extended detectors also be run? The former is fast, the latter thorough.
@@ -126,18 +150,22 @@ such as ``show_100_pass_modules``.
 * ``harnesses`` - Root note for harness plugin configs
 * ``probes`` - Root note for probe plugin configs
 
-For an example of how to use the ``detectors``, ``generators``, ``buffs``, 
+For an example of how to use the ``detectors``, ``generators``, ``buffs``,
 ``harnesses``, and ``probes`` root entries, see :ref:`Configuring plugins with YAML <config_with_yaml>` below.
 
-``reporting`` config items
-""""""""""""""""""""""""""
+Reporting Config Items
+""""""""""""""""""""""
+
 * ``report_dir`` - Directory for reporting; defaults to ``$XDG_DATA/garak/garak_runs``
 * ``report_prefix`` - Prefix for report files. Defaults to ``garak.$RUN_UUID``
 * ``taxonomy`` - Which taxonomy to use to group probes when creating HTML report
 * ``show_100_pass_modules`` - Should entries scoring 100% still be detailed in the HTML report?
+* ``show_group_score`` - Should an aggregated score per group be shown in reports?
+* ``group_aggregation_function`` - How should scored of probe groups (e.g. plugin modules or taxonomy categories) be aggregrated in the HTML report? Options are ``minimum``, ``mean``, ``median``, ``mean_minus_sd``, ``lower_quartile``, and ``proportion_passing``. NB averages like ``mean`` and ``median`` hide a lot of information and aren't recommended.
+* ``show_top_group_score`` - Should the aggregated score be shown as a top-level figure in report concertinas?
 
 
-Bundled quick configs
+Bundled Quick Configs
 ^^^^^^^^^^^^^^^^^^^^^
 
 Garak comes bundled with some quick configs that can be loaded directly using ``--config``.
@@ -154,19 +182,19 @@ These are great places to look at to get an idea of how garak YAML configs can l
 Quick configs are stored under ``garak/configs/`` in the source code/install.
 
 
-Using a custom config
+Using a Custom Config
 ^^^^^^^^^^^^^^^^^^^^^
 
-To override values in this we can create a new YAML file and point to it from the 
+To override values in this we can create a new YAML file and point to it from the
 command line using ``--config``. For example, to select just ``latentinjection``
 probes and run each prompt just once:
 
 .. code-block:: yaml
-    
+
     ---
     run:
         generations: 1
-    
+
     plugins:
         probe_spec: latentinjection
 
@@ -174,14 +202,14 @@ If we save this as ``latent1.yaml`` somewhere, then we can use it with ``garak -
 
 
 
-Using a custom JSON config
+Using a Custom JSON Config
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Some plugins can take a JSON config specified on the command line. This config 
+Some plugins can take a JSON config specified on the command line. This config
 has the same structure as a YAML config, starting with the plugin model/type.
-The config can either be written to a file and the path passed, with 
+The config can either be written to a file and the path passed, with
 `--generator_option_file` or `--probe_option_file`, or directly as JSON on the
-command prompt, with `--generator_options` or `--probe_options`. An example 
+command prompt, with `--generator_options` or `--probe_options`. An example
 is given in :ref:`RestGenerator Config with JSON <rest_generator_with_json>` below.
 
 
@@ -190,11 +218,11 @@ Configuring Plugins
 
 Garak's functions are through its plugins. Most parts of garak are plugins,
 like the ``probes`` and ``detectors`` that do the actual examination of the target,
-the ``generators`` that interface with models, and even the ``harnesses`` 
+the ``generators`` that interface with models, and even the ``harnesses``
 that manage run orchestration. Each plugin is a class that has both descriptive
 and configurable parameters.
 
-Viewing plugin parameters
+Viewing Plugin Parameters
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
 You can see the parameters for any given plugin using garak ``--plugin_info``.
@@ -207,7 +235,7 @@ You can see the parameters for any given plugin using garak ``--plugin_info``.
                             description: Will the model yield a Windows 10 product key if we beg it to?
                          DEFAULT_PARAMS: {'generations': 1}
                                  active: True
-                                  bcp47: en
+                                   lang: en
                                 doc_uri: https://www.independent.co.uk/tech/chatgpt-microsoft-windows-11-grandma-exploit-b2360213.html
                      extended_detectors: ['mitigation.MitigationBypass']
                                    goal: get model to output Win 10 product keys
@@ -223,7 +251,7 @@ the probe in various typologies, which languages and modalities it supports, and
 
 We can also see a ``DEFAULT_PARAMS`` entry. This is a dictionary containing
 configurable parameters for this plugin. In this case, there's a ``generations``
-parameter set to ``1``; this is the default value for ``probes``, but is often 
+parameter set to ``1``; this is the default value for ``probes``, but is often
 overridden at run time by the CLI setup.
 
 At plugin load, the plugin instance has attributes named in ``DEFAULT_PARAMS``
@@ -232,10 +260,10 @@ config, or the default.
 
 .. _config_with_yaml:
 
-Configuring plugins with YAML
+Configuring Plugins with YAML
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Plugin config happens inside the ``plugins`` block. Multiple plugins can be 
+Plugin config happens inside the ``plugins`` block. Multiple plugins can be
 configured in the same YAML. Descend through this specifying plugin type,
 model, and optionally class, and set variables in the end. These will then
 be loaded as the plugin's ``DEFAULT_PARAMS`` attribute is parsed and used to
@@ -256,6 +284,7 @@ these will be applied to the instance and can be overridden by the class level. 
 is an example that is equivalent to the configuration above:
 
 .. code-block:: yaml
+
     plugins:
         generators:
             openai:
@@ -265,8 +294,8 @@ Example: RestGenerator
 ^^^^^^^^^^^^^^^^^^^^^^
 
 RestGenerator is a slightly complex generator, though mostly because it exposes
-so many config values, allowing flexible integrations. This example sets 
-``model_type: rest`` to ensure that this model is selected for the run; that might 
+so many config values, allowing flexible integrations. This example sets
+``target_type: rest`` to ensure that this model is selected for the run; that might
 not always be wanted, and it isn't compulsory.
 
 RestGenerator with YAML
@@ -275,7 +304,7 @@ RestGenerator with YAML
 .. code-block:: yaml
 
     plugins:
-        model_type: rest
+        target_type: rest
         generators:
             rest:
                 RestGenerator:
@@ -327,10 +356,10 @@ This defines a REST endpoint where:
 * The output is JSON and the top-level field ``text`` holds the model's response
 
 
-This should be written to a file, and the file's path passed on the command 
-line with `-G`. 
+This should be written to a file, and the file's path passed on the command
+line with `-G`.
 
-Configuration in code
+Configuration in Code
 ---------------------
 
 The preferred way to instantiate a plugin is using ``garak._plugins.load_plugin()``.
@@ -341,8 +370,8 @@ This function takes two parameters:
 
 ``load_plugin()`` returns a configured instance of the requested plugin.
 
-OpenAIGenerator config with dictionary
-""""""""""""""""""""""""""""""""""""""
+OpenAIGenerator Config with Dictionary
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. code-block:: python
 

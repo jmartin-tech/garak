@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-""" Buff that paraphrases a prompt. """
+"""Buff that paraphrases a prompt."""
 
 from collections.abc import Iterable
 
@@ -23,7 +23,7 @@ class PegasusT5(Buff, HFCompatible):
         "max_length": 60,
         "temperature": 1.5,
     }
-    bcp47 = "en"
+    lang = "en"
     doc_uri = "https://huggingface.co/tuner007/pegasus_paraphrase"
 
     def __init__(self, config_root=_config) -> None:
@@ -68,11 +68,18 @@ class PegasusT5(Buff, HFCompatible):
     def transform(
         self, attempt: garak.attempt.Attempt
     ) -> Iterable[garak.attempt.Attempt]:
-        yield self._derive_new_attempt(attempt)
-        paraphrases = self._get_response(attempt.prompt)
+        yield self._derive_new_attempt(
+            attempt
+        )  # why does this yield a copy of the original with no modification?
+        last_message = attempt.prompt.last_message()
+        paraphrases = self._get_response(last_message.text)
         for paraphrase in set(paraphrases):
             paraphrased_attempt = self._derive_new_attempt(attempt)
-            paraphrased_attempt.prompt = paraphrase
+            # transform receives a copy of the attempt should it modify the prompt in place?
+            delattr(paraphrased_attempt, "_prompt")  # hack to allow prompt set
+            paraphrased_attempt._prompt = garak.attempt.Message(
+                text=paraphrase, lang=last_message.lang
+            )
             yield paraphrased_attempt
 
 
@@ -83,7 +90,7 @@ class Fast(Buff, HFCompatible):
         "para_model_name": "garak-llm/chatgpt_paraphraser_on_T5_base",
         "hf_args": {"device": "cpu", "torch_dtype": "float32"},
     }
-    bcp47 = "en"
+    lang = "en"
     doc_uri = "https://huggingface.co/humarin/chatgpt_paraphraser_on_T5_base"
 
     def __init__(self, config_root=_config) -> None:
@@ -144,9 +151,16 @@ class Fast(Buff, HFCompatible):
     def transform(
         self, attempt: garak.attempt.Attempt
     ) -> Iterable[garak.attempt.Attempt]:
-        yield self._derive_new_attempt(attempt)
-        paraphrases = self._get_response(attempt.prompt)
+        yield self._derive_new_attempt(
+            attempt
+        )  # why does this yield a copy of the original with no modification?
+        last_message = attempt.prompt.last_message()
+        paraphrases = self._get_response(last_message.text)
         for paraphrase in set(paraphrases):
             paraphrased_attempt = self._derive_new_attempt(attempt)
-            paraphrased_attempt.prompt = paraphrase
+            # transform receives a copy of the attempt should it modify the prompt in place?
+            delattr(paraphrased_attempt, "_prompt")  # hack to allow prompt set
+            paraphrased_attempt._prompt = garak.attempt.Message(
+                text=paraphrase, lang=last_message.lang
+            )
             yield paraphrased_attempt

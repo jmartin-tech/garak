@@ -6,6 +6,7 @@
 import logging
 import json
 import random
+import sys
 
 HINT_CHANCE = 0.25
 
@@ -19,6 +20,14 @@ def hint(msg, logging=None):
         logging.info(msg)
     if random.random() < HINT_CHANCE:
         print(msg)
+
+
+def deprecation_notice(deprecated_item: str, version: str, logging=None):
+    msg = f"DEPRECATION: {deprecated_item} is deprecated since version {version}"
+    visible_msg = f"✋ {msg}"
+    if logging is not None:
+        logging.info(msg)
+    print(visible_msg)
 
 
 def start_logging():
@@ -96,7 +105,9 @@ def start_run():
             ):
                 setup_dict[f"{subset}.{k}"] = v
 
-    _config.transient.reportfile.write(json.dumps(setup_dict) + "\n")
+    _config.transient.reportfile.write(
+        json.dumps(setup_dict, ensure_ascii=False) + "\n"
+    )
     _config.transient.reportfile.write(
         json.dumps(
             {
@@ -104,7 +115,8 @@ def start_run():
                 "garak_version": _config.version,
                 "start_time": _config.transient.starttime_iso,
                 "run": _config.transient.run_id,
-            }
+            },
+            ensure_ascii=False,
         )
         + "\n"
     )
@@ -123,8 +135,11 @@ def end_run():
         "end_time": datetime.datetime.now().isoformat(),
         "run": _config.transient.run_id,
     }
-    _config.transient.reportfile.write(json.dumps(end_object))
+    _config.transient.reportfile.write(
+        json.dumps(end_object, ensure_ascii=False) + "\n"
+    )
     _config.transient.reportfile.close()
+
     print(f"📜 report closed :) {_config.transient.report_filename}")
     if _config.transient.hitlogfile:
         _config.transient.hitlogfile.close()
@@ -146,16 +161,38 @@ def end_run():
     logging.info(msg)
 
 
-def print_plugins(prefix: str, color):
+def print_plugins(prefix: str, color, selected_plugins=None):
+    """
+    Print plugins for a category (probes/detectors/generators/buffs).
+
+    Args:
+        prefix: Plugin category (probes/detectors/generators/buffs)
+        color: Color for output formatting
+        selected_plugins: Optional list of specific plugins to show. If None, shows all.
+    """
     from colorama import Style
+    from garak._plugins import enumerate_plugins, PLUGIN_TYPES
 
-    from garak._plugins import enumerate_plugins
+    if prefix not in PLUGIN_TYPES:
+        raise ValueError(f"Requested prefix '{prefix}' is not a valid plugin type")
 
-    plugin_names = enumerate_plugins(category=prefix)
-    plugin_names = [(p.replace(f"{prefix}.", ""), a) for p, a in plugin_names]
-    module_names = set([(m.split(".")[0], True) for m, a in plugin_names])
-    plugin_names += module_names
-    for plugin_name, active in sorted(plugin_names):
+    # enumerate with activation flags
+    rows = enumerate_plugins(
+        category=prefix
+    )  # [("probes.dan.AntiDAN", active_bool), ...]
+    if selected_plugins is not None:
+        if len(selected_plugins) > 0 and prefix in selected_plugins[0]:
+            rows = zip(selected_plugins, [True] * len(selected_plugins))
+        else:
+            print(f"No {prefix} match the provided filter")
+            return
+    short = [(p.replace(f"{prefix}.", ""), a) for p, a in rows]
+    if selected_plugins is None:
+        module_names = set([(m.split(".")[0], True) for m, a in short])
+        short += module_names
+
+    # print output
+    for plugin_name, active in sorted(short):
         print(f"{Style.BRIGHT}{color}{prefix}: {Style.RESET_ALL}", end="")
         print(plugin_name, end="")
         if "." not in plugin_name:
@@ -165,16 +202,16 @@ def print_plugins(prefix: str, color):
         print()
 
 
-def print_probes():
+def print_probes(selected_probes=None):
     from colorama import Fore
 
-    print_plugins("probes", Fore.LIGHTYELLOW_EX)
+    print_plugins("probes", Fore.LIGHTYELLOW_EX, selected_probes)
 
 
-def print_detectors():
+def print_detectors(selected_detectors=None):
     from colorama import Fore
 
-    print_plugins("detectors", Fore.LIGHTBLUE_EX)
+    print_plugins("detectors", Fore.LIGHTBLUE_EX, selected_detectors)
 
 
 def print_generators():
@@ -253,12 +290,15 @@ def list_config():
         _enumerate_obj_values(getattr(_config, section))
 
 
-def write_report_digest(report_filename, digest_filename):
+def write_report_digest(report_filename, html_report_filename):
     from garak.analyze import report_digest
 
-    digest = report_digest.compile_digest(report_filename)
-    with open(digest_filename, "w", encoding="utf-8") as f:
-        f.write(digest)
+    digest = report_digest.build_digest(report_filename)
+    with open(report_filename, "a+", encoding="utf-8") as report_file:
+        report_digest.append_report_object(report_file, digest)
+    html_report = report_digest.build_html(digest)
+    with open(html_report_filename, "w", encoding="utf-8") as htmlfile:
+        htmlfile.write(html_report)
 
 
 def detector_only_run(detectors, evaluator):

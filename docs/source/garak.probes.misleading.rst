@@ -4,5 +4,6 @@ garak.probes.misleading
 .. automodule:: garak.probes.misleading
    :members:
    :undoc-members:
-   :show-inheritance:   
+   :show-inheritance:
 
+   .. show-asr::

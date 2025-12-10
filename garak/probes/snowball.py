@@ -1,27 +1,32 @@
-"""Snowball probe
+"""**Snowball probe**
 
 Checks if the system gives wrong answers to complex reasoning questions,
-instead of giving the right answer or no answer. Bsaed on
+instead of giving the right answer or no answer.
 
-  https://arxiv.org/abs/2305.13534
+Probes here should be based on the Snowball paper.
+
+Further info:
+
+* https://arxiv.org/abs/2305.13534
+
 """
 
 import json
 
 from garak import _config
 from garak.data import path as data_path
-from garak.probes.base import Probe
+import garak.probes
 
 
-class GraphConnectivityFull(Probe):
+class GraphConnectivityFull(garak.probes.Probe):
     """Probe asking for impossible flight routings
 
     This probe attempts to catch models generating false claims by asking for a solution
     to an impossible problem, couched as a flight routing question"""
 
-    bcp47 = "en"
+    lang = "en"
     doc_uri = "https://github.com/Nanami18/Snowballed_Hallucination"
-    recommended_detector = ["snowball.DontStartYes"]
+    primary_detector = "snowball.DontStartYes"
     tags = [
         "avid-effect:performance:P0204",
         "owasp:llm09",
@@ -30,7 +35,7 @@ class GraphConnectivityFull(Probe):
     ]
     goal = "trick the model into saying an impossible flight routing is possible"
     active = False
-    tier = Probe.TIER_2
+    tier = garak.probes.Tier.COMPETE_WITH_SOTA
 
     def __init__(self, config_root=_config):
         super().__init__(config_root=config_root)
@@ -42,7 +47,7 @@ class GraphConnectivityFull(Probe):
             self.prompts = json.load(f)
 
 
-class GraphConnectivity(GraphConnectivityFull, Probe):
+class GraphConnectivity(GraphConnectivityFull, garak.probes.Probe):
     __doc__ = GraphConnectivityFull.__doc__ + " - limited number of examples"
     active = True
 
@@ -51,15 +56,15 @@ class GraphConnectivity(GraphConnectivityFull, Probe):
         self.prompts = self.prompts[-100:]
 
 
-class PrimesFull(Probe):
+class PrimesFull(garak.probes.Probe):
     """Ask model to check a list of higher primes
 
     This probe checks if a model is prone to generating false claims by asking if a given
     number is or isn't prime."""
 
-    bcp47 = "en"
+    lang = "en"
     doc_uri = "https://github.com/Nanami18/Snowballed_Hallucination"
-    recommended_detector = ["snowball.DontStartNo"]
+    primary_detector = "snowball.DontStartNo"
     tags = [
         "avid-effect:performance:P0204",
         "owasp:llm09",
@@ -68,7 +73,7 @@ class PrimesFull(Probe):
     ]
     goal = "trick the model into saying a prime number isn't prime"
     active = False
-    tier = Probe.TIER_3
+    tier = garak.probes.Tier.INFORMATIONAL
 
     def __init__(self, config_root=_config):
         super().__init__(config_root=config_root)
@@ -81,25 +86,25 @@ class PrimesFull(Probe):
             self.prompts = [entry["question"] for entry in dataset]
 
 
-class Primes(PrimesFull, Probe):
+class Primes(PrimesFull, garak.probes.Probe):
     __doc__ = PrimesFull.__doc__ + " - limited number of examples"
-    active = True
+    active = False
 
     def __init__(self, config_root=_config):
         super().__init__(config_root=config_root)
         self.prompts = self.prompts[-100:]
 
 
-class SenatorsFull(Probe):
+class SenatorsFull(garak.probes.Probe):
     """Asking for senators that don't exist
 
     This probe attempts to find generators prone to generating false claims by
     requesting the name of a US senator given constraints for which there isn't
     a senator"""
 
-    bcp47 = "en"
+    lang = "en"
     doc_uri = "https://github.com/Nanami18/Snowballed_Hallucination"
-    recommended_detector = ["snowball.DontStartYes"]
+    primary_detector = "snowball.DontStartYes"
     tags = [
         "avid-effect:performance:P0204",
         "owasp:llm09",
@@ -108,7 +113,7 @@ class SenatorsFull(Probe):
     ]
     goal = "trick the model into saying a fictitious senator exists"
     active = False
-    tier = Probe.TIER_3
+    tier = garak.probes.Tier.INFORMATIONAL
 
     def __init__(self, config_root=_config):
         super().__init__(config_root=config_root)
@@ -120,9 +125,9 @@ class SenatorsFull(Probe):
             self.prompts = json.load(f)
 
 
-class Senators(SenatorsFull, Probe):
+class Senators(SenatorsFull, garak.probes.Probe):
     __doc__ = SenatorsFull.__doc__ + " - limited number of examples"
-    active = True
+    active = False
 
     def __init__(self, config_root=_config):
         super().__init__(config_root=config_root)

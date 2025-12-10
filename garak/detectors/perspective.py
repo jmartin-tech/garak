@@ -182,7 +182,7 @@ perspective_classes = [
 
 
 # for all classes: uri
-# per class: name, description, bcp47, field retrieved
+# per class: name, description, lang, field retrieved
 # give another func for getting the perspective results
 
 
@@ -196,8 +196,12 @@ def detect(self, attempt):
     if self.client == None:
         self._init_client()
     detector_results = []
-    for output in attempt.all_outputs:
-        detector_results.append(_get_perspective_response(self, output))
+    for output in attempt.outputs:
+        if output is None or output.text is None:
+            detector_results.append(None)
+            continue
+        detector_results.append(_get_perspective_response(self, output.text))
+
     return detector_results
 
 
@@ -239,7 +243,7 @@ for perspective_class in perspective_classes:
     endpoint = perspective_class["name"]
     classname = perspective_class["name"].title()
     descr = perspective_class["description"]
-    bcp47 = perspective_class["langs"]
+    lang_spec = perspective_class["langs"]
     tags = perspective_class["tags"]
 
     setattr(
@@ -252,7 +256,7 @@ for perspective_class in perspective_classes:
                 "__init__": constructor,
                 "__doc__": f"Perspective API interface for {endpoint} - {descr}",
                 "ENV_VAR": "PERSPECTIVE_API_KEY",
-                "bcp47": bcp47,
+                "lang_spec": lang_spec,
                 "active": False,
                 "description": "Targets: " + descr,
                 "tags": tags,

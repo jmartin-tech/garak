@@ -5,7 +5,7 @@ Flexible connector for REST-based APIs.
 
 Uses the following options from ``_config.plugins.generators["rest.RestGenerator"]``:
 
-* ``uri`` - (optional) the URI of the REST endpoint; this can also be passed in --model_name
+* ``uri`` - (optional) the URI of the REST endpoint; this can also be passed in --target_name
 * ``name`` - a short name for this service; defaults to the uri
 * ``key_env_var`` - (optional) the name of the environment variable holding an API key, by default ``REST_API_KEY``
 * ``req_template`` - a string where the text ``$KEY`` is replaced by env var ``REST_API_KEY``'s value (or whatever's specified in ``key_env_var``) and ``$INPUT`` is replaced by the prompt. Default is to just send the input text.
@@ -30,7 +30,7 @@ The ``$INPUT`` and ``$KEY`` placeholders can also be specified in header values.
 If we want to call an endpoint where the API key is defined in the value
 of an ``X-Authorization`` header, sending and receiving JSON where the prompt
 and response value are both under the ``text`` key, we'd define the service
-using something like: 
+using something like:
 
 .. code-block:: JSON
 
@@ -60,11 +60,11 @@ To use this specification with garak, you can either pass the JSON as a
 strong option on the command line via ``--generator_options``, or save the
 JSON definition into a file and pass the filename to
 ``--generator_option_file`` / ``-G``. For example, if we save the above
-JSON into ``example_service.json``, we can invoke garak as: 
+JSON into ``example_service.json``, we can invoke garak as:
 
-.. code-block:: 
+.. code-block::
 
-   garak --model_type rest -G example_service.json
+   garak --target_type rest -G example_service.json
 
 This will load up the default ``RestGenerator`` and use the details in the
 JSON file to connect to the LLM endpoint.
@@ -77,5 +77,4 @@ from RestGenerator.
 .. automodule:: garak.generators.rest
    :members:
    :undoc-members:
-   :show-inheritance:   
-
+   :show-inheritance:

@@ -2,11 +2,13 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import importlib
+import langcodes
 import pytest
 import re
 
 from garak import _config, _plugins
-from garak.probes.base import Probe
+from garak.attempt import Turn, Conversation, Message, Attempt
+import garak.probes
 
 PROBES = [classname for (classname, active) in _plugins.enumerate_plugins("probes")]
 
@@ -18,10 +20,9 @@ DETECTORS = [
 ]
 DETECTOR_BARE_NAMES = [".".join(d.split(".")[1:]) for d in DETECTORS]
 
-BCP_LENIENT_RE = re.compile(r"[a-z]{2}([\-A-Za-z]*)")
 
 with open(
-    _config.transient.package_dir / "data" / "misp_descriptions.tsv",
+    _config.transient.package_dir / "data" / "tags.misp.tsv",
     "r",
     encoding="utf-8",
 ) as misp_data:
@@ -37,8 +38,8 @@ def test_detector_specified(classname):  # every probe should give detector(s)
     probe_class = getattr(mod, class_name)
     assert (
         isinstance(probe_class.primary_detector, str)
-        or len(probe_class.recommended_detector) > 0
-    )
+        or len(probe_class.extended_detectors) > 0
+    ), "One primary detector (str), or a non-empty list of extended detector, must be given"
 
 
 @pytest.mark.parametrize("classname", PROBES)
@@ -48,9 +49,9 @@ def test_probe_detector_exists(classname):
     class_name = plugin_name_parts[-1]
     mod = importlib.import_module(module_name)
     probe_class = getattr(mod, class_name)
-    probe_detectors = probe_class.recommended_detector + probe_class.extended_detectors
+    probe_detectors = list(probe_class.extended_detectors)
     if probe_class.primary_detector is not None:
-        probe_detectors += [probe_class.primary_detector]
+        probe_detectors.append(probe_class.primary_detector)
     assert set(probe_detectors).issubset(DETECTOR_BARE_NAMES)
 
 
@@ -75,14 +76,9 @@ def test_probe_metadata(classname):
     p = _plugins.load_plugin(classname)
     assert isinstance(p.goal, str), "probe goals should be a text string"
     assert len(p.goal) > 0, "probes must state their general goal"
-    assert isinstance(
-        p.bcp47, str
-    ), "language codes should be described in a comma-separated string of bcp47 tags or *"
-    bcp47_parts = p.bcp47.split(",")
-    for bcp47_part in bcp47_parts:
-        assert bcp47_part == "*" or re.match(
-            BCP_LENIENT_RE, bcp47_part
-        ), "langs must be described with either * or a bcp47 code"
+    assert p.lang is not None and (
+        p.lang == "*" or langcodes.tag_is_valid(p.lang)
+    ), "lang must be either * or a BCP47 code"
     assert isinstance(
         p.doc_uri, str
     ), "probes should give a doc uri describing/citing the attack"
@@ -94,7 +90,7 @@ def test_probe_metadata(classname):
     assert "in" in p.modality, "probe modalities need an in descriptor"
     assert isinstance(p.modality["in"], set), "modality descriptors must be sets"
     assert p.tier is not None, "probe tier must be specified"
-    assert p.tier in (Probe.TIER_1, Probe.TIER_2, Probe.TIER_3, Probe.TIER_U), "probe tier must be one of Probe.TIER_1 Probe.TIER_2 Probe.TIER_3 Probe.TIER_U'"
+    assert isinstance(p.tier, garak.probes.Tier), "probe tier must be one of type Tier'"
 
 
 @pytest.mark.parametrize("plugin_name", PROBES)
@@ -137,3 +133,52 @@ def test_probe_prune_alignment():
     assert len(p.triggers) == _config.run.soft_probe_prompt_cap
     assert p.triggers[0] in p.prompts[0]
     assert p.triggers[-1] in p.prompts[-1]
+
+
+PROMPT_EXAMPLES = [
+    "test example",
+    Message(text="test example"),
+    Conversation([Turn(role="user", content=Message(text="test example"))]),
+    Conversation(
+        [
+            Turn(role="system", content=Message(text="test system")),
+            Turn(role="user", content=Message(text="test example")),
+        ]
+    ),
+]
+
+
+@pytest.mark.parametrize("prompt", PROMPT_EXAMPLES)
+def test_mint_attempt(prompt):
+    import garak.probes.base
+
+    probe = garak.probes.base.Probe()
+    attempt = probe._mint_attempt(prompt)
+    assert isinstance(attempt, Attempt)
+    for turn in attempt.prompt.turns:
+        assert isinstance(turn, Turn)
+    assert attempt.prompt.last_message().text == "test example"
+
+
+@pytest.mark.parametrize("prompt", PROMPT_EXAMPLES)
+def test_mint_attempt_with_run_system_prompt(prompt):
+    import garak.probes.base
+
+    expected_system_prompt = "test system prompt"
+    probe = garak.probes.base.Probe()
+    probe.system_prompt = expected_system_prompt
+
+    if isinstance(prompt, Conversation):
+        try:
+            expected_system_prompt = prompt.last_message("system").text
+        except ValueError as e:
+            pass
+
+    attempt = probe._mint_attempt(prompt)
+    assert isinstance(attempt, Attempt)
+    for turn in attempt.prompt.turns:
+        assert isinstance(turn, Turn)
+    assert attempt.prompt.last_message().text == "test example"
+    assert attempt.prompt.last_message("system").text == expected_system_prompt
+    system_message = [turn for turn in attempt.prompt.turns if turn.role == "system"]
+    assert len(system_message) == 1

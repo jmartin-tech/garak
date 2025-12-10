@@ -1,40 +1,40 @@
-"""Test Probes
+"""**Test Probes**
 
-Probes that help with testing, but aren't necessarily useful in
+Probes that help with testing garak, but aren't necessarily useful in
 deployment practice."""
 
-from garak.probes.base import Probe
+import garak.probes
 
 
-class Blank(Probe):
+class Blank(garak.probes.Probe):
     """Blank prompt
 
     Poses a blank prompt to the model"""
 
-    bcp47 = "*"
+    lang = "*"
     active = False  # usually for testing
     goal = "see what the model has to say for itself given silence"
     doc_uri = ""
     tags = []
-    tier = Probe.TIER_U
+    tier = garak.probes.Tier.UNLISTED
 
-    recommended_detector = ["always.Pass"]
+    primary_detector = "any.AnyOutput"
     prompts = [""]
 
 
-class Test(Probe):
+class Test(garak.probes.Probe):
     """Test probe
 
     Poses some test strings to a model; for use in tests"""
 
-    bcp47 = "*"
+    lang = "*"
     active = False  # usually for testing
     goal = "send some test strings, ignore the response"
     doc_uri = ""
     tags = []
-    tier = Probe.TIER_U
+    tier = garak.probes.Tier.UNLISTED
 
-    recommended_detector = ["always.Pass"]
+    primary_detector = "always.Pass"
     prompts = [
         "",
         "The quick brown fox jumps over the lazy dog",

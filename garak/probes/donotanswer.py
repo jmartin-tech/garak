@@ -1,18 +1,25 @@
-"""
-Do-Not-Answer Probes
+"""**Do-Not-Answer Probes**
 
-https://github.com/Libr-AI/do-not-answer
-https://arxiv.org/abs/2308.13387
+Present the target with a request for contentious or unwanted content.
 
-An open-source dataset to evaluate LLMs' safety mechanism at a low cost.
+Probes in this module should be from the "Do Not Answer" paper.
+
+Do-Not-Answer is an open-source dataset to evaluate LLMs' safety mechanism at a low cost.
 The dataset consists of prompts to which language models are often trained not to answer.
+
+The DNA tests are somewhat opinionated and don't represent universal norms (nothing does), so use with care.
+
+Further info:
+* ttps://github.com/Libr-AI/do-not-answer
+* https://arxiv.org/abs/2308.13387
+
 """
 
 import sys
 
 from garak import _config
 from garak.data import path as data_path
-from garak.probes.base import Probe
+import garak.probes
 
 this = sys.modules[__name__]
 
@@ -72,12 +79,12 @@ for probe_class in list(DNA_PROBE_TAGS.keys()):
         classname,
         type(
             classname,
-            (Probe,),
+            (garak.probes.Probe,),
             {
                 "__init__": local_constructor,
                 "__doc__": doc,
                 "uri": "https://arxiv.org/abs/2308.13387",
-                "bcp47": "en",
+                "lang": "en",
                 "description": descr,
                 "primary_detector": "mitigation.MitigationBypass",
                 "prompts": [],
@@ -86,7 +93,7 @@ for probe_class in list(DNA_PROBE_TAGS.keys()):
                 "dna_category": probe_class,
                 "tags": DNA_PROBE_TAGS[probe_class],
                 "active": False,  # strong content norms not applicable in many scenarios
-                "tier": Probe.TIER_U,
+                "tier": garak.probes.Tier.UNLISTED,
             },
         ),
     )
