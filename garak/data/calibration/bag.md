@@ -31,6 +31,67 @@ NB: Values in `calibration.json` are pass rates, not attack success rates. To ca
 
 The first benchmark is in summer 2024. We think something between twice-yearly and quarterly updates provides a good trade off between using recent models, and keeping results relevant long enough to be comparable.
 
+## Winter 2026
+
+### Bag contents
+
+| 10^n category | 2^n category |   provider  |              model name              | params (B) |
+|:-------------:|:------------:|:-----------:|:------------------------------------:|:----------:|
+|       NA      |       NA     | anthropic   | claude-sonnet-3-7                    |     NA     |
+|       NA      |       NA     | anthropic   | claude-sonnet-4-5                    |     NA     |
+|       NA      |       NA     | cohere      | nova-pro                             |     NA     |
+|       2       |       9      | deepseek    | deepseek-r1-0528                     |     671    |
+|       2       |       9      | deepseek    | deepseek-v3.1                        |     671    |
+|       NA      |       NA     | google      | gemini-2.5-flash                     |     NA     |
+|       1       |       3      | google      | gemma-3-12b-it                       |     12     |
+|       0       |       1      | ibm         | granite-4.0-h-micro                  |     3      |
+|       1       |       6      | meta        | llama-3.3-70B-versatile              |     70     |
+|       1       |       4      | meta        | llama-4-scout-17b-16e                |     17     |
+|       1       |       3      | microsoft   | phi-4                                |     14     |
+|       2       |       7      | minimax     | minimax-m2                           |     200    |
+|       NA      |       NA     | mistralai   | magistral-medium-2509                |     NA     |
+|       2       |       7      | mistralai   | mixtral-8x22b                        |     141    |
+|       1       |       5      | mistralai   | Mixtral-8x7B-v0.1                    |     46     |
+|       3       |       9      | moonshotai  | kimi-k2-thinking                     |     1000   |
+|       2       |       7      | nvidia      | llama-3_1-nemotron-ultra-253b-v1     |     235    |
+|       0       |       3      | nvidia      | nemotron-nano-9b-v2                  |     9      |
+|       NA      |       NA     | openai      | gpt-5                                |     NA     |
+|       2       |       6      | openai      | gpt-oss-120b                         |     120    |
+|       1       |       6      | qwen        | qwen2.5-72b-instruct                 |     72     |
+|       0       |       3      | qwen        | qwen3-8b                             |     8      |
+|       1       |       3      | servicenow  | apriel-1.5-15b-thinker               |     15     |
+|       NA      |       NA     | xai         | grok-4                               |     NA     |
+|       2       |       8      | z-ai        | glm-4.6                              |     355    |
+
+### Bag config
+
+```
+system:
+  parallel_attempts: 32
+  lite: false
+
+run:
+  generations: 5
+
+plugins:
+  probe_spec: ansiescape.AnsiEscaped,ansiescape.AnsiRaw,apikey.CompleteKey,apikey.GetKey,atkgen.Tox,continuation.ContinueSlursReclaimedSlurs,dan.Ablation_Dan_11_0,dan.AutoDANCached,dan.DanInTheWild,divergence.Repeat,divergence.RepeatedToken,dra.DRA,encoding.InjectAscii85,encoding.InjectAtbash,encoding.InjectBase16,encoding.InjectBase2048,encoding.InjectBase32,encoding.InjectBase64,encoding.InjectBraille,encoding.InjectEcoji,encoding.InjectHex,encoding.InjectMorse,encoding.InjectNato,encoding.InjectROT13,encoding.InjectUU,encoding.InjectUnicodeTagChars,encoding.InjectZalgo,exploitation.JinjaTemplatePythonInjection,exploitation.SQLInjectionEcho,goodside.Tag,goodside.ThreatenJSON,goodside.WhoIsRiley,grandma.Slurs,grandma.Substances,grandma.Win10,grandma.Win11,latentinjection.LatentInjectionFactSnippetEiffel,latentinjection.LatentInjectionFactSnippetLegal,latentinjection.LatentInjectionReport,latentinjection.LatentInjectionResume,latentinjection.LatentInjectionTranslationEnFr,latentinjection.LatentInjectionTranslationEnZh,latentinjection.LatentJailbreak,latentinjection.LatentWhois,latentinjection.LatentWhoisSnippet,leakreplay.GuardianCloze,leakreplay.GuardianComplete,leakreplay.LiteratureCloze,leakreplay.LiteratureComplete,leakreplay.NYTCloze,leakreplay.NYTComplete,leakreplay.PotterCloze,leakreplay.PotterComplete,lmrc.Bullying,lmrc.Deadnaming,lmrc.QuackMedicine,lmrc.SexualContent,lmrc.Sexualisation,lmrc.SlurUsage,malwaregen.Evasion,malwaregen.Payload,malwaregen.SubFunctions,malwaregen.TopLevel,misleading.FalseAssertion,packagehallucination.Dart,packagehallucination.JavaScript,packagehallucination.Perl,packagehallucination.Python,packagehallucination.RakuLand,packagehallucination.Ruby,packagehallucination.Rust,phrasing.FutureTense,phrasing.PastTense,promptinject.HijackHateHumans,promptinject.HijackKillHumans,promptinject.HijackLongPrompt,realtoxicityprompts.RTPBlank,snowball.GraphConnectivity,suffix.GCGCached,tap.TAPCached,topic.WordnetControversial,web_injection.ColabAIDataLeakage,web_injection.MarkdownImageExfil,web_injection.MarkdownURIImageExfilExtended,web_injection.MarkdownURINonImageExfilExtended,web_injection.MarkdownXSS,web_injection.PlaygroundMarkdownExfil,web_injection.StringAssemblyDataExfil,web_injection.TaskXSS
+  extended_detectors: true
+  probes:
+    encoding:
+      payloads:
+        - default
+        - xss
+        - slur_terms
+  detectors:
+    misleading:
+      MustContradictNLI:
+        hf_args:
+          device: cuda
+      MustRefuteClaimModel:
+        hf_args:
+          device: cuda
+```
+
 ## Spring 2025
 
 ### Bag contents
