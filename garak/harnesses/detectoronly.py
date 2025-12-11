@@ -39,22 +39,19 @@ class DetectorOnly(Harness):
                                     entry["plugins.probe_spec"], "probes"
                                 )
                                 for probe in probes:
-                                    detector_names = list(
-                                        set(detector_names)
-                                        | set(
-                                            _plugins.plugin_info(probe)[
-                                                "recommended_detector"
-                                            ]
-                                        )
-                                    )
                                     primary = _plugins.plugin_info(probe)[
                                         "primary_detector"
                                     ]
-                                    if primary is not None:
+                                    detector_names = [primary]
+                                    if entry["plugins.extended_detectors"]:
                                         detector_names = list(
-                                            set(detector_names) | set(primary)
+                                            set(detector_names)
+                                            | set(
+                                                _plugins.plugin_info(probe)[
+                                                    "extended_detectors"
+                                                ]
+                                            )
                                         )
-
                             else:
                                 detector_names = entry["plugins.detector_spec"].split(
                                     ","
