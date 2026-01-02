@@ -47,18 +47,10 @@ class RivaTranslator(LangProvider):
         "pr": "pt-PT",
     }
 
-    # avoid attempt to pickle the client attribute
-    def __getstate__(self) -> object:
-        self._clear_langprovider()
-        return dict(self.__dict__)
+    _unsafe_attributes = ["client"]
 
-    # restore the client attribute
-    def __setstate__(self, d) -> object:
-        self.__dict__.update(d)
+    def _load_client(self):
         self._load_langprovider()
-
-    def _clear_langprovider(self):
-        self.client = None
 
     def _load_langprovider(self):
         if not (
@@ -129,6 +121,9 @@ class DeeplTranslator(LangProvider):
         "en": "en-US",
     }
 
+    def _load_client(self):
+        self._load_langprovider()
+
     def _load_langprovider(self):
         from deepl import Translator
 
@@ -193,6 +188,9 @@ class GoogleTranslator(LangProvider):
                         f'🛑 Put the {family_name} file path in the {self.key_env_var} environment variable (value is not a valid file path)\n \
                         e.g.: export {self.key_env_var}="XXXXXXX"'
                     )
+
+    def _load_client(self):
+        self._load_langprovider()
 
     def _load_langprovider(self):
         from google.cloud import translate_v2 as translate

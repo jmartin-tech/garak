@@ -51,6 +51,8 @@ class BedrockGenerator(Generator):
         "region": "us-east-1",
     }
 
+    _unsafe_attributes = ["client"]
+
     def __init__(self, name="", config_root=_config):
         """Initialize the Bedrock generator.
 
@@ -131,23 +133,6 @@ class BedrockGenerator(Generator):
         )
 
         logging.info(f"Loaded boto3 bedrock-runtime client for region {self.region}")
-
-    def _clear_client(self):
-        """Clear the boto3 client to enable object pickling."""
-        if hasattr(self, "client"):
-            self.client = None
-        for module_name in self.extra_dependency_names:
-            setattr(self, module_name, None)
-
-    def __getstate__(self):
-        """Prepare object for pickling by clearing the boto3 client."""
-        self._clear_client()
-        return self.__dict__
-
-    def __setstate__(self, state):
-        """Restore object from pickle and reload the boto3 client."""
-        self.__dict__.update(state)
-        self._load_client()
 
     @staticmethod
     def _conversation_to_list(conversation: Conversation) -> list[dict]:

@@ -147,15 +147,7 @@ class OpenAICompatible(Generator):
         "extra_params": {},
     }
 
-    # avoid attempt to pickle the client attribute
-    def __getstate__(self) -> object:
-        self._clear_client()
-        return dict(self.__dict__)
-
-    # restore the client attribute
-    def __setstate__(self, d) -> object:
-        self.__dict__.update(d)
-        self._load_client()
+    _unsafe_attributes = ["client", "generator"]
 
     def _load_client(self):
         # When extending `OpenAICompatible` this method is a likely location for target application specific
