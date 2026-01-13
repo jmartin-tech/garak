@@ -141,6 +141,9 @@ class Fast(Buff, HFCompatible):
             num_beam_groups=self.num_beam_groups,
             max_length=self.max_length,
             diversity_penalty=self.diversity_penalty,
+            # requirements for custom generation in transformers >= 4.57.0
+            custom_generate="transformers-community/group-beam-search",  # requirement when using transformers >= 4.57.0
+            trust_remote_code=True,  # requirement for `custom_generate` above in transformers >= 4.57.0
             # do_sample = False,
         )
 
