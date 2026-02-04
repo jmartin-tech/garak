@@ -31,6 +31,7 @@ permissions:
 
 env:
   XDG_CACHE_HOME: ${{ github.workspace }}/.cache
+  HF_HUB_DISABLE_XET: 1
 
 jobs:
   build_macos:
