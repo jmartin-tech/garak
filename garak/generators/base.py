@@ -117,21 +117,23 @@ class Generator(Configurable):
             for o in outputs:
                 if o is None or o.text is None:
                     continue
+                orig = o.text
                 o.text = re.sub(
                     rx_missing_start, "", o.text, flags=re.DOTALL | re.MULTILINE
                 )
+                if o.text != orig and o.reasoning is None:
+                    o.reasoning = orig.replace(o.text, "")
         else:
             for o in outputs:
                 if o is None or o.text is None:
                     continue
+                orig = o.text
                 o.text = re.sub(rx_complete, "", o.text, flags=re.DOTALL | re.MULTILINE)
-
-            for o in outputs:
-                if o is None or o.text is None:
-                    continue
                 o.text = re.sub(
                     rx_missing_final, "", o.text, flags=re.DOTALL | re.MULTILINE
                 )
+                if o.text != orig and o.reasoning is None:
+                    o.reasoning = orig.replace(o.text, "")
 
         return outputs
 

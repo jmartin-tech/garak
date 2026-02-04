@@ -45,6 +45,7 @@ class Message:
 
     text: str = None
     lang: str = None
+    reasoning: Optional[str] = None
     data_path: Optional[str] = None
     data_type: Optional[str] = None
     data_checksum: Optional[str] = None
