@@ -1,0 +1,54 @@
+name: Garak Report Artifact Check
+
+on:
+  pull_request: 
+    paths: 'garak-report/**'
+  workflow_dispatch:
+
+permissions:
+  actions: none
+  checks: none
+  contents: none
+  deployments: none
+  id-token: none
+  issues: none
+  discussions: none
+  packages: none
+  pages: none
+  pull-requests: none
+  repository-projects: none
+  security-events: none
+  statuses: none
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.12"]
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install report dependencies
+        run: |
+          cd garak-report
+          corepack enable
+          yarn install
+
+      - name: Build React Report
+        run: |
+          yarn build
+          set +e
+          git diff --exit-code > /dev/null
+          if [ $? -ne 0 ]; then
+            set -e
+            echo "Report build shows uncommitted changes, please commit an updated garak/analyze/ui/index.html"
+            exit 1
+          else
+            echo "Report build is up-to-date"
+          fi
+
+
