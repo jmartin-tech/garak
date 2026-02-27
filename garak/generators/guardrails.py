@@ -10,6 +10,7 @@ from typing import List, Union
 from garak import _config
 from garak.attempt import Message, Conversation
 from garak.generators.base import Generator
+from garak.generators.openai import OpenAICompatible
 
 
 class NeMoGuardrails(Generator):
@@ -49,6 +50,32 @@ class NeMoGuardrails(Generator):
             return [content]
         else:
             return [None]
+
+
+class NeMoGuardrailsServer(OpenAICompatible):
+    """Generator for NeMo Guardrails Server"""
+
+    supports_multiple_generations = False
+    generator_family_name = "Guardrails"
+
+    DEFAULT_PARAMS = OpenAICompatible.DEFAULT_PARAMS | {
+        "uri": "http://localhost:8000/v1/",
+        "config_ids": set(),
+    }
+
+    def __init__(self, name="", config_root=...):
+        super().__init__(name, config_root)
+        if self.extra_params and not self.extra_params.get("extra_body"):
+            self.extra_params.append("extra_body")
+
+        guardrails = None
+        if self.config_ids:
+            guardrails = {"config_ids": self.config_ids}
+        if guardrails:
+            if hasattr(self, "extra_body") and self.extra_body and self.config_ids:
+                self.extra_body["guardrails"] = guardrails
+            else:
+                self.extra_body = {"guardrails": guardrails}
 
 
 DEFAULT_CLASS = "NeMoGuardrails"
