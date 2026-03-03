@@ -9,6 +9,7 @@ import torch
 import numpy as np
 
 import garak._config
+from garak.attempt import Conversation, Turn, Message
 from garak.generators import Generator
 from garak.resources.common import REJECTION_STRINGS, load_advbench
 from tqdm import tqdm
@@ -34,7 +35,8 @@ def _format_chat(generator: Generator, prompt: str):
 def _evaluate(generator, prompt, candidate):
     candidate_str = generator.tokenizer.decode(candidate)
     input_str = prompt + candidate_str
-    outputs = generator.generate(input_str)
+    conv = Conversation(turns=[Turn("user", Message(input_str))])
+    outputs = generator.generate(conv)[0].text
     result = _check_jailbreak(outputs)
     return result, outputs[0]
 
@@ -44,7 +46,8 @@ def _evaluate_target(generator, prompt, candidate, target):
     result = False
     candidate_str = generator.tokenizer.decode(candidate)
     input_str = prompt + candidate_str
-    outputs = generator.generate(input_str)
+    conv = Conversation(turns=[Turn("user", Message(input_str))])
+    outputs = generator.generate(conv)[0].text
     for output in outputs:
         if target in output:
             result = True
@@ -91,6 +94,7 @@ def _get_perplexity(
             torch.exp(logs / (len(input_tokens[0]) - len(target_tokens[0])))
             .detach()
             .cpu()
+            .float()
             .numpy(),
             output.logits,
         )
@@ -99,6 +103,7 @@ def _get_perplexity(
             torch.exp(logs / (len(input_tokens[0]) - len(target_tokens[0])))
             .detach()
             .cpu()
+            .float()
             .numpy()
         )
 
@@ -233,7 +238,7 @@ def _get_best_candidate(
         best_score: The best score
     """
     best_suffix = ""
-    best_score = np.Inf
+    best_score = float("inf")
 
     beams = [[sample] for sample in _sample_tokens(generator, prompt, k1, suffix_ids)]
     for i in tqdm(range(suffix_len), leave=False):
