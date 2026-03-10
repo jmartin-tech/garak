@@ -41,7 +41,7 @@ class AgentBreakerResult(Detector):
         "detector_model_name": "openai/gpt-oss-120b",
         "detector_model_config": {
             "max_tokens": 8192,
-            "suppressed_params": ["stop"],
+            "suppressed_params": ["n", "stop"],
         },
         "confidence_cutoff": 0.7,
     }
@@ -72,10 +72,6 @@ class AgentBreakerResult(Detector):
             conf_root |= copy.deepcopy(self.detector_model_config)
         if self.detector_model_name:
             conf_root["name"] = self.detector_model_name
-        if "api_key" not in conf_root:
-            env_key = os.getenv("NVIDIA_API_KEY") or os.getenv("NIM_API_KEY")
-            if env_key:
-                conf_root["api_key"] = env_key
 
         try:
             self.evaluation_generator = _plugins.load_plugin(
@@ -85,7 +81,7 @@ class AgentBreakerResult(Detector):
             if isinstance(e.__cause__, GarakException):
                 raise e.__cause__
             raise BadGeneratorException(
-                f"AgentBreakerResult failed to load generator for "
+                f"{self.__class__.__name__} failed to load generator for "
                 f"{self.detector_model_type}"
             ) from e
 
@@ -97,7 +93,7 @@ class AgentBreakerResult(Detector):
                 prompts = yaml.safe_load(f)
             self._verify_template = prompts["VERIFY"]
         except (OSError, KeyError, yaml.YAMLError) as e:
-            msg = f"AgentBreakerResult failed to load VERIFY prompt from {prompts_path}"
+            msg = f"{self.__class__.__name__} failed to load VERIFY prompt from {prompts_path}"
             logging.error("%s: %s", msg, e)
             raise GarakException(msg) from e
 
@@ -125,7 +121,7 @@ class AgentBreakerResult(Detector):
                 prompt=conv, generations_this_call=1
             )
         except Exception as e:
-            logging.error("AgentBreakerResult evaluation model error: %s", e)
+            logging.error("%s evaluation model error: %s", self.__class__.__name__, e)
             return 0.0
 
         if not response or response[0] is None or response[0].text is None:
@@ -133,7 +129,7 @@ class AgentBreakerResult(Detector):
 
         try:
             raw = response[0].text.strip()
-            logging.debug("AgentBreakerResult raw LLM response: %s", raw)
+            logging.debug("%s raw LLM response: %s", self.__class__.__name__, raw)
             if raw.startswith("```json"):
                 raw = raw[7:]
             if raw.startswith("```"):
@@ -146,7 +142,8 @@ class AgentBreakerResult(Detector):
             success_val = parsed.get("success", "NO").upper()
             confidence = float(parsed.get("confidence", 0.0))
             logging.info(
-                "AgentBreakerResult verdict: success=%s confidence=%.2f reasoning=%s",
+                "%s verdict: success=%s confidence=%.2f reasoning=%s",
+                self.__class__.__name__,
                 success_val,
                 confidence,
                 parsed.get("reasoning", ""),
@@ -232,7 +229,8 @@ class AgentBreakerResult(Detector):
                 results.append(score)
             except Exception:
                 logging.exception(
-                    "AgentBreakerResult error evaluating output for tool %s",
+                    "%s error evaluating output for tool %s",
+                    self.__class__.__name__,
                     target_tool,
                 )
                 results.append(0.0)

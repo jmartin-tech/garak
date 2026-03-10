@@ -21,7 +21,6 @@ from dataclasses import dataclass, field
 from typing import Iterable, List, Optional, Tuple
 
 import yaml
-from tqdm import tqdm
 
 from garak import _config
 from garak.data import path as data_path
@@ -54,6 +53,7 @@ class AttackState:
     agent_analysis: dict = field(default_factory=dict)
     vulnerability_info: str = ""
 
+    # why custom serialization instead of using `dataclass.asdict`?
     def to_notes(self) -> dict:
         """Serialize state into an ``attempt.notes`` dict."""
         return {
@@ -319,49 +319,6 @@ class AgentBreaker(garak.probes.IterativeProbe):
                     "from agent"
                 )
 
-    def probe(self, generator) -> List[garak.attempt.Attempt]:
-        """Run the attack against all tools sequentially."""
-        self.generator = generator
-        self._setup_red_team_model()
-
-        if not self.agent_config.get("tools"):
-            self._discover_agent_config(generator)
-
-        if not self.agent_config.get("tools"):
-            msg = "agent_breaker.AgentBreaker # No tools found -- cannot run attack"
-            logging.warning(msg)
-            print(msg)
-            return []
-
-        num_tools = len(self.agent_config["tools"])
-        self.max_calls_per_conv = num_tools * self.max_attempts_per_tool
-
-        logging.info(
-            "agent_breaker.AgentBreaker # Analyzing agent tools for weaknesses..."
-        )
-        self.agent_analysis = self._analyze_attackable_tools()
-
-        tool_configs = self._build_tool_configs()
-        if not tool_configs:
-            logging.warning("agent_breaker.AgentBreaker # No tools to attack")
-            return []
-
-        logging.info(
-            f"agent_breaker.AgentBreaker # Attacking {len(tool_configs)} tools"
-        )
-
-        all_attempts: List[garak.attempt.Attempt] = []
-        for tool_name, tool_analysis in tool_configs:
-            try:
-                all_attempts.extend(self._attack_single_tool(tool_name, tool_analysis))
-            except Exception:
-                logging.exception(
-                    "agent_breaker.AgentBreaker # Unhandled error attacking tool %s, skipping",
-                    tool_name,
-                )
-
-        return all_attempts
-
     def _build_tool_configs(self) -> List[Tuple[str, dict]]:
         """Extract per-tool (name, analysis) tuples from agent_analysis.
 
@@ -516,7 +473,6 @@ class AgentBreaker(garak.probes.IterativeProbe):
         target_tool: str,
         tool_analysis: dict,
         previous_attempts_history: List[dict],
-        attempt_index: int,
     ) -> Optional[str]:
         """Generate an exploitation prompt based on the tool's specific capabilities.
 
@@ -529,20 +485,6 @@ class AgentBreaker(garak.probes.IterativeProbe):
             previous_attempts_history: List of dicts with 'prompt' and 'response' keys
             attempt_index: Current attempt number for this tool
         """
-
-        # First, check if we have pre-generated attack prompts from the analysis
-        # Only use pre-generated prompts if this is the first attempt (no history to learn from)
-        pre_generated_prompts = tool_analysis.get("attack_prompts", [])
-        used_prompts = [h.get("prompt", "") for h in previous_attempts_history]
-        unused_prompts = [p for p in pre_generated_prompts if p not in used_prompts]
-
-        if (
-            not previous_attempts_history
-            and unused_prompts
-            and attempt_index < len(unused_prompts)
-        ):
-            # Use a pre-generated prompt only for the first attempt
-            return unused_prompts[attempt_index]
 
         # Generate a new prompt based on analysis of previous attempts
         functionality = tool_analysis.get("functionality", "Unknown functionality")
@@ -667,74 +609,46 @@ class AgentBreaker(garak.probes.IterativeProbe):
         """Create initial attempts based on agent analysis"""
         self._setup_red_team_model()
 
-        # Analyze the agent's tools for weaknesses
+        if not self.agent_config.get("tools") and hasattr(self, "generator"):
+            # note in theory the generator should be passed in vs accessed on self
+            # future iteration may find that `_create_init_attempts` should accept the
+            # a generator object for use in `creating` things.
+            self._discover_agent_config(self.generator)
+
+        if not self.agent_config.get("tools"):
+            msg = "agent_breaker.AgentBreaker # No tools found -- cannot run attack"
+            logging.warning(msg)
+            print(msg)
+            return []
+
+        num_tools = len(self.agent_config["tools"])
+        self.max_calls_per_conv = num_tools * self.max_attempts_per_tool
+
         logging.info(
             "agent_breaker.AgentBreaker # Analyzing agent tools for weaknesses..."
         )
         self.agent_analysis = self._analyze_attackable_tools()
 
-        if not self.agent_analysis.get("priority_targets"):
-            logging.warning(
-                "agent_breaker.AgentBreaker # No attackable targets identified"
-            )
+        tool_configs = self._build_tool_configs()
+        if not tool_configs:
+            logging.warning("agent_breaker.AgentBreaker # No tools to attack")
             return []
-
-        if not self.agent_analysis.get("tool_analyses"):
-            logging.warning("agent_breaker.AgentBreaker # No tool analyses generated")
-            return []
-
-        # Get the first priority target
-        first_target_entry = self.agent_analysis["priority_targets"][0]
-        # Extract just the tool name (before any " - " separator)
-        first_target = first_target_entry.split(" - ")[0].strip()
-
-        # Find the tool analysis for this target
-        tool_analysis = None
-        for tool_name, analysis in self.agent_analysis["tool_analyses"].items():
-            if (
-                tool_name.lower() == first_target.lower()
-                or first_target.lower() in tool_name.lower()
-            ):
-                tool_analysis = analysis
-                first_target = tool_name  # Use the exact name from analysis
-                break
-
-        if not tool_analysis:
-            # Try to find by partial match
-            for tool_name, analysis in self.agent_analysis["tool_analyses"].items():
-                tool_analysis = analysis
-                first_target = tool_name
-                break
-
-        if not tool_analysis or not tool_analysis.get("attack_prompts"):
-            logging.warning(
-                "agent_breaker.AgentBreaker # No attack prompts generated for target"
-            )
-            return []
-
-        # Get the first attack prompt from the analysis
-        initial_prompt = self._format_attack_prompt(
-            first_target, tool_analysis["attack_prompts"][0]
-        )
-
-        attempt = self._create_attempt(initial_prompt)
-        state = AttackState(
-            agent_analysis=self.agent_analysis,
-            current_target=first_target,
-            current_tool_analysis=tool_analysis,
-            current_attack_prompt=initial_prompt,
-            vulnerability_info=tool_analysis.get("vulnerabilities", ""),
-        )
-        attempt.notes = state.to_notes()
 
         logging.info(
-            f"agent_breaker.AgentBreaker # Created initial attack targeting: {first_target}"
-        )
-        logging.info(
-            f"agent_breaker.AgentBreaker # Tool vulnerabilities: {tool_analysis.get('vulnerabilities', 'N/A')}"
+            f"agent_breaker.AgentBreaker # Attacking {len(tool_configs)} tools"
         )
 
-        return [attempt]
+        all_attempts: List[garak.attempt.Attempt] = []
+        for tool_name, tool_analysis in tool_configs:
+            try:
+                all_attempts.extend(self._attack_single_tool(tool_name, tool_analysis))
+            except Exception:
+                logging.exception(
+                    "agent_breaker.AgentBreaker # Unhandled error attacking tool %s, skipping",
+                    tool_name,
+                )
+
+        return all_attempts
 
     def _postprocess_attempt(
         self, this_attempt: garak.attempt.Attempt
@@ -753,9 +667,8 @@ class AgentBreaker(garak.probes.IterativeProbe):
         tool_name: str,
         tool_analysis: dict,
     ) -> List[garak.attempt.Attempt]:
-        """Run the full attack chain for a single tool."""
+        """Generate a initial attacks for a single tool"""
         attempts: List[garak.attempt.Attempt] = []
-        attempts_history: List[dict] = []
         vulnerability_info = tool_analysis.get("vulnerabilities", "")
 
         attack_prompts = tool_analysis.get("attack_prompts", [])
@@ -765,91 +678,15 @@ class AgentBreaker(garak.probes.IterativeProbe):
             )
             return attempts
 
-        prompt = self._format_attack_prompt(tool_name, attack_prompts[0])
-
-        for attempt_idx in range(self.max_attempts_per_tool):
-            try:
-                attempt = self._create_attempt(prompt)
-                state = AttackState(
-                    current_target=tool_name,
-                    current_tool_analysis=tool_analysis,
-                    current_attack_prompt=prompt,
-                    attempt_index=attempt_idx,
-                    attempts_history=list(attempts_history),
-                    vulnerability_info=vulnerability_info,
-                )
-                attempt.notes = state.to_notes()
-
-                attempt = self._execute_attempt(attempt)
-
-                response_text = ""
-                try:
-                    if attempt.outputs and attempt.outputs[0] is not None:
-                        response_text = attempt.outputs[0].text or ""
-                except (IndexError, AttributeError):
-                    pass
-
-                is_success, confidence, reasoning = self._verify_attack_success(
-                    attack_prompt=prompt,
-                    agent_response=response_text,
-                    target_tool=tool_name,
-                    vulnerability_info=vulnerability_info,
-                )
-
-                attempts_history.append(
-                    {
-                        "target": tool_name,
-                        "prompt": prompt,
-                        "response": response_text,
-                        "success": is_success,
-                        "confidence": confidence,
-                        "reasoning": reasoning,
-                    }
-                )
-                state.attempts_history = list(attempts_history)
-
-                attack_succeeded = is_success and confidence >= self.success_threshold
-
-                if attack_succeeded:
-                    attempt.notes = state.to_notes()
-                    attempts.append(attempt)
-                    break
-
-                attempt.notes = state.to_notes()
-                attempts.append(attempt)
-
-                next_prompt = self._generate_exploit_prompt(
-                    target_tool=tool_name,
-                    tool_analysis=tool_analysis,
-                    previous_attempts_history=attempts_history,
-                    attempt_index=attempt_idx + 1,
-                )
-                if next_prompt:
-                    prompt = self._format_attack_prompt(tool_name, next_prompt)
-                else:
-                    logging.warning(
-                        "agent_breaker.AgentBreaker # Failed to generate next prompt for %s",
-                        tool_name,
-                    )
-                    break
-            except Exception:
-                logging.exception(
-                    "agent_breaker.AgentBreaker # Error during attempt %d on tool %s, skipping",
-                    attempt_idx,
-                    tool_name,
-                )
-                break
-
-        if attempts:
-            last = attempts[-1]
-            final_state = AttackState.from_notes(last.notes or {})
-            final_state.is_tool_final = True
-            last.notes = final_state.to_notes()
-            logging.info(
-                "agent_breaker.AgentBreaker # Tool %s done after %d attempt(s)",
-                tool_name,
-                len(attempts),
+        for attack_prompt in attack_prompts:
+            prompt = self._format_attack_prompt(tool_name, attack_prompt)
+            attempt = self._create_attempt(prompt)
+            state = AttackState(
+                current_target=tool_name,
+                vulnerability_info=vulnerability_info,
             )
+            attempt.notes = state.to_notes()
+            attempts.append(attempt)
 
         return attempts
 
@@ -857,44 +694,73 @@ class AgentBreaker(garak.probes.IterativeProbe):
         self, last_attempt: garak.attempt.Attempt
     ) -> Iterable[garak.attempt.Attempt]:
         """Generate next attempts based on the previous response"""
+
+        # moved from _attack_single_tool
+        response_text = ""
+        try:
+            if last_attempt.outputs and last_attempt.outputs[0] is not None:
+                response_text = last_attempt.outputs[0].text or ""
+        except (IndexError, AttributeError):
+            pass
+
+        state = AttackState()
+        if response_text:
+            state = AttackState.from_notes(last_attempt.notes)
+
+        is_success, confidence, reasoning = self._verify_attack_success(
+            attack_prompt=last_attempt.prompt,
+            agent_response=response_text,
+            target_tool=state.current_target,
+            vulnerability_info=state.vulnerability_info,
+        )
+
+        attempts_history = state.attempts_history
+
+        attempts_history.append(
+            {
+                "target": state.current_target,
+                "success": is_success,
+                "confidence": confidence,
+                "reasoning": reasoning,
+            }
+        )
+
+        attack_succeeded = is_success and confidence >= self.success_threshold
+
+        if attack_succeeded:
+            last_attempt.notes = state.to_notes()
+            logging.info(
+                f"agent_breaker.AgentBreaker # Attack PROMPT: {last_attempt.prompt}"
+                f"agent_breaker.AgentBreaker # Attack RESPONSE: {response_text}"
+                f"agent_breaker.AgentBreaker # Attack SUCCEEDED on {state.current_target} "
+                f"with confidence {confidence:.2f} - moving to next tool"
+            )
+
+            return []
+
         next_attempts = []
 
-        last_state = AttackState.from_notes(last_attempt.notes or {})
-        for conv_idx, conversation in enumerate(last_attempt.conversations):
-            if last_state.is_complete:
-                continue
+        state = AttackState.from_notes(last_attempt.notes or {})
+        if not state.is_complete:
+            for conv_idx in enumerate(last_attempt.conversations):
+                try:
+                    next_attempt = self._handle_exploitation_phase(last_attempt)
+                except Exception:
+                    logging.exception(
+                        "%s # Error in exploitation phase for conversation %d",
+                        self.__class__.__name__,
+                        conv_idx,
+                    )
+                    next_attempt = None
 
-            # Get the last response from the agent
-            try:
-                last_response = conversation.last_message("assistant")
-                if last_response is None or last_response.text is None:
-                    continue
-                last_response_text = last_response.text
-            except ValueError:
-                continue
-
-            try:
-                next_attempt = self._handle_exploitation_phase(
-                    last_attempt, conversation, last_response_text, conv_idx
-                )
-            except Exception:
-                logging.exception(
-                    "agent_breaker.AgentBreaker # Error in exploitation phase for conversation %d",
-                    conv_idx,
-                )
-                next_attempt = None
-
-            if next_attempt is not None:
-                next_attempts.append(next_attempt)
+                if next_attempt is not None:
+                    next_attempts.append(next_attempt)
 
         return next_attempts
 
     def _handle_exploitation_phase(
         self,
         last_attempt: garak.attempt.Attempt,
-        conversation: garak.attempt.Conversation,
-        last_response_text: str,
-        conv_idx: int,
     ) -> Optional[garak.attempt.Attempt]:
         """Handle the exploitation phase - verifying and continuing attacks.
 
@@ -904,59 +770,24 @@ class AgentBreaker(garak.probes.IterativeProbe):
 
         state = AttackState.from_notes(last_attempt.notes or {})
 
-        logging.info(
-            f"agent_breaker.AgentBreaker # Agent response: {last_response_text}"
-        )
-
-        # Verify if the attack was successful
-        is_success, confidence, reasoning = self._verify_attack_success(
-            attack_prompt=state.current_attack_prompt,
-            agent_response=last_response_text,
-            target_tool=state.current_target,
-            vulnerability_info=state.vulnerability_info,
-        )
-
-        logging.info(
-            f"agent_breaker.AgentBreaker # Attack verification - "
-            f"Success: {is_success}, Confidence: {confidence:.2f}, Reasoning: {reasoning}"
-        )
-
-        # Store the result with full history (prompt + response)
-        state.attempts_history.append(
-            {
-                "target": state.current_target,
-                "prompt": state.current_attack_prompt,
-                "response": last_response_text,
-                "success": is_success,
-                "confidence": confidence,
-                "reasoning": reasoning,
-            }
-        )
-
-        priority_targets = state.agent_analysis.get("priority_targets", [])
-
-        # Check if attack succeeded with high confidence
-        if is_success and confidence >= self.success_threshold:
-            logging.info(
-                f"agent_breaker.AgentBreaker # Attack PROMPT: {state.current_attack_prompt}"
-                f"agent_breaker.AgentBreaker # Attack RESPONSE: {last_response_text}"
-                f"agent_breaker.AgentBreaker # Attack SUCCEEDED on {state.current_target} "
-                f"with confidence {confidence:.2f} - moving to next tool"
-            )
-            state.attempt_index = self.max_attempts_per_tool
-
         # Filter history to only attempts for current target (for learning)
+        # this is filtering nothing a state.attempt_history should only contain one target
         current_target_history = [
             h for h in state.attempts_history if h.get("target") == state.current_target
         ]
 
+        current_target_history.append(
+            {
+                "target": state.current_target,
+                "prompt": last_attempt.prompt.last_message().text,
+            }
+        )
         # Try next attack prompt on same target (up to max_attempts_per_tool)
-        if state.attempt_index + 1 < self.max_attempts_per_tool:
+        if len(current_target_history) + 1 < self.max_attempts_per_tool:
             exploit_prompt = self._generate_exploit_prompt(
                 target_tool=state.current_target,
                 tool_analysis=state.current_tool_analysis,
                 previous_attempts_history=current_target_history,
-                attempt_index=state.attempt_index + 1,
             )
 
             if exploit_prompt:
@@ -965,15 +796,13 @@ class AgentBreaker(garak.probes.IterativeProbe):
                 )
                 next_attempt = self._create_attempt(exploit_prompt)
                 next_state = copy.deepcopy(state)
-                next_state.attempt_index += 1
-                next_state.current_attack_prompt = exploit_prompt
-                next_state.turn_num += 1
+                next_state.attempts_history = current_target_history
                 next_attempt.notes = next_state.to_notes()
 
                 logging.info(
                     "agent_breaker.AgentBreaker # Starting NEW conversation with improved payload "
                     "(attempt %d/%d on %s)",
-                    state.attempt_index + 2,
+                    len(current_target_history) + 1,
                     self.max_attempts_per_tool,
                     state.current_target,
                 )
@@ -981,125 +810,5 @@ class AgentBreaker(garak.probes.IterativeProbe):
 
         # Current tool is done -- mark for the detector
         state.is_tool_final = True
+        # this assignment is required due to dataclass type used.
         last_attempt.notes = state.to_notes()
-
-        # Exhausted attempts on current target - try next target
-        if state.target_index + 1 < len(priority_targets):
-            next_target_entry = priority_targets[state.target_index + 1]
-            next_target = next_target_entry.split(" - ")[0].strip()
-
-            tool_analyses = state.agent_analysis.get("tool_analyses", {})
-            next_tool_analysis = None
-
-            for tool_name, analysis in tool_analyses.items():
-                if (
-                    tool_name.lower() == next_target.lower()
-                    or next_target.lower() in tool_name.lower()
-                ):
-                    next_tool_analysis = analysis
-                    next_target = tool_name
-                    break
-
-            if not next_tool_analysis:
-                logging.warning(
-                    "agent_breaker.AgentBreaker # No analysis for target: %s",
-                    next_target,
-                )
-                self._finalize_attempt(last_attempt, state, success=False)
-                return None
-
-            if next_tool_analysis.get("attack_prompts"):
-                exploit_prompt = self._format_attack_prompt(
-                    next_target, next_tool_analysis["attack_prompts"][0]
-                )
-            else:
-                exploit_prompt = self._generate_exploit_prompt(
-                    target_tool=next_target,
-                    tool_analysis=next_tool_analysis,
-                    previous_attempts_history=[],
-                    attempt_index=0,
-                )
-                if exploit_prompt:
-                    exploit_prompt = self._format_attack_prompt(
-                        next_target, exploit_prompt
-                    )
-
-            if exploit_prompt:
-                next_attempt = self._create_attempt(exploit_prompt)
-                next_state = copy.deepcopy(state)
-                next_state.current_target = next_target
-                next_state.current_tool_analysis = next_tool_analysis
-                next_state.attempt_index = 0
-                next_state.target_index = state.target_index + 1
-                next_state.current_attack_prompt = exploit_prompt
-                next_state.turn_num += 1
-                next_state.is_tool_final = False
-                next_state.vulnerability_info = next_tool_analysis.get(
-                    "vulnerabilities", ""
-                )
-                next_attempt.notes = next_state.to_notes()
-
-                logging.info(
-                    "agent_breaker.AgentBreaker # Moving to next target: %s",
-                    next_target,
-                )
-                logging.info(
-                    "agent_breaker.AgentBreaker # Vulnerabilities: %s",
-                    next_tool_analysis.get("vulnerabilities", "N/A"),
-                )
-                return next_attempt
-
-        # All targets exhausted - finalize
-        any_success = any(
-            a.get("success") and a.get("confidence", 0) >= self.success_threshold
-            for a in state.attempts_history
-        )
-        logging.info(
-            "agent_breaker.AgentBreaker # All tools tested. Overall success: %s",
-            any_success,
-        )
-        self._finalize_attempt(last_attempt, state, success=any_success)
-        return None
-
-    def _finalize_attempt(
-        self,
-        last_attempt: garak.attempt.Attempt,
-        state: "AttackState",
-        success: bool,
-    ) -> None:
-        """Mark the probe as complete and log summary."""
-        state.is_complete = True
-        state.overall_success = success
-        state.phase = "complete"
-        last_attempt.notes = state.to_notes()
-
-        successful_attacks = [a for a in state.attempts_history if a.get("success")]
-        logging.info(
-            "agent_breaker.AgentBreaker # Probe complete. "
-            "Total attempts: %d, Successful: %d, Overall success: %s",
-            len(state.attempts_history),
-            len(successful_attacks),
-            success,
-        )
-
-        for attack in successful_attacks:
-            logging.info(
-                "agent_breaker.AgentBreaker # Successful attack on %s with confidence %.2f",
-                attack.get("target"),
-                attack.get("confidence", 0),
-            )
-
-    def _should_terminate_conversation(
-        self, attempt: garak.attempt.Attempt
-    ) -> List[bool]:
-        """Determine whether to terminate the conversation."""
-        state = AttackState.from_notes(attempt.notes or {})
-        should_terminate = []
-
-        for conv_idx, conversation in enumerate(attempt.conversations):
-            if state.is_complete:
-                should_terminate.append(True)
-                continue
-            should_terminate.append(False)
-
-        return should_terminate
