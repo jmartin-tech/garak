@@ -38,9 +38,9 @@ class AgentBreakerResult(Detector):
 
     DEFAULT_PARAMS = Detector.DEFAULT_PARAMS | {
         "detector_model_type": "nim",
-        "detector_model_name": "meta/llama-3.1-405b-instruct",
+        "detector_model_name": "openai/gpt-oss-120b",
         "detector_model_config": {
-            "max_tokens": 1024,
+            "max_tokens": 8192,
             "suppressed_params": ["stop"],
         },
         "confidence_cutoff": 0.7,

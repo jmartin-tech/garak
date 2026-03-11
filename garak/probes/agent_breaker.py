@@ -150,8 +150,8 @@ class AgentBreaker(garak.probes.IterativeProbe):
     parallelisable_attempts = False  # Multi-turn probes manage their own dialog
 
     DEFAULT_PARAMS = garak.probes.IterativeProbe.DEFAULT_PARAMS | {
-        "red_team_model_type": "nim.NVOpenAIChat",
-        "red_team_model_name": "meta/llama-3.1-405b-instruct",
+        "red_team_model_type": "nim",
+        "red_team_model_name": "openai/gpt-oss-120b",
         "red_team_model_config": {
             "max_tokens": 8192,
             "suppressed_params": ["stop"],
