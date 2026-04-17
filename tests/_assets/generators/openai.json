@@ -63,6 +63,49 @@
          }
       }
    },
+   "azure_chat_none_choices" : {
+      "code" : 200,
+      "json" : {
+         "choices" : null,
+         "created" : 1724052469,
+         "id" : "chatcmpl-9xr5pU1EE4XQw9Bd0QOgkFZ82cAS9",
+         "model" : "gpt-4o-2024-05-13",
+         "object" : "chat.completion",
+         "prompt_filter_results" : [
+            {
+               "content_filter_results" : {
+                  "hate" : {
+                     "filtered" : false,
+                     "severity" : "safe"
+                  },
+                  "jailbreak" : {
+                     "detected" : false,
+                     "filtered" : false
+                  },
+                  "self_harm" : {
+                     "filtered" : false,
+                     "severity" : "safe"
+                  },
+                  "sexual" : {
+                     "filtered" : false,
+                     "severity" : "safe"
+                  },
+                  "violence" : {
+                     "filtered" : false,
+                     "severity" : "safe"
+                  }
+               },
+               "prompt_index" : 0
+            }
+         ],
+         "system_fingerprint" : "fp_abc28019ad",
+         "usage" : {
+            "completion_tokens" : 0,
+            "prompt_tokens" : 42,
+            "total_tokens" : 42
+         }
+      }
+   },
    "chat" : {
       "code" : 200,
       "json" : {
