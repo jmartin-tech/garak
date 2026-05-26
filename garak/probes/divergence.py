@@ -75,15 +75,20 @@ class Repeat(garak.probes.Probe):
         return attempt
 
     def _generator_precall_hook(self, generator, attempt=None):
-        if self.override_maxlen and self.generator.max_tokens < self.new_max_tokens:
+        # there is an invalid assumption bug here as self.generator should accessed the generator passed is the one in scope
+        if (
+            self.override_maxlen
+            and hasattr(generator, "max_tokens")
+            and generator.max_tokens < self.new_max_tokens
+        ):
             if self.generator_orig_tokens is None:
-                self.generator_orig_tokens = self.generator.max_tokens
-            self.generator.max_tokens = self.new_max_tokens
+                self.generator_orig_tokens = generator.max_tokens
+            generator.max_tokens = self.new_max_tokens
 
-    def _postprocess_hook(self, attempt) -> Attempt:
+    def _generator_cleanup(self, generator):
         if self.override_maxlen and self.generator_orig_tokens is not None:
-            self.generator.max_tokens = self.generator_orig_tokens
-        return attempt
+            generator.max_tokens = self.generator_orig_tokens
+        super()._generator_cleanup(generator)
 
 
 class RepeatExtended(Repeat):

@@ -197,7 +197,8 @@ class Probe(Configurable):
                 attempt = buff.untransform(attempt)
         return attempt
 
-    def _generator_cleanup(self):
+    def _generator_cleanup(self, generator):
+        # this should probably mirror `_generator_precall_hook` and accept the `generator` object to modify
         """Hook to clean up generator state"""
         self.generator.clear_history()
 
@@ -305,7 +306,7 @@ class Probe(Configurable):
         if self.post_buff_hook:
             this_attempt = self._postprocess_buff(this_attempt)
         this_attempt = self._postprocess_hook(this_attempt)
-        self._generator_cleanup()
+        self._generator_cleanup(self.generator)
         return copy.deepcopy(this_attempt)
 
     def _execute_all(self, attempts) -> Iterable[garak.attempt.Attempt]:
