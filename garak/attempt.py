@@ -4,8 +4,10 @@ from dataclasses import dataclass, field, asdict, is_dataclass
 from copy import deepcopy
 from pathlib import Path
 from types import GeneratorType
-from typing import List, Optional, Union
+from typing import List, Optional, Union, Tuple
 import uuid
+
+from garak.exception import GarakException
 
 (
     ATTEMPT_NEW,
@@ -35,8 +37,8 @@ class Message:
     :type data_checksum: str
     :param data: Data to attach
     :type data: Any
-    :param lang: language code for `text` content
-    :type lang: str (bcp47 language code)
+    :param lang: single language code for `text` content
+    :type lang: str (bcp47 language code or `*`)
     :param notes: Free form dictionary of notes for the turn
     :type notes: dict
     """
@@ -44,9 +46,8 @@ class Message:
     text: str = None
     lang: str = None
     data_path: Optional[str] = None
-    data_type: Optional[str] = None
+    data_type: Optional[Tuple[str | None, str | None]] = None
     data_checksum: Optional[str] = None
-    # data: bytes = None  # should this dataclass attribute exist?
     notes: Optional[dict] = field(default_factory=dict)
 
     @property
@@ -106,6 +107,9 @@ class Turn:
             raise ValueError("Expected `role` in Turn dict")
         message = entity.pop("content", {})
         if isinstance(message, str):
+            # legacy branch to handle fschat, 2025.12.05
+            # condition created from garak.resources.red_team.evaluation.EvaluationJudge._create_conv()
+            # relevant test is tests/detectors/test_detectors_judge.py::test_klass_detect
             content = Message(text=message)
         else:
             content = Message(**message)
@@ -149,6 +153,22 @@ class Conversation:
             ret_val.turns.append(Turn.from_dict(turn))
         return ret_val
 
+    @classmethod
+    def from_openai(cls, conv: List[dict], notes: Optional[dict] = None):
+        new_conv = list()
+        conv_copy = deepcopy(conv)
+        for turn in conv_copy:
+            if isinstance(turn, dict):
+                new_conv.append(Turn.from_dict(turn))
+            else:
+                msg = "Conversation.from_openai expected a `list` of `dict`s but encountered {}".format(
+                    type(turn)
+                )
+                raise GarakException(msg)
+        if notes is None:
+            notes = dict()
+        return cls(turns=new_conv, notes=notes)
+
 
 class Attempt:
     """A class defining objects that represent everything that constitutes a single attempt at evaluating an LLM.
@@ -156,7 +176,7 @@ class Attempt:
     :param status: The status of this attempt; ``ATTEMPT_NEW``, ``ATTEMPT_STARTED``, or ``ATTEMPT_COMPLETE``
     :type status: int
     :param prompt: The processed prompt that will presented to the generator
-    :type prompt: Union[str|Turn|Conversation]
+    :type prompt: Message|Conversation
     :param probe_classname: Name of the probe class that originated this ``Attempt``
     :type probe_classname: str
     :param probe_params: Non-default parameters logged by the probe
@@ -175,10 +195,11 @@ class Attempt:
     :type seq: int
     :param conversations: conversation turn histories
     :type conversations: List(Conversation)
-    :param lang: Language code for prompt as sent to the target
-    :type lang: str, valid BCP47
     :param reverse_translation_outputs: The reverse translation of output based on the original language of the probe
-    :param reverse_translation_outputs: List(str)
+    :type reverse_translation_outputs: List(str)
+    :param intent: None, or the primary intent type in this attempt
+    :type notes: str|None
+
 
     Typical use:
 
@@ -215,21 +236,19 @@ class Attempt:
         detector_results=None,
         goal=None,
         seq=-1,
-        lang=None,  # language code for prompt as sent to the target
         reverse_translation_outputs=None,
+        intent=None,
     ) -> None:
         self.uuid = uuid.uuid4()
         if prompt is not None:
             if isinstance(prompt, Conversation):
                 self.conversations = [prompt]
-            elif isinstance(prompt, str):
-                msg = Message(text=prompt, lang=lang)
             elif isinstance(prompt, Message):
-                msg = prompt
+                self.conversations = [Conversation([Turn("user", prompt)])]
             else:
-                raise TypeError("prompts must be of type str | Message | Conversation")
-            if not hasattr(self, "conversations"):
-                self.conversations = [Conversation([Turn("user", msg)])]
+                raise TypeError(
+                    "attempt prompts must be of type Message | Conversation"
+                )
             self.prompt = self.conversations[0]
         else:
             self.conversations = [Conversation()]
@@ -244,6 +263,7 @@ class Attempt:
         self.reverse_translation_outputs = (
             {} if reverse_translation_outputs is None else reverse_translation_outputs
         )
+        self.intent = intent
 
     def as_dict(self) -> dict:
         """Converts the attempt to a dictionary."""
@@ -265,7 +285,7 @@ class Attempt:
             "probe_classname": self.probe_classname,
             "probe_params": self.probe_params,
             "targets": self.targets,
-            "prompt": asdict(self.prompt),
+            "prompt": asdict(self.prompt) if self.prompt is not None else None,
             "outputs": [asdict(output) if output else None for output in self.outputs],
             "detector_results": {k: list(v) for k, v in self.detector_results.items()},
             "notes": notes,
@@ -277,6 +297,7 @@ class Attempt:
                 asdict(output) if output else None
                 for output in self.reverse_translation_outputs
             ],
+            "intent": self.intent,
         }
 
     @property
@@ -291,6 +312,7 @@ class Attempt:
 
     @property
     def lang(self):
+        """Language of first Message determines the language of the attempt"""
         return self.prompt.turns[-1].content.lang
 
     @property
@@ -321,22 +343,19 @@ class Attempt:
         return all_outputs
 
     @prompt.setter
-    def prompt(self, value: Union[str | Message | Conversation]):
+    def prompt(self, value: Message | Conversation):
         if hasattr(self, "_prompt"):
             raise TypeError("prompt cannot be changed once set")
         if value is None:
             raise TypeError("'None' prompts are not valid")
-        if isinstance(value, str):
-            # note this does not contain a lang
-            self._prompt = Conversation([Turn("user", Message(text=value))])
         if isinstance(value, Message):
             # make a copy to store an immutable object
             self._prompt = Conversation([Turn("user", Message(**asdict(value)))])
-        if isinstance(value, Conversation):
+        elif isinstance(value, Conversation):
             # make a copy to store an immutable object
             self._prompt = Conversation.from_dict(asdict(value))
-        if not hasattr(self, "_prompt"):
-            raise TypeError("prompt must be a Conversation, Message or str object")
+        else:
+            raise TypeError("Attempt prompt must be Message or Conversation")
         self.conversations = [Conversation.from_dict(asdict(self._prompt))]
 
     @outputs.setter

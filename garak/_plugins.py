@@ -43,13 +43,34 @@ class PluginCache:
     _user_plugin_cache_filename = (
         _config.transient.cache_dir / "resources" / "plugin_cache.json"
     )
+    _detector_metrics_filename = (
+        _config.transient.package_dir
+        / "data"
+        / "detectors-eval"
+        / "detector_metrics_summary.json"
+    )
     _plugin_cache_dict = None
+    _detector_metrics_cache = None
 
     _mutex = Lock()
 
     def __init__(self) -> None:
         if PluginCache._plugin_cache_dict is None:
             PluginCache._plugin_cache_dict = self._load_plugin_cache()
+
+    @staticmethod
+    def _get_detector_metrics():
+        if PluginCache._detector_metrics_cache is None:
+            if os.path.exists(PluginCache._detector_metrics_filename):
+                with open(
+                    PluginCache._detector_metrics_filename, "r", encoding="utf-8"
+                ) as f:
+                    PluginCache._detector_metrics_cache = json.load(f).get(
+                        "results", {}
+                    )
+            else:
+                PluginCache._detector_metrics_cache = {}
+        return PluginCache._detector_metrics_cache
 
     @staticmethod
     def _extract_modules_klasses(base_klass):
@@ -298,6 +319,16 @@ class PluginCache:
         )
         plugin_metadata["mod_time"] = mod_time.strftime(TIME_FORMAT)
 
+        # merge detector metrics if available
+        if category == "detectors":
+            metrics_key = plugin_name.replace("detectors.", "", 1)
+            detector_metrics = PluginCache._get_detector_metrics().get(metrics_key, {})
+            if detector_metrics:
+                metrics = detector_metrics.get("metrics", {})
+                for field in ("hit_precision", "hit_recall", "hit_f1"):
+                    if field in metrics:
+                        plugin_metadata[field] = metrics[field]
+
         return plugin_metadata
 
 
@@ -385,8 +416,9 @@ def load_plugin(path, break_on_fail=True, config_root=_config) -> object:
                     raise ValueError(
                         f"Unknown plugin module specification: {category}.{module_name}"
                     ) from e
-                if generator_mod.DEFAULT_CLASS:
-                    plugin_class_name = generator_mod.DEFAULT_CLASS
+                default_class = getattr(generator_mod, "DEFAULT_CLASS", None)
+                if default_class:
+                    plugin_class_name = default_class
                 else:
                     raise ValueError(
                         f"module {module_name} has no default class; pass module.ClassName to target_type"
@@ -404,6 +436,7 @@ def load_plugin(path, break_on_fail=True, config_root=_config) -> object:
             ) from ve
         else:
             return False
+
     module_path = f"garak.{category}.{module_name}"
     try:
         mod = importlib.import_module(module_path)
@@ -434,6 +467,7 @@ def load_plugin(path, break_on_fail=True, config_root=_config) -> object:
         if plugin_instance is None:
             plugin_instance = klass(config_root=config_root)
             PluginProvider.storeInstance(plugin_instance, config_root)
+
     except Exception as e:
         logging.warning(
             "Exception instantiating %s.%s: %s",

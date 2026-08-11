@@ -13,7 +13,6 @@ from garak import _config
 from garak.attempt import Message, Turn, Conversation
 from garak.generators.base import Generator
 
-
 DEFAULT_GENERATOR_NAME = "garak test"
 DEFAULT_PROMPT_TEXT = "especially the lies"
 
@@ -93,7 +92,6 @@ TESTABLE_GENERATORS = [
         "generators.huggingface.ConversationalPipeline",  # model name restrictions
         "generators.huggingface.LLaVA",  # model name restrictions
         "generators.huggingface.Model",  # model name restrictions
-        "generators.huggingface.OptimumPipeline",  # model name restrictions and cuda required
         "generators.huggingface.Pipeline",  # model name restrictions
         "generators.langchain.LangChainLLMGenerator",  # model name restrictions
     ]
@@ -105,13 +103,16 @@ def test_instantiate_generators(classname):
     category, namespace, klass = classname.split(".")
     from garak._config import GarakSubConfig
 
+    # Use WebSocket URI for WebSocket generators, HTTP URI for others
+    uri = "wss://echo.websocket.org" if "websocket" in classname.lower() else "https://example.com"
+    
     gen_config = {
         namespace: {
             klass: {
                 "name": "gpt-3.5-turbo-instruct",  # valid for OpenAI
                 "api_key": "fake",
                 "org_id": "fake",  # required for NeMo
-                "uri": "https://example.com",  # required for rest
+                "uri": uri,  # WebSocket URI for WebSocket generators
                 "provider": "fake",  # required for LiteLLM
             }
         }
@@ -120,14 +121,25 @@ def test_instantiate_generators(classname):
     setattr(config_root, category, gen_config)
 
     m = importlib.import_module("garak." + ".".join(classname.split(".")[:-1]))
-    g = getattr(m, classname.split(".")[-1])(config_root=config_root)
+    klass = getattr(m, classname.split(".")[-1])
+    try:
+        g = klass(config_root=config_root)
+    except ModuleNotFoundError:
+        pytest.skip(
+            "dependencies not present; requires " + repr(klass.extra_dependency_names)
+        )
     assert isinstance(g, Generator)
 
 
 NON_CONVERSATION_GENERATORS = [
     classname
     for classname in GENERATORS
-    if not ("openai" in classname or "groq" in classname or "azure" in classname)
+    if not (
+        "openai" in classname
+        or "groq" in classname
+        or "azure" in classname
+        or "NeMoGuardrailsServer" in classname
+    )
 ]
 
 

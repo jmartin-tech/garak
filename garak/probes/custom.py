@@ -120,6 +120,7 @@ class Prompts(garak.probes.Probe):
     lang = "*"
     active = False
     tags = []
+    intent = "T999test"
 
     DEFAULT_PARAMS = garak.probes.Probe.DEFAULT_PARAMS | {
         "source": "",      # Path/URL to prompts file (.txt, .json, or HTTP(S) URL)

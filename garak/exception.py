@@ -14,7 +14,7 @@ class TargetNameMissingError(GarakException):
     """A generator requires target_name to be set, but it wasn't"""
 
 
-class GarakBackoffTrigger(GarakException):
+class GeneratorBackoffTrigger(GarakException):
     """Thrown when backoff should be triggered"""
 
 
@@ -36,3 +36,7 @@ class ConfigFailure(GarakException):
 
 class PayloadFailure(GarakException):
     """Problem instantiating/using payloads"""
+
+
+class ReportIncompatibleError(GarakException):
+    """Report references plugins unknown to the current garak install; the report is not compatible with this version"""

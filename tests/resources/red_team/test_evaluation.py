@@ -20,7 +20,7 @@ class TestJudge(EvaluationJudge):
 @pytest.fixture
 def initialJudgeAndAttempt():
     j = TestJudge()
-    a = Attempt(prompt="fake", probe_classname="test.Test")
+    a = Attempt(prompt=Message("fake"), probe_classname="test.Test")
     a.outputs = ["result"]
     return j, a
 
@@ -59,3 +59,28 @@ def test_EvaluationJudge_on_topic_score(
     mocker.patch.object(j.evaluation_generator, "generate", return_value=response)
     res = j.on_topic_score(a.outputs)
     assert res == [res_val]
+
+
+@pytest.mark.parametrize(
+    "model",
+    [
+        "gpt-2",
+        "gpt-4o-mini",
+        "davinci",
+        "unnamed-custom",  # an unknown model name should provide a default estimate
+    ],
+)
+def test_token_count_allowed_models(model):
+    from garak.resources.red_team.evaluation import token_count
+    import lorem
+
+    test_strings = [lorem.sentence() for _ in range(0, 100)]
+    test_strings.append("")
+    for test_string in test_strings:
+        c = token_count(test_string, model)
+        if len(test_string) > 0:
+            assert (
+                c > 0
+            ), "For any str with length the number of tokens should be positive"
+        else:
+            assert c == 0, "The empty string should have zero tokens"

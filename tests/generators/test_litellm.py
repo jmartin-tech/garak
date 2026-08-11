@@ -1,3 +1,4 @@
+import importlib
 import pytest
 from unittest.mock import patch
 from os import getenv
@@ -7,6 +8,12 @@ from garak.exception import BadGeneratorException
 from garak.generators.litellm import LiteLLMGenerator
 
 
+@pytest.mark.skipif(
+    not all(
+        [importlib.util.find_spec(m) for m in LiteLLMGenerator.extra_dependency_names]
+    ),
+    reason="missing optional dependency",
+)
 @pytest.mark.skipif(
     getenv("OPENAI_API_KEY", None) is None,
     reason="OpenAI API key is not set in OPENAI_API_KEY",
@@ -27,6 +34,12 @@ def test_litellm_openai():
 
 
 @pytest.mark.skipif(
+    not all(
+        [importlib.util.find_spec(m) for m in LiteLLMGenerator.extra_dependency_names]
+    ),
+    reason="missing optional dependency",
+)
+@pytest.mark.skipif(
     getenv("OPENROUTER_API_KEY", None) is None,
     reason="OpenRouter API key is not set in OPENROUTER_API_KEY",
 )
@@ -43,6 +56,12 @@ def test_litellm_openrouter():
         assert isinstance(item, Message)
 
 
+@pytest.mark.skipif(
+    not all(
+        [importlib.util.find_spec(m) for m in LiteLLMGenerator.extra_dependency_names]
+    ),
+    reason="missing optional dependency",
+)
 def test_litellm_model_detection():
     custom_config = {
         "generators": {
@@ -66,68 +85,70 @@ def test_litellm_model_detection():
 def test_litellm_suppressed_params():
     """Test that suppressed_params configuration works correctly."""
     # Create a mock response object that matches what litellm.completion returns
-    mock_response = type('obj', (object,), {
-        'choices': [
-            type('obj', (object,), {
-                'message': type('obj', (object,), {
-                    'content': 'Mock response'
-                })
-            })
-        ]
-    })
-    
+    mock_response = type(
+        "obj",
+        (object,),
+        {
+            "choices": [
+                type(
+                    "obj",
+                    (object,),
+                    {"message": type("obj", (object,), {"content": "Mock response"})},
+                )
+            ]
+        },
+    )
+
     target_name = "gpt-4"
-    
+
     # Test case 1: Suppress top_p parameter
-    with patch('litellm.completion', return_value=mock_response) as mock_completion:
-        custom_config = {
-            "generators": {
-                "litellm": {
-                    "suppressed_params": ["top_p"]
-                }
-            }
-        }
+    with patch("litellm.completion", return_value=mock_response) as mock_completion:
+        custom_config = {"generators": {"litellm": {"suppressed_params": ["top_p"]}}}
         generator = LiteLLMGenerator(name=target_name, config_root=custom_config)
         conv = Conversation([Turn("user", Message("Test message"))])
         generator.generate(conv)
-        
+
         # Check that top_p was not included but temperature was
         args, kwargs = mock_completion.call_args
-        assert 'temperature' in kwargs
-        assert 'top_p' not in kwargs
-        assert 'max_tokens' in kwargs
-    
+        assert "temperature" in kwargs
+        assert "top_p" not in kwargs
+        assert "max_tokens" in kwargs
+
     # Test case 2: Suppress multiple parameters
-    with patch('litellm.completion', return_value=mock_response) as mock_completion:
+    with patch("litellm.completion", return_value=mock_response) as mock_completion:
         custom_config = {
             "generators": {
                 "litellm": {
-                    "suppressed_params": ["top_p", "frequency_penalty", "presence_penalty"]
+                    "suppressed_params": [
+                        "top_p",
+                        "frequency_penalty",
+                        "presence_penalty",
+                    ]
                 }
             }
         }
         generator = LiteLLMGenerator(name=target_name, config_root=custom_config)
         conv = Conversation([Turn("user", Message("Test message"))])
         generator.generate(conv)
-        
+
         # Check that suppressed params were not included
         args, kwargs = mock_completion.call_args
-        assert 'temperature' in kwargs
-        assert 'top_p' not in kwargs
-        assert 'frequency_penalty' not in kwargs
-        assert 'presence_penalty' not in kwargs
-        assert 'max_tokens' in kwargs
-        
+        assert "temperature" in kwargs
+        assert "top_p" not in kwargs
+        assert "frequency_penalty" not in kwargs
+        assert "presence_penalty" not in kwargs
+        assert "max_tokens" in kwargs
+
     # Test case 3: No suppressed params (default behavior)
-    with patch('litellm.completion', return_value=mock_response) as mock_completion:
+    with patch("litellm.completion", return_value=mock_response) as mock_completion:
         generator = LiteLLMGenerator(name=target_name)
         conv = Conversation([Turn("user", Message("Test message"))])
         generator.generate(conv)
-        
+
         # Check that all standard parameters were included
         args, kwargs = mock_completion.call_args
-        assert 'temperature' in kwargs
-        assert 'top_p' in kwargs
-        assert 'frequency_penalty' in kwargs
-        assert 'presence_penalty' in kwargs
-        assert 'max_tokens' in kwargs
+        assert "temperature" in kwargs
+        assert "top_p" in kwargs
+        assert "frequency_penalty" in kwargs
+        assert "presence_penalty" in kwargs
+        assert "max_tokens" in kwargs
