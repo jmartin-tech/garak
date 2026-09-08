@@ -144,9 +144,9 @@ def test_aggregate_preserves_attempt_uuids(tmp_path) -> None:
 
     assert agg_uuids == source_uuids, "attempts keep their own uuid, in source order"
     assert aggregate_run not in set(agg_uuids), "run id must not overwrite attempt uuid"
-    assert all(
-        r["run"] == aggregate_run for r in carried
-    ), "carried rows carry the aggregate run id"
+    assert not any(
+        "run" in r for r in carried
+    ), "entry types without a run id do not gain one"
 
 
 def test_aggregate_restamps_stale_plugin_cache_run(tmp_path) -> None:

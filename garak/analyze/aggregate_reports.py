@@ -40,9 +40,12 @@ def _process_file_body(in_file, out_file, aggregate_uuid) -> dict | None:
         ):  # incomplete attempt, skip
             continue
 
-        # `run` is the run identifier in this schema, matching `init` and
-        # `plugin_cache`; `uuid` on an attempt row is that attempt's own id
-        entry["run"] = aggregate_uuid
+        # restamp the run id only where the entry type already carries one, so
+        # the aggregate stays consistent with `init` without introducing a field
+        # the originating object does not define; `uuid` on an attempt row is
+        # that attempt's own id and is left alone
+        if "run" in entry:
+            entry["run"] = aggregate_uuid
         out_file.write(json.dumps(entry, ensure_ascii=False) + "\n")
 
 
