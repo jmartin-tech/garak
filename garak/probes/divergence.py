@@ -5,7 +5,7 @@
 
 These attacks try to get target output to deviate from the original topic and leak training data or other unwanted/unexpected material.
 
-This module is for any attack attemtping to get target output to diverge from input request.
+This module is for any attack attempting to get target output to diverge from input request.
 """
 
 from garak import _config

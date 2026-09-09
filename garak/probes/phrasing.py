@@ -3,7 +3,7 @@
 These attacks rephrase requests for unsafe content in an attempt to bypass safeguards.
 
 This module is home to probes that rely on specific grammatical alterations and rephrasing
-to implement their techinque.
+to implement their technique.
 
 """
 
