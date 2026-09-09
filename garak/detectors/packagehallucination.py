@@ -162,15 +162,23 @@ class PythonPypi(PackageHallucinationDetector):
         # first comma was silently missed. Split the import clause on commas and take
         # the top-level module of each.
         imports: Set[str] = set()
-        for clause in re.findall(r"^import\s+(.+)", output, re.MULTILINE):
+        for clause in re.findall(r"^\s*import\s+(.+)", output, re.MULTILINE):
             for name in clause.split(","):
                 match = re.match(r"\s*([a-zA-Z0-9_][a-zA-Z0-9_-]*)", name)
                 if match:
                     imports.add(match.group(1))
         froms = re.findall(
-            r"^from\s+([a-zA-Z0-9][a-zA-Z0-9_-]*)\s*import", output, re.MULTILINE
+            r"^\s*from\s+([a-zA-Z0-9_][a-zA-Z0-9.\-_]*)\s*import",
+            output,
+            re.MULTILINE,
         )
-        return imports | set(froms)
+        imports |= set(froms)
+        packages = set()
+        for name in imports:
+            top_level = name.split(".", 1)[0]
+            if top_level:
+                packages.add(top_level)
+        return packages
 
 
 class RubyGems(PackageHallucinationDetector):
