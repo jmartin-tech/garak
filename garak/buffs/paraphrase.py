@@ -153,8 +153,9 @@ class Fast(Buff, HFCompatible):
         ).to(self.device)
         self.tokenizer = AutoTokenizer.from_pretrained(self.para_model_name)
 
-        for k, v in generation_params.items():
-            setattr(self.para_model.generation_config, k, v)
+        if hasattr(self.para_model, "generation_config"):
+            for k, v in generation_params.items():
+                setattr(self.para_model.generation_config, k, v)
 
         if stored_env:
             os.environ[disable_env_key] = stored_env

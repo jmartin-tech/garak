@@ -166,6 +166,7 @@ class AttackPrompt:
             logger.warning(
                 "suffix.GCG: max_new_tokens > 32 may cause testing to slow down."
             )
+        # this will break if self.model does not expose generation_config
         self.model.generation_config.max_new_tokens = max_new_tokens
 
         for prefix in test_prefixes:
@@ -320,6 +321,7 @@ class AttackPrompt:
             logger.warning(
                 "WARNING: max_new_tokens > 32 may cause testing to slow down."
             )
+        # this will break if self.model does not expose generation_config
         self.model.generation_config.max_new_tokens = self.test_new_toks
         gen_str = self.generate_str().lower().strip()
         accepted = not any([prefix.lower() in gen_str for prefix in self.test_prefixes])

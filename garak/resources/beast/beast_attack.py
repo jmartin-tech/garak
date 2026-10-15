@@ -199,6 +199,7 @@ def _sample_tokens(
     ).input_ids.to(generator.model.device)
     output = generator.model(input_ids)
     logits = output.logits[:, -1, :]
+    # this will break if the object is not exposing generation_config
     temp = generator.generation_config.temperature
     probs = torch.softmax(logits / temp, dim=-1)
     tokens = torch.multinomial(probs, k, replacement=False)

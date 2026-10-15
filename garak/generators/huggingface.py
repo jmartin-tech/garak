@@ -118,10 +118,11 @@ class Pipeline(Generator, HFCompatible):
                 self.deprefix_prompt = True
 
         self._set_hf_context_len(self.generator.model.config)
-        if hasattr(self.generator.generation_config, "max_length"):
-            self.generator.generation_config.max_length = None
-        for k, v in generation_params.items():
-            setattr(self.generator.generation_config, k, v)
+        if hasattr(self.generator, "generation_config"):
+            if hasattr(self.generator.generation_config, "max_length"):
+                self.generator.generation_config.max_length = None
+            for k, v in generation_params.items():
+                setattr(self.generator.generation_config, k, v)
 
         if stored_env:
             os.environ[disable_env_key] = stored_env
@@ -144,13 +145,16 @@ class Pipeline(Generator, HFCompatible):
                     else:
                         formatted_prompt = prompt.last_message().text
 
-                    self.generator.generation_config.pad_token_id = (
-                        self.generator.tokenizer.eos_token_id
-                    )
-                    self.generator.generation_config.max_new_tokens = self.max_tokens
-                    self.generator.generation_config.num_return_sequences = (
-                        generations_this_call
-                    )
+                    if hasattr(self.generator, "generation_config"):
+                        self.generator.generation_config.pad_token_id = (
+                            self.generator.tokenizer.eos_token_id
+                        )
+                        self.generator.generation_config.max_new_tokens = (
+                            self.max_tokens
+                        )
+                        self.generator.generation_config.num_return_sequences = (
+                            generations_this_call
+                        )
 
                     raw_output = self.generator(formatted_prompt)
             except Exception as e:
@@ -583,8 +587,9 @@ class LLaVA(Generator, HFCompatible):
             self.name, **model_kwargs
         )
 
-        for k, v in generation_params.items():
-            setattr(self.model.generation_config, k, v)
+        if hasattr(self.model, "generation_config"):
+            for k, v in generation_params.items():
+                setattr(self.model.generation_config, k, v)
 
         self.model.to(self.device)
 
@@ -610,9 +615,10 @@ class LLaVA(Generator, HFCompatible):
             self.device
         )
         exist_token_number: int = inputs.data["input_ids"].shape[1]
-        self.model.generation_config.max_new_tokens = (
-            self.max_tokens - exist_token_number
-        )
+        if hasattr(self.model, "generation_config"):
+            self.model.generation_config.max_new_tokens = (
+                self.max_tokens - exist_token_number
+            )
         output = self.model.generate(**inputs)
         output = self.processor.decode(output[0], skip_special_tokens=True)
 

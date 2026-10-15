@@ -143,8 +143,9 @@ class HFDetector(Detector, HFCompatible):
             tokenizer=self.detector_tokenizer,
             device=self.device,
         )
-        for k, v in generation_params.items():
-            setattr(self.detector.generation_config, k, v)
+        if hasattr(self.detector, "generation_config"):
+            for k, v in generation_params.items():
+                setattr(self.detector.generation_config, k, v)
 
         if stored_env:
             os.environ[disable_env_key] = stored_env
