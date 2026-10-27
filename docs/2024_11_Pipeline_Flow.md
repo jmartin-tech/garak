@@ -1,3 +1,4 @@
+``` mermaid
 sequenceDiagram
   participant CLI as cli
   participant Log as Report Log
@@ -40,3 +41,4 @@ sequenceDiagram
   end
   Harness ->> Evaluator: List[Attempt]
   CLI ->> CLI: Analyze Results
+```
